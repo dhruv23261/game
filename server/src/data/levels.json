@@ -1,0 +1,660 @@
+[
+  {
+    "id": 1,
+    "name": "Level 1: Gate Basics",
+    "difficulty": "easy",
+    "enemyBaseHealth": 30,
+    "playerBaseHealth": 50,
+    "cannonFireRate": 0.15,
+    "gates": [
+      {
+        "id": "g1_1",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": 0.0, "y": 0.5, "z": 8.0 },
+        "width": 3.0,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 3.0,
+        "count": 10,
+        "spawnInterval": 0.4,
+        "mobSpeed": 3.0,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 50, "gems": 1 },
+    "adConfig": { "showInterstitialOnFinish": false, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 2,
+    "name": "Level 2: Split Path",
+    "difficulty": "easy",
+    "enemyBaseHealth": 50,
+    "playerBaseHealth": 50,
+    "cannonFireRate": 0.15,
+    "gates": [
+      {
+        "id": "g2_1",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": -2.0, "y": 0.5, "z": 8.0 },
+        "width": 2.2,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      },
+      {
+        "id": "g2_2",
+        "operation": "add",
+        "value": 10,
+        "position": { "x": 2.0, "y": 0.5, "z": 8.0 },
+        "width": 2.2,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 2.0,
+        "count": 15,
+        "spawnInterval": 0.35,
+        "mobSpeed": 3.2,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 75, "gems": 2 },
+    "adConfig": { "showInterstitialOnFinish": false, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 3,
+    "name": "Level 3: Moving Multiplier",
+    "difficulty": "easy",
+    "enemyBaseHealth": 80,
+    "playerBaseHealth": 50,
+    "cannonFireRate": 0.14,
+    "gates": [
+      {
+        "id": "g3_1",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 0.0, "y": 0.5, "z": 9.0 },
+        "width": 2.5,
+        "isMoving": true,
+        "moveSpeed": 2.0,
+        "moveRange": 2.5
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.5,
+        "count": 25,
+        "spawnInterval": 0.3,
+        "mobSpeed": 3.5,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 100, "gems": 2 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 4,
+    "name": "Level 4: Double Gates Challenge",
+    "difficulty": "medium",
+    "enemyBaseHealth": 120,
+    "playerBaseHealth": 60,
+    "cannonFireRate": 0.14,
+    "gates": [
+      {
+        "id": "g4_1",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": 0.0, "y": 0.5, "z": 6.0 },
+        "width": 3.0,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      },
+      {
+        "id": "g4_2",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 0.0, "y": 0.5, "z": 13.0 },
+        "width": 2.5,
+        "isMoving": true,
+        "moveSpeed": 2.5,
+        "moveRange": 2.2
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 2.0,
+        "count": 30,
+        "spawnInterval": 0.3,
+        "mobSpeed": 3.5,
+        "mobHealth": 1
+      },
+      {
+        "waveIndex": 2,
+        "spawnDelay": 12.0,
+        "count": 20,
+        "spawnInterval": 0.25,
+        "mobSpeed": 3.8,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 150, "gems": 3 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 5,
+    "name": "Level 5: Risk vs Reward",
+    "difficulty": "medium",
+    "enemyBaseHealth": 160,
+    "playerBaseHealth": 60,
+    "cannonFireRate": 0.13,
+    "gates": [
+      {
+        "id": "g5_1",
+        "operation": "multiply",
+        "value": 4,
+        "position": { "x": -2.2, "y": 0.5, "z": 8.0 },
+        "width": 1.8,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      },
+      {
+        "id": "g5_2",
+        "operation": "subtract",
+        "value": 5,
+        "position": { "x": 2.2, "y": 0.5, "z": 8.0 },
+        "width": 2.5,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.0,
+        "count": 40,
+        "spawnInterval": 0.25,
+        "mobSpeed": 3.6,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 200, "gems": 5 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 6,
+    "name": "Level 6: Mini Boss Encounter",
+    "difficulty": "hard",
+    "enemyBaseHealth": 250,
+    "playerBaseHealth": 70,
+    "cannonFireRate": 0.13,
+    "gates": [
+      {
+        "id": "g6_1",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": -1.8, "y": 0.5, "z": 7.0 },
+        "width": 2.0,
+        "isMoving": true,
+        "moveSpeed": 1.8,
+        "moveRange": 1.5
+      },
+      {
+        "id": "g6_2",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 1.8, "y": 0.5, "z": 7.0 },
+        "width": 2.0,
+        "isMoving": true,
+        "moveSpeed": 1.8,
+        "moveRange": 1.5
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.0,
+        "count": 40,
+        "spawnInterval": 0.25,
+        "mobSpeed": 3.5,
+        "mobHealth": 1
+      },
+      {
+        "waveIndex": 2,
+        "spawnDelay": 10.0,
+        "count": 5,
+        "spawnInterval": 1.0,
+        "mobSpeed": 2.2,
+        "mobHealth": 15
+      }
+    ],
+    "rewards": { "coins": 300, "gems": 8 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 7,
+    "name": "Level 7: Precision Lane",
+    "difficulty": "medium",
+    "enemyBaseHealth": 220,
+    "playerBaseHealth": 70,
+    "cannonFireRate": 0.12,
+    "gates": [
+      {
+        "id": "g7_1",
+        "operation": "multiply",
+        "value": 5,
+        "position": { "x": 0.0, "y": 0.5, "z": 10.0 },
+        "width": 1.5,
+        "isMoving": true,
+        "moveSpeed": 3.2,
+        "moveRange": 3.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.0,
+        "count": 60,
+        "spawnInterval": 0.2,
+        "mobSpeed": 3.8,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 250, "gems": 5 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 8,
+    "name": "Level 8: Cascading Multipliers",
+    "difficulty": "medium",
+    "enemyBaseHealth": 300,
+    "playerBaseHealth": 80,
+    "cannonFireRate": 0.12,
+    "gates": [
+      {
+        "id": "g8_1",
+        "operation": "add",
+        "value": 15,
+        "position": { "x": 0.0, "y": 0.5, "z": 5.0 },
+        "width": 3.5,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      },
+      {
+        "id": "g8_2",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": -2.0, "y": 0.5, "z": 11.0 },
+        "width": 2.2,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      },
+      {
+        "id": "g8_3",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 2.0, "y": 0.5, "z": 11.0 },
+        "width": 2.2,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.5,
+        "count": 70,
+        "spawnInterval": 0.2,
+        "mobSpeed": 3.8,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 350, "gems": 6 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 9,
+    "name": "Level 9: Fast & Furious",
+    "difficulty": "hard",
+    "enemyBaseHealth": 350,
+    "playerBaseHealth": 80,
+    "cannonFireRate": 0.11,
+    "gates": [
+      {
+        "id": "g9_1",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 0.0, "y": 0.5, "z": 8.0 },
+        "width": 2.5,
+        "isMoving": true,
+        "moveSpeed": 3.5,
+        "moveRange": 3.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 0.5,
+        "count": 90,
+        "spawnInterval": 0.15,
+        "mobSpeed": 4.5,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 400, "gems": 8 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 10,
+    "name": "Level 10: The Citadel Gate",
+    "difficulty": "hard",
+    "enemyBaseHealth": 500,
+    "playerBaseHealth": 100,
+    "cannonFireRate": 0.10,
+    "gates": [
+      {
+        "id": "g10_1",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": -2.0, "y": 0.5, "z": 6.0 },
+        "width": 2.0,
+        "isMoving": true,
+        "moveSpeed": 2.0,
+        "moveRange": 1.8
+      },
+      {
+        "id": "g10_2",
+        "operation": "multiply",
+        "value": 4,
+        "position": { "x": 2.0, "y": 0.5, "z": 12.0 },
+        "width": 2.0,
+        "isMoving": true,
+        "moveSpeed": 2.5,
+        "moveRange": 2.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.0,
+        "count": 80,
+        "spawnInterval": 0.2,
+        "mobSpeed": 4.0,
+        "mobHealth": 1
+      },
+      {
+        "waveIndex": 2,
+        "spawnDelay": 8.0,
+        "count": 8,
+        "spawnInterval": 0.8,
+        "mobSpeed": 2.5,
+        "mobHealth": 20
+      }
+    ],
+    "rewards": { "coins": 500, "gems": 10 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 11,
+    "name": "Level 11: Reverse Gears",
+    "difficulty": "hard",
+    "enemyBaseHealth": 450,
+    "playerBaseHealth": 100,
+    "cannonFireRate": 0.10,
+    "gates": [
+      {
+        "id": "g11_1",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": -2.5, "y": 0.5, "z": 7.0 },
+        "width": 2.0,
+        "isMoving": true,
+        "moveSpeed": 2.8,
+        "moveRange": 2.2
+      },
+      {
+        "id": "g11_2",
+        "operation": "subtract",
+        "value": 10,
+        "position": { "x": 2.5, "y": 0.5, "z": 7.0 },
+        "width": 2.0,
+        "isMoving": true,
+        "moveSpeed": 2.8,
+        "moveRange": 2.2
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.0,
+        "count": 100,
+        "spawnInterval": 0.18,
+        "mobSpeed": 4.2,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 550, "gems": 10 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 12,
+    "name": "Level 12: Triple Axis",
+    "difficulty": "hard",
+    "enemyBaseHealth": 550,
+    "playerBaseHealth": 100,
+    "cannonFireRate": 0.10,
+    "gates": [
+      {
+        "id": "g12_1",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": -2.5, "y": 0.5, "z": 5.0 },
+        "width": 1.8,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      },
+      {
+        "id": "g12_2",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 0.0, "y": 0.5, "z": 9.0 },
+        "width": 1.8,
+        "isMoving": true,
+        "moveSpeed": 3.0,
+        "moveRange": 2.5
+      },
+      {
+        "id": "g12_3",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": 2.5, "y": 0.5, "z": 13.0 },
+        "width": 1.8,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 1.0,
+        "count": 120,
+        "spawnInterval": 0.16,
+        "mobSpeed": 4.2,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 650, "gems": 12 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 13,
+    "name": "Level 13: The Gauntlet",
+    "difficulty": "expert",
+    "enemyBaseHealth": 700,
+    "playerBaseHealth": 120,
+    "cannonFireRate": 0.09,
+    "gates": [
+      {
+        "id": "g13_1",
+        "operation": "multiply",
+        "value": 4,
+        "position": { "x": 0.0, "y": 0.5, "z": 7.0 },
+        "width": 1.8,
+        "isMoving": true,
+        "moveSpeed": 4.0,
+        "moveRange": 3.2
+      },
+      {
+        "id": "g13_2",
+        "operation": "multiply",
+        "value": 2,
+        "position": { "x": 0.0, "y": 0.5, "z": 12.0 },
+        "width": 2.5,
+        "isMoving": false,
+        "moveSpeed": 0.0,
+        "moveRange": 0.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 0.5,
+        "count": 140,
+        "spawnInterval": 0.14,
+        "mobSpeed": 4.6,
+        "mobHealth": 1
+      },
+      {
+        "waveIndex": 2,
+        "spawnDelay": 10.0,
+        "count": 10,
+        "spawnInterval": 0.7,
+        "mobSpeed": 2.8,
+        "mobHealth": 25
+      }
+    ],
+    "rewards": { "coins": 800, "gems": 15 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 14,
+    "name": "Level 14: Overdrive Swarm",
+    "difficulty": "expert",
+    "enemyBaseHealth": 850,
+    "playerBaseHealth": 120,
+    "cannonFireRate": 0.09,
+    "gates": [
+      {
+        "id": "g14_1",
+        "operation": "multiply",
+        "value": 5,
+        "position": { "x": -1.8, "y": 0.5, "z": 8.0 },
+        "width": 1.6,
+        "isMoving": true,
+        "moveSpeed": 3.2,
+        "moveRange": 2.0
+      },
+      {
+        "id": "g14_2",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 1.8, "y": 0.5, "z": 8.0 },
+        "width": 1.6,
+        "isMoving": true,
+        "moveSpeed": 3.2,
+        "moveRange": 2.0
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 0.5,
+        "count": 180,
+        "spawnInterval": 0.12,
+        "mobSpeed": 4.8,
+        "mobHealth": 1
+      }
+    ],
+    "rewards": { "coins": 950, "gems": 18 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  },
+  {
+    "id": 15,
+    "name": "Level 15: The Titan Boss Fortress",
+    "difficulty": "boss",
+    "enemyBaseHealth": 1200,
+    "playerBaseHealth": 150,
+    "cannonFireRate": 0.08,
+    "gates": [
+      {
+        "id": "g15_1",
+        "operation": "multiply",
+        "value": 4,
+        "position": { "x": 0.0, "y": 0.5, "z": 6.0 },
+        "width": 2.2,
+        "isMoving": true,
+        "moveSpeed": 3.5,
+        "moveRange": 2.8
+      },
+      {
+        "id": "g15_2",
+        "operation": "multiply",
+        "value": 3,
+        "position": { "x": 0.0, "y": 0.5, "z": 12.0 },
+        "width": 2.5,
+        "isMoving": true,
+        "moveSpeed": 2.5,
+        "moveRange": 2.5
+      }
+    ],
+    "enemyWaves": [
+      {
+        "waveIndex": 1,
+        "spawnDelay": 0.5,
+        "count": 150,
+        "spawnInterval": 0.15,
+        "mobSpeed": 4.5,
+        "mobHealth": 1
+      },
+      {
+        "waveIndex": 2,
+        "spawnDelay": 8.0,
+        "count": 15,
+        "spawnInterval": 0.6,
+        "mobSpeed": 3.0,
+        "mobHealth": 30
+      },
+      {
+        "waveIndex": 3,
+        "spawnDelay": 18.0,
+        "count": 1,
+        "spawnInterval": 1.0,
+        "mobSpeed": 1.8,
+        "mobHealth": 200
+      }
+    ],
+    "rewards": { "coins": 1500, "gems": 30 },
+    "adConfig": { "showInterstitialOnFinish": true, "rewardedMultiplier": 3 }
+  }
+]

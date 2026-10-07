@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f
+ModelImporter:
+  serializedVersion: 24600
+  internalIDToNameTable: []
+  externalObjects: {}
+  animations:
+    importAnimation: 1
+    clipAnimations:
+    - serializedVersion: 16
+      name: mixamo.com
+      takeName: mixamo.com
+      firstFrame: 0
+      lastFrame: 100
+      wrapMode: 0
+      loopTime: 1
+      loop: 1
+  animationType: 2
+  useFileScale: 1
