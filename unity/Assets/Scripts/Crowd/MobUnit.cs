@@ -49,6 +49,7 @@ namespace MobControl.Crowd
         public MobTeam Team => team;
         public int Health => currentHealth;
         public int MaxHealth => maxHealth;
+        public bool IsDead => isDead;
 
         public void SetUiHealthBar(ThomasDev.HealthSystem.HealthBarUI bar)
         {
@@ -173,10 +174,33 @@ namespace MobControl.Crowd
             }
 
             // Zombie AI (Sight Detection, Gate Barrier & Lane Homing)
-            if (team == MobTeam.Enemy && PlayerRunnerController.Instance != null && !PlayerRunnerController.Instance.IsDead)
+            if (team == MobTeam.Enemy)
             {
-                Vector3 playerPos = PlayerRunnerController.Instance.transform.position;
-                float dz = transform.position.z - playerPos.z;
+                if (ZombieRunnerUIManager.Instance != null && !ZombieRunnerUIManager.Instance.IsGameActive)
+                {
+                    if (animator != null) animator.SetBool("isMoving", false);
+                    return;
+                }
+
+                if (PlayerRunnerController.Instance != null && !PlayerRunnerController.Instance.IsDead)
+                {
+                    Vector3 playerPos = PlayerRunnerController.Instance.transform.position;
+                    float dz = transform.position.z - playerPos.z;
+
+                // Check if this enemy zombie has breached past the player runner!
+                if (dz < -0.6f)
+                {
+                    ZombieRunnerUIManager ui = ZombieRunnerUIManager.Instance != null 
+                        ? ZombieRunnerUIManager.Instance 
+                        : ZombieRunnerUIManager.EnsureInstance();
+
+                    if (ui != null)
+                    {
+                        ui.TriggerDefeatWithReason("GAME OVER", "A zombie breached your defense line!");
+                    }
+                    if (animator != null) animator.SetBool("isMoving", false);
+                    return;
+                }
 
                 // 1. Sight Activation: Don't move until player comes within visible mobile screen range (or alerted by bullet)
                 if (!hasBeenAlerted && dz > activationSightDistance)
@@ -213,7 +237,8 @@ namespace MobControl.Crowd
                     return;
                 }
             }
-            else if (team == MobTeam.Player)
+        }
+        else if (team == MobTeam.Player)
             {
                 if (CheckBlockedByGate())
                 {

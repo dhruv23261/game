@@ -157,7 +157,8 @@ namespace MobControl.Combat
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
 
-            // Automatically ensure the progressive upcoming zone streaming is active
+            // Automatically ensure UI and Streaming managers exist
+            ZombieRunnerUIManager.EnsureInstance();
             UpcomingZoneManager.EnsureInstance();
         }
 
@@ -284,11 +285,11 @@ namespace MobControl.Combat
 
                 // 1. Blocked by living enemy zombie directly in front on the same lane
                 MobUnit mob = col.GetComponentInParent<MobUnit>();
-                if (mob != null && mob.Team == MobTeam.Enemy && mob.Health > 0)
+                if (mob != null && mob.Team == MobTeam.Enemy && mob.Health > 0 && !mob.IsDead)
                 {
                     float dz = mob.transform.position.z - playerPos.z;
                     float dx = Mathf.Abs(mob.transform.position.x - playerPos.x);
-                    if (dz > -0.2f && dz <= stoppingDistance && dx < 0.65f)
+                    if (dz > 0.05f && dz <= stoppingDistance && dx < 0.65f)
                     {
                         return true;
                     }
@@ -388,7 +389,15 @@ namespace MobControl.Combat
 
             Debug.Log("[PlayerRunner] Player defeated by zombies! Triggering Game Over.");
 
-            if (GameManager.Instance != null)
+            ZombieRunnerUIManager ui = ZombieRunnerUIManager.Instance != null 
+                ? ZombieRunnerUIManager.Instance 
+                : ZombieRunnerUIManager.EnsureInstance();
+
+            if (ui != null)
+            {
+                ui.TriggerDefeatWithReason("YOU WERE OVERWHELMED!", "The zombie horde infected your squad.");
+            }
+            else if (GameManager.Instance != null)
             {
                 GameManager.Instance.OnLevelLost();
             }
