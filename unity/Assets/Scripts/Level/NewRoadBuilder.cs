@@ -21,7 +21,7 @@ namespace MobControl.Level
         [SerializeField] private float roadWidth = 6.0f;
         [SerializeField] private float startZ = -40.0f;
         [SerializeField] private float endZ = 160.0f;
-        [SerializeField] private float roadY = 0.0f;
+        [SerializeField] private float roadY = 0.005f;
 
         [Header("Level Markers")]
         [SerializeField] private float level1StartZ = 0.0f;
@@ -61,10 +61,17 @@ namespace MobControl.Level
         private void Awake()
         {
             instance = this;
+            DeactivateOldRoad();
+        }
+
+        private void OnEnable()
+        {
+            DeactivateOldRoad();
         }
 
         private void Start()
         {
+            DeactivateOldRoad();
             if (Application.isPlaying)
             {
                 EnsureNewRoad();
@@ -82,11 +89,20 @@ namespace MobControl.Level
             if (existingRoot != null)
             {
                 existingRoot.SetActive(true);
+                foreach (Transform child in existingRoot.transform)
+                {
+                    if (child != null) child.gameObject.SetActive(true);
+                }
                 return;
             }
 
-            GameObject builderObj = new GameObject("NewRoadBuilder_Manager");
-            NewRoadBuilder builder = builderObj.AddComponent<NewRoadBuilder>();
+            GameObject builderObj = GameObject.Find("NewRoadBuilder_Manager");
+            if (builderObj == null)
+            {
+                builderObj = new GameObject("NewRoadBuilder_Manager");
+            }
+            NewRoadBuilder builder = builderObj.GetComponent<NewRoadBuilder>();
+            if (builder == null) builder = builderObj.AddComponent<NewRoadBuilder>();
             builder.BuildRoad();
         }
 
@@ -101,18 +117,44 @@ namespace MobControl.Level
             foreach (var go in allObjs)
             {
                 if (go == null) continue;
-                string lowerName = go.name.ToLower();
 
-                // Target old road meshes, but NEVER touch our new road
-                if (go.name.StartsWith("NewRoad_") || go.name.Contains("NewRoadBuilder")) continue;
+                // Target old road meshes, but NEVER touch our new road or its children
+                if (go.name.StartsWith("NewRoad") || go.transform.root.name.StartsWith("NewRoad")) continue;
 
-                if (lowerName == "road" || lowerName.StartsWith("road_") || lowerName.Contains("road.obj") || lowerName.Contains("polygon_1"))
+                string lowerName = go.name.ToLower().Trim();
+
+                // Match any legacy road object (road, road (1), road (2), road_..., road.obj, etc.)
+                bool isLegacyRoad = lowerName == "road" ||
+                                    lowerName.StartsWith("road ") ||
+                                    lowerName.StartsWith("road(") ||
+                                    lowerName.StartsWith("road_") ||
+                                    lowerName.Contains("road.obj") ||
+                                    lowerName.Contains("polygon_1") ||
+                                    (lowerName.StartsWith("road") && !lowerName.StartsWith("roadgenerator"));
+
+                if (isLegacyRoad)
                 {
                     go.SetActive(false);
+
+                    var renderers = go.GetComponentsInChildren<Renderer>(true);
+                    for (int r = 0; r < renderers.Length; r++)
+                    {
+                        if (renderers[r] != null) renderers[r].enabled = false;
+                    }
+
+                    var colliders = go.GetComponentsInChildren<Collider>(true);
+                    for (int c = 0; c < colliders.Length; c++)
+                    {
+                        if (colliders[c] != null) colliders[c].enabled = false;
+                    }
+
                     count++;
                 }
             }
-            Debug.Log($"[NewRoadBuilder] Deactivated {count} legacy road object(s).");
+            if (count > 0)
+            {
+                Debug.Log($"[NewRoadBuilder] Deactivated {count} legacy road object(s).");
+            }
         }
 
         [ContextMenu("Build New Road In Scene")]
@@ -195,7 +237,7 @@ namespace MobControl.Level
 
         private void CreateRoadSurface(Transform parent, float length, float centerZ)
         {
-            GameObject roadObj = new GameObject("Road_AsphaltSurface");
+            GameObject roadObj = new GameObject("NewRoad_AsphaltSurface");
             roadObj.transform.SetParent(parent, false);
             roadObj.transform.position = new Vector3(0, roadY, centerZ);
 
