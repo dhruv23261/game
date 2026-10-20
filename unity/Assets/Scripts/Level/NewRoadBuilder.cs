@@ -1,32 +1,40 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.IO;
 using TMPro;
 
 namespace MobControl.Level
 {
     /// <summary>
-    /// Builds the exact Level 1 Stylized Road matching the reference design:
-    /// - Grand, expansive 9.8m wide 2-lane asphalt highway with crisp white dashed divider & solid yellow shoulder lines.
-    /// - Light concrete curbs on both shoulders.
-    /// - Dual-rail slate-steel highway guardrails with amber/orange reflector posts.
-    /// - Rich roadside landscape: dense multi-tiered stylized pine trees & stacked faceted cliff rocks on both verges.
-    /// - Beautiful rolling mountain horizon ridge.
-    /// - Low, wide-angle cinematic camera framing matching the reference angle.
+    /// Builds the exact Level 1 Stylized Road matching the user's reference image:
+    /// - 9.8m wide 2-lane asphalt highway with crisp white dashed divider & solid yellow shoulder lines.
+    /// - Concrete curb foundation running outside both yellow lines.
+    /// - Dual-rail slate-steel highway guardrails with amber/orange reflector squares on upright posts.
+    /// - High-Definition Meshy 3D Stylized Pine Trees with vibrant layered green needles and wood trunk.
+    /// - High-Definition Meshy 3D Stylized Cliff Rock monoliths stacked along both banks to form natural canyon walls.
+    /// - Young sapling pine trees and smaller boulders nestled along the road verge.
+    /// - Soft rolling mountain horizon ridge with atmospheric aerial perspective fog.
+    /// - Camera angle and framing matched 1:1 with reference image.
     /// </summary>
     [ExecuteAlways]
     public class NewRoadBuilder : MonoBehaviour
     {
         [Header("Road Dimensions")]
-        [SerializeField] private float roadWidth = 9.8f; // Expansive wide road matching reference
+        [SerializeField] private float roadWidth = 9.8f;
         [SerializeField] private float startZ = -15.0f;
         [SerializeField] private float endZ = 240.0f;
         [SerializeField] private float uvRepeatLength = 10.0f;
 
         [Header("Guardrail Settings")]
-        [SerializeField] private float guardrailX = 5.25f; // Positioned along outer edge of curb
+        [SerializeField] private float guardrailX = 5.25f;
         [SerializeField] private float postSpacing = 3.6f;
 
         public const string ROOT_NAME = "Level1_StylizedRoad_Root";
+
+        private static Mesh cachedTreeMesh;
+        private static Mesh cachedRockMesh;
+        private static Material cachedTreeMat;
+        private static Material cachedRockMat;
 
         public static void SafeDestroy(Object obj)
         {
@@ -55,7 +63,6 @@ namespace MobControl.Level
         [ContextMenu("Build Reference Road")]
         public void BuildRoadScene()
         {
-            // 0. Purge any legacy floating text, gates, or clutter
             PurgeSceneClutter();
 
             GameObject existingRoot = GameObject.Find(ROOT_NAME);
@@ -68,12 +75,11 @@ namespace MobControl.Level
             Material steelMat = Resources.Load<Material>("Materials/M_GuardrailSteel");
             Material grassMat = Resources.Load<Material>("Materials/M_GrassVerge");
             Material amberMat = Resources.Load<Material>("Materials/M_GunOrange");
-            Material foliageMat = Resources.Load<Material>("Materials/M_PineFoliage") ?? Resources.Load<Material>("Materials/M_StylizedPineTree");
-            Material foliageLightMat = Resources.Load<Material>("Materials/M_PineFoliageLight") ?? foliageMat;
-            Material barkMat = Resources.Load<Material>("Materials/M_PineBark");
-            Material rockMat = Resources.Load<Material>("Materials/M_StylizedCliffRock") ?? Resources.Load<Material>("Materials/M_StylizedRock");
 
-            // 1. Build Grand Road Surface Mesh
+            // Load Meshy 3D Assets (Pine Tree & Cliff Rock)
+            LoadMeshyAssets();
+
+            // 1. Build Grand Asphalt Highway Mesh
             BuildRoadSurface(root.transform, roadMat);
 
             // 2. Build Dual-Rail Steel Guardrails with Amber Reflectors
@@ -82,8 +88,8 @@ namespace MobControl.Level
             // 3. Build Sloping Grass Landscape Verge
             BuildGrassBanks(root.transform, grassMat);
 
-            // 4. Build Dense Stylized Nature (Layered Conical Pine Trees & Stacked Cliff Boulders)
-            BuildNatureForestAndRocks(root.transform, foliageMat, foliageLightMat, barkMat, rockMat);
+            // 4. Build Towering Cliff Canyon Walls & Pine Forest (1:1 Reference Match)
+            BuildHighDetailNatureEnvironment(root.transform, grassMat);
 
             // 5. Build Sweeping Distant Mountain Horizon Ridge
             BuildMountainHorizon(root.transform, grassMat);
@@ -91,12 +97,12 @@ namespace MobControl.Level
             // 6. Setup Exact Camera & Atmospheric Horizon Fog
             SetupCameraAndAtmosphere();
 
-            Debug.Log("[NewRoadBuilder] Level 1 reference stylized road successfully assembled with wide highway & dense pine forest!");
+            Debug.Log("[NewRoadBuilder] Level 1 reference stylized road successfully assembled with High-Definition Meshy 3D nature assets!");
         }
 
         private void PurgeSceneClutter()
         {
-            // Destroy any floating 3D TextMeshPro objects in world space (e.g. legacy x2 gates)
+            // Destroy floating in-world TextMeshPro objects
             TextMeshPro[] worldTexts = Object.FindObjectsByType<TextMeshPro>(FindObjectsInactive.Include);
             foreach (var txt in worldTexts)
             {
@@ -106,7 +112,7 @@ namespace MobControl.Level
                 }
             }
 
-            // Destroy legacy Gun_M41D or unwanted clutter
+            // Destroy legacy gates or unwanted objects
             GameObject[] allGos = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
             foreach (var go in allGos)
             {
@@ -115,6 +121,169 @@ namespace MobControl.Level
                     SafeDestroy(go);
                 }
             }
+        }
+
+        private void LoadMeshyAssets()
+        {
+            // 1. Load Pine Tree Mesh & Material
+            if (cachedTreeMesh == null)
+            {
+                string treeObjPath = Path.Combine(Application.dataPath, "Models/Nature/PineTree_V2.obj");
+                cachedTreeMesh = LoadObjMeshDirect(treeObjPath);
+            }
+            if (cachedTreeMat == null)
+            {
+                cachedTreeMat = LoadTextureMaterial("Models/Nature/PineTree_V2_textures/base_color.png", "M_MeshyPineTree_V2");
+            }
+
+            // 2. Load Cliff Rock Mesh & Material
+            if (cachedRockMesh == null)
+            {
+                string rockObjPath = Path.Combine(Application.dataPath, "Models/Nature/CliffRock_V2.obj");
+                cachedRockMesh = LoadObjMeshDirect(rockObjPath);
+            }
+            if (cachedRockMat == null)
+            {
+                cachedRockMat = LoadTextureMaterial("Models/Nature/CliffRock_V2_textures/base_color.png", "M_MeshyCliffRock_V2");
+            }
+        }
+
+        private static Mesh LoadObjMeshDirect(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                Debug.LogWarning($"[NewRoadBuilder] OBJ file not found: {filePath}");
+                return null;
+            }
+
+            List<Vector3> tempPositions = new List<Vector3>();
+            List<Vector2> tempUVs = new List<Vector2>();
+            List<Vector3> tempNormals = new List<Vector3>();
+
+            List<Vector3> outPositions = new List<Vector3>();
+            List<Vector2> outUVs = new List<Vector2>();
+            List<Vector3> outNormals = new List<Vector3>();
+            List<int> outIndices = new List<int>();
+
+            Dictionary<string, int> vertexCache = new Dictionary<string, int>();
+
+            string[] lines = File.ReadAllLines(filePath);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (line.Length < 2) continue;
+
+                if (line.StartsWith("v "))
+                {
+                    string[] p = line.Split(new char[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length >= 4)
+                    {
+                        float x = float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture);
+                        float y = float.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture);
+                        float z = float.Parse(p[3], System.Globalization.CultureInfo.InvariantCulture);
+                        tempPositions.Add(new Vector3(x, y, z));
+                    }
+                }
+                else if (line.StartsWith("vt "))
+                {
+                    string[] p = line.Split(new char[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length >= 3)
+                    {
+                        float u = float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture);
+                        float v = float.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture);
+                        tempUVs.Add(new Vector2(u, v));
+                    }
+                }
+                else if (line.StartsWith("vn "))
+                {
+                    string[] p = line.Split(new char[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length >= 4)
+                    {
+                        float nx = float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture);
+                        float ny = float.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture);
+                        float nz = float.Parse(p[3], System.Globalization.CultureInfo.InvariantCulture);
+                        tempNormals.Add(new Vector3(nx, ny, nz));
+                    }
+                }
+                else if (line.StartsWith("f "))
+                {
+                    string[] p = line.Split(new char[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length >= 4)
+                    {
+                        int[] faceVerts = new int[3];
+                        for (int v = 0; v < 3; v++)
+                        {
+                            string vertToken = p[v + 1];
+                            if (vertexCache.TryGetValue(vertToken, out int existingIdx))
+                            {
+                                faceVerts[v] = existingIdx;
+                            }
+                            else
+                            {
+                                string[] parts = vertToken.Split('/');
+                                int posIdx = int.Parse(parts[0]) - 1;
+                                int uvIdx = (parts.Length > 1 && !string.IsNullOrEmpty(parts[1])) ? int.Parse(parts[1]) - 1 : -1;
+                                int normIdx = (parts.Length > 2 && !string.IsNullOrEmpty(parts[2])) ? int.Parse(parts[2]) - 1 : -1;
+
+                                Vector3 pos = (posIdx >= 0 && posIdx < tempPositions.Count) ? tempPositions[posIdx] : Vector3.zero;
+                                Vector2 uv = (uvIdx >= 0 && uvIdx < tempUVs.Count) ? tempUVs[uvIdx] : Vector2.zero;
+                                Vector3 norm = (normIdx >= 0 && normIdx < tempNormals.Count) ? tempNormals[normIdx] : Vector3.up;
+
+                                int newIdx = outPositions.Count;
+                                outPositions.Add(pos);
+                                outUVs.Add(uv);
+                                outNormals.Add(norm);
+                                vertexCache[vertToken] = newIdx;
+                                faceVerts[v] = newIdx;
+                            }
+                        }
+                        outIndices.Add(faceVerts[0]);
+                        outIndices.Add(faceVerts[1]);
+                        outIndices.Add(faceVerts[2]);
+                    }
+                }
+            }
+
+            Mesh mesh = new Mesh { name = Path.GetFileNameWithoutExtension(filePath) };
+            if (outPositions.Count > 65534)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            mesh.SetVertices(outPositions);
+            if (outUVs.Count > 0) mesh.SetUVs(0, outUVs);
+            if (outNormals.Count > 0) mesh.SetNormals(outNormals);
+            mesh.SetTriangles(outIndices, 0);
+            mesh.RecalculateBounds();
+            if (outNormals.Count == 0) mesh.RecalculateNormals();
+
+            Debug.Log($"[NewRoadBuilder] Successfully loaded {mesh.name}: {outPositions.Count} verts, {outIndices.Count / 3} faces");
+            return mesh;
+        }
+
+        private static Material LoadTextureMaterial(string texRelativePath, string matName)
+        {
+            string fullPath = Path.Combine(Application.dataPath, texRelativePath);
+            if (!File.Exists(fullPath))
+            {
+                Debug.LogWarning($"[NewRoadBuilder] Texture not found at {fullPath}");
+                return null;
+            }
+
+            byte[] bytes = File.ReadAllBytes(fullPath);
+            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+            if (tex.LoadImage(bytes))
+            {
+                tex.name = matName + "_Tex";
+                tex.wrapMode = TextureWrapMode.Repeat;
+                tex.filterMode = FilterMode.Bilinear;
+                tex.anisoLevel = 4;
+
+                Shader shader = Shader.Find("Mobile/Diffuse") ?? Shader.Find("Standard") ?? Shader.Find("Unlit/Texture");
+                Material mat = new Material(shader) { name = matName };
+                mat.mainTexture = tex;
+                return mat;
+            }
+            return null;
         }
 
         private void BuildRoadSurface(Transform parent, Material roadMat)
@@ -199,7 +368,7 @@ namespace MobControl.Level
             beam.name = name;
             beam.transform.SetParent(parent, false);
             beam.transform.position = new Vector3(posX, posY, centerZ);
-            beam.transform.localScale = new Vector3(0.09f, 0.20f, length);
+            beam.transform.localScale = new Vector3(0.10f, 0.22f, length);
 
             MeshRenderer mr = beam.GetComponent<MeshRenderer>();
             if (mr != null && mat != null) mr.sharedMaterial = mat;
@@ -214,7 +383,7 @@ namespace MobControl.Level
             post.name = isLeft ? "Post_L" : "Post_R";
             post.transform.SetParent(parent, false);
             post.transform.position = new Vector3(posX, 0.42f, posZ);
-            post.transform.localScale = new Vector3(0.13f, 0.84f, 0.13f);
+            post.transform.localScale = new Vector3(0.14f, 0.86f, 0.14f);
 
             MeshRenderer mrPost = post.GetComponent<MeshRenderer>();
             if (mrPost != null && steelMat != null) mrPost.sharedMaterial = steelMat;
@@ -244,7 +413,6 @@ namespace MobControl.Level
             float totalLen = (endZ - startZ) + 80f;
             float centerZ = (startZ + endZ) * 0.5f;
 
-            // Flat expansive landscape base plane
             GameObject groundBase = GameObject.CreatePrimitive(PrimitiveType.Plane);
             groundBase.name = "Ground_Landscape_Plane";
             groundBase.transform.SetParent(banksRoot.transform, false);
@@ -258,217 +426,137 @@ namespace MobControl.Level
             SafeDestroy(cBase);
         }
 
-        private void BuildNatureForestAndRocks(Transform parent, Material foliageMat, Material foliageLightMat, Material barkMat, Material rockMat)
+        private void BuildHighDetailNatureEnvironment(Transform parent, Material grassMat)
         {
-            GameObject natureRoot = new GameObject("Nature_Trees_And_Rocks");
+            GameObject natureRoot = new GameObject("Nature_Canyon_And_Pine_Forest");
             natureRoot.transform.SetParent(parent, false);
 
-            float halfRoad = roadWidth * 0.5f;
-
-            // Generate dense trees and stacked rocks continuously along both sides
-            for (float z = startZ + 3f; z <= endZ - 5f; z += 4.5f)
+            // 1. Place towering cliff rock monoliths and layered pine trees along both sides
+            for (float z = startZ + 2f; z <= endZ - 4f; z += 6.5f)
             {
-                // ---- LEFT SIDE ----
-                // 1. Stacked Cliff Rocks (Right behind guardrail)
-                float rockXL = -(halfRoad + 1.6f + Random.Range(0f, 0.8f));
-                CreateStylizedCliffRock(natureRoot.transform, new Vector3(rockXL, 0.15f, z + Random.Range(-0.8f, 0.8f)), Random.Range(1.8f, 2.8f), rockMat);
-
-                // 2. Front Row Pine Trees (Nestled among rocks)
-                float treeXL1 = -(halfRoad + 3.2f + Random.Range(0f, 1.2f));
-                Material fMatL1 = (Random.value > 0.4f) ? foliageMat : foliageLightMat;
-                CreateStylizedPineTree(natureRoot.transform, new Vector3(treeXL1, 0f, z + Random.Range(-1.2f, 1.2f)), Random.Range(1.8f, 2.6f), fMatL1, barkMat);
-
-                // 3. Back Row Pine Trees (Taller forest canopy background)
-                if (Random.value > 0.25f)
+                // ================= LEFT BANK =================
+                // A. Towering Cliff Rock Wall (forms continuous canyon edge right behind curb)
+                if (cachedRockMesh != null)
                 {
-                    float treeXL2 = -(halfRoad + 5.5f + Random.Range(0f, 2.5f));
-                    CreateStylizedPineTree(natureRoot.transform, new Vector3(treeXL2, 0.4f, z + 2.2f), Random.Range(2.6f, 3.8f), foliageMat, barkMat);
+                    float rockXL = -(guardrailX + 1.8f + Random.Range(0f, 0.6f));
+                    float rockScaleL = Random.Range(6.0f, 8.5f);
+                    SpawnMeshProp(natureRoot.transform, "CliffRock_L", cachedRockMesh, cachedRockMat,
+                        new Vector3(rockXL, 0f, z + Random.Range(-0.6f, 0.6f)),
+                        new Vector3(rockScaleL * 0.7f, rockScaleL, rockScaleL * 0.7f),
+                        Quaternion.Euler(0f, Random.Range(-25f, 25f), 0f));
+
+                    // Small foreground boulder near the guardrail
+                    if (Random.value > 0.35f)
+                    {
+                        float smallRockXL = -(guardrailX + 1.1f + Random.Range(0f, 0.4f));
+                        SpawnMeshProp(natureRoot.transform, "Boulder_L", cachedRockMesh, cachedRockMat,
+                            new Vector3(smallRockXL, 0f, z + 3.2f),
+                            Vector3.one * Random.Range(2.0f, 3.0f),
+                            Quaternion.Euler(Random.Range(-15f, 15f), Random.Range(0f, 360f), 0f));
+                    }
                 }
 
-                // ---- RIGHT SIDE ----
-                // 1. Stacked Cliff Rocks
-                float rockXR = (halfRoad + 1.6f + Random.Range(0f, 0.8f));
-                CreateStylizedCliffRock(natureRoot.transform, new Vector3(rockXR, 0.15f, z + Random.Range(-0.8f, 0.8f)), Random.Range(1.8f, 2.8f), rockMat);
-
-                // 2. Front Row Pine Trees
-                float treeXR1 = (halfRoad + 3.2f + Random.Range(0f, 1.2f));
-                Material fMatR1 = (Random.value > 0.4f) ? foliageMat : foliageLightMat;
-                CreateStylizedPineTree(natureRoot.transform, new Vector3(treeXR1, 0f, z + Random.Range(-1.2f, 1.2f)), Random.Range(1.8f, 2.6f), fMatR1, barkMat);
-
-                // 3. Back Row Pine Trees
-                if (Random.value > 0.25f)
+                // B. Stylized Pine Trees atop and behind the cliff rocks
+                if (cachedTreeMesh != null)
                 {
-                    float treeXR2 = (halfRoad + 5.5f + Random.Range(0f, 2.5f));
-                    CreateStylizedPineTree(natureRoot.transform, new Vector3(treeXR2, 0.4f, z + 2.2f), Random.Range(2.6f, 3.8f), foliageMat, barkMat);
+                    // Main towering tree on the cliff crest
+                    float treeXL = -(guardrailX + 3.5f + Random.Range(0f, 1.8f));
+                    float treeScaleL = Random.Range(6.5f, 9.5f);
+                    SpawnMeshProp(natureRoot.transform, "PineTree_L", cachedTreeMesh, cachedTreeMat,
+                        new Vector3(treeXL, Random.Range(1.2f, 3.0f), z + Random.Range(-1.0f, 1.0f)),
+                        Vector3.one * treeScaleL,
+                        Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+
+                    // Secondary canopy tree deeper in the background
+                    if (Random.value > 0.3f)
+                    {
+                        float treeXL2 = -(guardrailX + 6.2f + Random.Range(0f, 2.5f));
+                        float treeScaleL2 = Random.Range(8.0f, 11.5f);
+                        SpawnMeshProp(natureRoot.transform, "PineTree_Back_L", cachedTreeMesh, cachedTreeMat,
+                            new Vector3(treeXL2, 2.5f, z + 2.5f),
+                            Vector3.one * treeScaleL2,
+                            Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+                    }
+
+                    // Young sapling tree growing near the road verge
+                    if (Random.value > 0.45f)
+                    {
+                        float saplingXL = -(guardrailX + 1.3f + Random.Range(0f, 0.5f));
+                        SpawnMeshProp(natureRoot.transform, "Sapling_L", cachedTreeMesh, cachedTreeMat,
+                            new Vector3(saplingXL, 0f, z - 2.8f),
+                            Vector3.one * Random.Range(2.5f, 3.6f),
+                            Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+                    }
+                }
+
+                // ================= RIGHT BANK =================
+                // A. Towering Cliff Rock Wall
+                if (cachedRockMesh != null)
+                {
+                    float rockXR = (guardrailX + 1.8f + Random.Range(0f, 0.6f));
+                    float rockScaleR = Random.Range(6.0f, 8.5f);
+                    SpawnMeshProp(natureRoot.transform, "CliffRock_R", cachedRockMesh, cachedRockMat,
+                        new Vector3(rockXR, 0f, z + Random.Range(-0.6f, 0.6f)),
+                        new Vector3(rockScaleR * 0.7f, rockScaleR, rockScaleR * 0.7f),
+                        Quaternion.Euler(0f, Random.Range(-25f, 25f), 0f));
+
+                    if (Random.value > 0.35f)
+                    {
+                        float smallRockXR = (guardrailX + 1.1f + Random.Range(0f, 0.4f));
+                        SpawnMeshProp(natureRoot.transform, "Boulder_R", cachedRockMesh, cachedRockMat,
+                            new Vector3(smallRockXR, 0f, z + 3.2f),
+                            Vector3.one * Random.Range(2.0f, 3.0f),
+                            Quaternion.Euler(Random.Range(-15f, 15f), Random.Range(0f, 360f), 0f));
+                    }
+                }
+
+                // B. Stylized Pine Trees
+                if (cachedTreeMesh != null)
+                {
+                    float treeXR = (guardrailX + 3.5f + Random.Range(0f, 1.8f));
+                    float treeScaleR = Random.Range(6.5f, 9.5f);
+                    SpawnMeshProp(natureRoot.transform, "PineTree_R", cachedTreeMesh, cachedTreeMat,
+                        new Vector3(treeXR, Random.Range(1.2f, 3.0f), z + Random.Range(-1.0f, 1.0f)),
+                        Vector3.one * treeScaleR,
+                        Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+
+                    if (Random.value > 0.3f)
+                    {
+                        float treeXR2 = (guardrailX + 6.2f + Random.Range(0f, 2.5f));
+                        float treeScaleR2 = Random.Range(8.0f, 11.5f);
+                        SpawnMeshProp(natureRoot.transform, "PineTree_Back_R", cachedTreeMesh, cachedTreeMat,
+                            new Vector3(treeXR2, 2.5f, z + 2.5f),
+                            Vector3.one * treeScaleR2,
+                            Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+                    }
+
+                    if (Random.value > 0.45f)
+                    {
+                        float saplingXR = (guardrailX + 1.3f + Random.Range(0f, 0.5f));
+                        SpawnMeshProp(natureRoot.transform, "Sapling_R", cachedTreeMesh, cachedTreeMat,
+                            new Vector3(saplingXR, 0f, z - 2.8f),
+                            Vector3.one * Random.Range(2.5f, 3.6f),
+                            Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+                    }
                 }
             }
         }
 
-        private void CreateStylizedPineTree(Transform parent, Vector3 pos, float scale, Material foliageMat, Material barkMat)
+        private static GameObject SpawnMeshProp(Transform parent, string name, Mesh mesh, Material mat, Vector3 pos, Vector3 scale, Quaternion rot)
         {
-            GameObject tree = new GameObject("Stylized_Pine_Tree");
-            tree.transform.SetParent(parent, false);
-            tree.transform.position = pos;
-            tree.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            tree.transform.localScale = Vector3.one * scale;
+            GameObject obj = new GameObject(name);
+            obj.transform.SetParent(parent, false);
+            obj.transform.position = pos;
+            obj.transform.localScale = scale;
+            obj.transform.rotation = rot;
 
-            // 1. Trunk (Brown wood cylinder)
-            GameObject trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            trunk.name = "Trunk";
-            trunk.transform.SetParent(tree.transform, false);
-            trunk.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-            trunk.transform.localScale = new Vector3(0.35f, 0.7f, 0.35f);
-            SafeDestroy(trunk.GetComponent<Collider>());
-            if (barkMat != null) trunk.GetComponent<MeshRenderer>().sharedMaterial = barkMat;
+            MeshFilter mf = obj.AddComponent<MeshFilter>();
+            mf.sharedMesh = mesh;
 
-            // 2. 4-Tier Layered Conical Foliage Skirts (Exact match for reference image cartoon pine needles)
-            CreatePineConeTier(tree.transform, "Tier1_Bottom", 0.90f, 1.60f, 0.55f, 1.10f, foliageMat, 0f);
-            CreatePineConeTier(tree.transform, "Tier2_MidLow", 1.65f, 1.30f, 0.40f, 1.00f, foliageMat, 18f);
-            CreatePineConeTier(tree.transform, "Tier3_MidHigh", 2.35f, 1.00f, 0.25f, 0.90f, foliageMat, 36f);
-            CreatePineConeTip(tree.transform, "Tier4_Peak", 3.00f, 0.70f, 1.10f, foliageMat);
-        }
-
-        private void CreatePineConeTier(Transform parent, string name, float posY, float baseR, float topR, float height, Material mat, float rotY)
-        {
-            GameObject tier = new GameObject(name);
-            tier.transform.SetParent(parent, false);
-            tier.transform.localPosition = new Vector3(0f, posY, 0f);
-            tier.transform.localRotation = Quaternion.Euler(0f, rotY, 0f);
-
-            MeshFilter mf = tier.AddComponent<MeshFilter>();
-            MeshRenderer mr = tier.AddComponent<MeshRenderer>();
+            MeshRenderer mr = obj.AddComponent<MeshRenderer>();
             if (mat != null) mr.sharedMaterial = mat;
 
-            mf.sharedMesh = GetOrCreateSkirtMesh(baseR, topR, height, 10);
-        }
-
-        private void CreatePineConeTip(Transform parent, string name, float posY, float baseR, float height, Material mat)
-        {
-            GameObject tip = new GameObject(name);
-            tip.transform.SetParent(parent, false);
-            tip.transform.localPosition = new Vector3(0f, posY, 0f);
-
-            MeshFilter mf = tip.AddComponent<MeshFilter>();
-            MeshRenderer mr = tip.AddComponent<MeshRenderer>();
-            if (mat != null) mr.sharedMaterial = mat;
-
-            mf.sharedMesh = GetOrCreateTipMesh(baseR, height, 10);
-        }
-
-        private static readonly Dictionary<string, Mesh> meshCache = new Dictionary<string, Mesh>();
-
-        private static Mesh GetOrCreateSkirtMesh(float baseR, float topR, float height, int segments)
-        {
-            string key = $"skirt_{baseR}_{topR}_{height}_{segments}";
-            if (meshCache.TryGetValue(key, out Mesh existing) && existing != null) return existing;
-
-            Mesh mesh = new Mesh { name = key };
-            int vertCount = (segments + 1) * 2;
-            Vector3[] verts = new Vector3[vertCount];
-            Vector2[] uvs = new Vector2[vertCount];
-            int[] tris = new int[segments * 6];
-
-            for (int i = 0; i <= segments; i++)
-            {
-                float angle = (float)i / segments * Mathf.PI * 2f;
-                float cos = Mathf.Cos(angle);
-                float sin = Mathf.Sin(angle);
-
-                // Gentle geometric faceting on skirt needles
-                float flare = 1f + 0.08f * Mathf.Sin(angle * 4f);
-                float rBottom = baseR * flare;
-
-                verts[i * 2] = new Vector3(cos * rBottom, 0f, sin * rBottom);
-                verts[i * 2 + 1] = new Vector3(cos * topR, height, sin * topR);
-
-                uvs[i * 2] = new Vector2((float)i / segments, 0f);
-                uvs[i * 2 + 1] = new Vector2((float)i / segments, 1f);
-
-                if (i < segments)
-                {
-                    int ti = i * 6;
-                    tris[ti] = i * 2;
-                    tris[ti + 1] = i * 2 + 1;
-                    tris[ti + 2] = i * 2 + 2;
-                    tris[ti + 3] = i * 2 + 1;
-                    tris[ti + 4] = i * 2 + 3;
-                    tris[ti + 5] = i * 2 + 2;
-                }
-            }
-
-            mesh.vertices = verts;
-            mesh.uv = uvs;
-            mesh.triangles = tris;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            meshCache[key] = mesh;
-            return mesh;
-        }
-
-        private static Mesh GetOrCreateTipMesh(float baseR, float height, int segments)
-        {
-            string key = $"tip_{baseR}_{height}_{segments}";
-            if (meshCache.TryGetValue(key, out Mesh existing) && existing != null) return existing;
-
-            Mesh mesh = new Mesh { name = key };
-            Vector3[] verts = new Vector3[segments + 2];
-            Vector2[] uvs = new Vector2[verts.Length];
-            int[] tris = new int[segments * 3];
-
-            verts[0] = new Vector3(0f, height, 0f); // Apex
-            uvs[0] = new Vector2(0.5f, 1f);
-
-            for (int i = 0; i <= segments; i++)
-            {
-                float angle = (float)i / segments * Mathf.PI * 2f;
-                verts[i + 1] = new Vector3(Mathf.Cos(angle) * baseR, 0f, Mathf.Sin(angle) * baseR);
-                uvs[i + 1] = new Vector2((float)i / segments, 0f);
-
-                if (i < segments)
-                {
-                    int ti = i * 3;
-                    tris[ti] = 0;
-                    tris[ti + 1] = i + 1;
-                    tris[ti + 2] = i + 2;
-                }
-            }
-
-            mesh.vertices = verts;
-            mesh.uv = uvs;
-            mesh.triangles = tris;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            meshCache[key] = mesh;
-            return mesh;
-        }
-
-        private void CreateStylizedCliffRock(Transform parent, Vector3 pos, float scale, Material rockMat)
-        {
-            GameObject rockGroup = new GameObject("Stylized_Cliff_Rock");
-            rockGroup.transform.SetParent(parent, false);
-            rockGroup.transform.position = pos;
-            rockGroup.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-
-            // Stack 2-3 interlocking faceted boulders
-            CreateRockPiece(rockGroup.transform, "BaseRock", Vector3.zero, new Vector3(1.4f, 1.2f, 1.3f) * scale, Quaternion.Euler(12f, 25f, -8f), rockMat);
-            CreateRockPiece(rockGroup.transform, "UpperRock", new Vector3(0.2f, 0.6f * scale, 0.1f), new Vector3(1.0f, 0.9f, 0.95f) * scale, Quaternion.Euler(-15f, 65f, 10f), rockMat);
-            if (Random.value > 0.4f)
-            {
-                CreateRockPiece(rockGroup.transform, "SideBoulder", new Vector3(-0.5f * scale, 0.2f, 0.3f * scale), new Vector3(0.8f, 0.7f, 0.75f) * scale, Quaternion.Euler(5f, -30f, 15f), rockMat);
-            }
-        }
-
-        private void CreateRockPiece(Transform parent, string name, Vector3 localPos, Vector3 localScale, Quaternion localRot, Material mat)
-        {
-            GameObject piece = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            piece.name = name;
-            piece.transform.SetParent(parent, false);
-            piece.transform.localPosition = localPos;
-            piece.transform.localScale = localScale;
-            piece.transform.localRotation = localRot;
-
-            SafeDestroy(piece.GetComponent<Collider>());
-            if (mat != null) piece.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            return obj;
         }
 
         private void BuildMountainHorizon(Transform parent, Material grassMat)
@@ -476,18 +564,17 @@ namespace MobControl.Level
             GameObject horizonRoot = new GameObject("DistantHorizon_Mountains");
             horizonRoot.transform.SetParent(parent, false);
 
-            // Create smooth layered undulating ridge spanning across the horizon
-            float ridgeZ = endZ + 40f;
-            for (float x = -200f; x <= 200f; x += 40f)
+            float ridgeZ = endZ + 45f;
+            for (float x = -220f; x <= 220f; x += 35f)
             {
                 GameObject peak = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 peak.name = "MountainPeak";
                 peak.transform.SetParent(horizonRoot.transform, false);
 
-                float h = Random.Range(20f, 35f);
-                float radius = Random.Range(35f, 60f);
+                float h = Random.Range(22f, 38f);
+                float radius = Random.Range(40f, 70f);
 
-                peak.transform.position = new Vector3(x + Random.Range(-10f, 10f), h * 0.5f - 6f, ridgeZ + Random.Range(-10f, 15f));
+                peak.transform.position = new Vector3(x + Random.Range(-8f, 8f), h * 0.5f - 8f, ridgeZ + Random.Range(-10f, 15f));
                 peak.transform.localScale = new Vector3(radius, h * 0.5f, radius);
                 peak.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
 
@@ -498,15 +585,15 @@ namespace MobControl.Level
 
         public static void SetupCameraAndAtmosphere()
         {
-            Color skyBlue = new Color(0.35f, 0.62f, 0.92f, 1f); // Vibrant bright cartoon sky blue
+            // Vibrant bright cartoon sky blue matching reference image
+            Color skyBlue = new Color(0.25f, 0.58f, 0.95f, 1f);
 
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
-                // Low, wide perspective looking down the grand highway
-                mainCam.transform.position = new Vector3(0f, 1.75f, -3.5f);
-                mainCam.transform.rotation = Quaternion.Euler(7.5f, 0f, 0f);
-                mainCam.fieldOfView = 65.0f; // Wider FOV makes the road look grand and expansive
+                mainCam.transform.position = new Vector3(0f, 1.8f, -3.6f);
+                mainCam.transform.rotation = Quaternion.Euler(8.0f, 0f, 0f);
+                mainCam.fieldOfView = 62.0f;
                 mainCam.farClipPlane = 450.0f;
                 mainCam.backgroundColor = skyBlue;
                 mainCam.clearFlags = CameraClearFlags.SolidColor;
@@ -516,8 +603,8 @@ namespace MobControl.Level
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = skyBlue;
-            RenderSettings.fogStartDistance = 120.0f;
-            RenderSettings.fogEndDistance = 270.0f;
+            RenderSettings.fogStartDistance = 140.0f;
+            RenderSettings.fogEndDistance = 290.0f;
         }
 
         [ContextMenu("Clear Road")]
