@@ -563,106 +563,35 @@ namespace MobControl.Combat
 
         public void EnsureEquippedWeapon()
         {
-            if (equippedWeaponInstance != null && equippedWeaponInstance.activeInHierarchy)
-            {
-                if (muzzleFirePoint == null)
-                {
-                    Transform mp = equippedWeaponInstance.transform.Find("MuzzleFirePoint");
-                    if (mp != null) muzzleFirePoint = mp;
-                }
-                return;
-            }
-
-            // 1. Look for existing Gun_M41D under this character
-            Transform existingGun = null;
+            // Purge and destroy any Gun_M41D instance under this character
             foreach (var t in GetComponentsInChildren<Transform>(true))
             {
-                if (t.name.Contains("Gun_M41D") || (t.name == "Gun" && t.parent != null && t.parent.name.Contains("Gun")))
+                if (t != null && t.name.Contains("Gun_M41D"))
                 {
-                    existingGun = t;
-                    break;
+                    if (Application.isPlaying) Destroy(t.gameObject);
+                    else DestroyImmediate(t.gameObject);
                 }
             }
 
-            if (existingGun != null)
+            equippedWeaponInstance = null;
+
+            // Setup clean Muzzle Fire Point at forward chest/hand height
+            if (firePoint == null || muzzleFirePoint == null)
             {
-                existingGun.gameObject.SetActive(true);
-
-                // Enable renderers and ensure GunMaterial is applied
-                Renderer[] gunRends = existingGun.GetComponentsInChildren<Renderer>(true);
-                Material gunMat = Resources.Load<Material>("Materials/GunMaterial");
-#if UNITY_EDITOR
-                if (gunMat == null)
-                {
-                    gunMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/GunMaterial.mat");
-                }
-#endif
-                foreach (var r in gunRends)
-                {
-                    r.enabled = true;
-                    if (gunMat != null) r.sharedMaterial = gunMat;
-                }
-
-                // Root transform at zero/identity so the prefab's internal calibrated grip is cleanly held in hand
-                existingGun.localPosition = Vector3.zero;
-                existingGun.localRotation = Quaternion.identity;
-                existingGun.localScale = Vector3.one * weaponScaleMultiplier;
-
-                Transform mp = existingGun.Find("MuzzleFirePoint");
+                Transform rightHand = FindRightHandBone(transform);
+                Transform mp = transform.Find("MuzzleFirePoint");
                 if (mp == null)
                 {
                     GameObject mpObj = new GameObject("MuzzleFirePoint");
-                    mpObj.transform.SetParent(existingGun, false);
-                    mpObj.transform.localPosition = new Vector3(6.7f, 0.1f, 0.05f); // Front tip of barrel
+                    mpObj.transform.SetParent(rightHand != null ? rightHand : transform, false);
+                    mpObj.transform.localPosition = rightHand != null 
+                        ? new Vector3(0.05f, 0.05f, 0.2f) 
+                        : new Vector3(0.18f, 0.95f, 0.70f);
                     mpObj.transform.localRotation = Quaternion.identity;
                     mp = mpObj.transform;
                 }
-
                 muzzleFirePoint = mp;
                 firePoint = mp;
-                equippedWeaponInstance = existingGun.gameObject;
-                return;
-            }
-
-            // 2. Fallback: Instantiate Gun_M41D or build stylized assault rifle
-            Transform rightHand = FindRightHandBone(transform);
-            Transform mount = rightHand != null ? rightHand : transform;
-
-            GameObject gunPrefab = Resources.Load<GameObject>("Prefabs/Gun_M41D");
-#if UNITY_EDITOR
-            if (gunPrefab == null)
-            {
-                gunPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Gun_M41D.prefab");
-            }
-#endif
-            if (gunPrefab != null && mount != null)
-            {
-                GameObject newGun = Instantiate(gunPrefab, mount);
-                newGun.name = "Gun_M41D";
-                newGun.SetActive(true);
-
-                newGun.transform.localPosition = Vector3.zero;
-                newGun.transform.localRotation = Quaternion.identity;
-                newGun.transform.localScale = Vector3.one * weaponScaleMultiplier;
-
-                Transform mp = newGun.transform.Find("MuzzleFirePoint");
-                if (mp == null)
-                {
-                    GameObject mpObj = new GameObject("MuzzleFirePoint");
-                    mpObj.transform.SetParent(newGun.transform, false);
-                    mpObj.transform.localPosition = new Vector3(6.7f, 0.1f, 0.05f);
-                    mp = mpObj.transform;
-                }
-                muzzleFirePoint = mp;
-                firePoint = mp;
-                equippedWeaponInstance = newGun;
-                return;
-            }
-
-            equippedWeaponInstance = BuildStylizedAssaultRifle(mount, out muzzleFirePoint, rightHand != null);
-            if (firePoint == null && muzzleFirePoint != null)
-            {
-                firePoint = muzzleFirePoint;
             }
         }
 

@@ -42,14 +42,19 @@ namespace MobControl.EditorTools
             {
                 GenerateRoad();
             }
+            else
+            {
+                RemoveGunM41DFromScene();
+            }
         }
 
         [MenuItem("Zombie Squad/Replace Old Road With New Stylized Road")]
         [MenuItem("Zombie Squad/Generate Level 1 Road & Forest")]
         public static void GenerateRoad()
         {
-            // 1. Purge & deactivate all legacy road objects
+            // 1. Purge & deactivate all legacy road objects and Gun_M41D
             NewRoadBuilder.DeactivateOldRoad();
+            RemoveGunM41DFromScene();
 
             // 2. Build or recreate the complete Level 1 new road with trees, guardrails, banners
             GameObject builderObj = GameObject.Find("NewRoadBuilder_Manager");
@@ -93,6 +98,34 @@ namespace MobControl.EditorTools
             EditorSceneManager.MarkSceneDirty(activeScene);
             EditorSceneManager.SaveScene(activeScene);
             Debug.Log("[Zombie Squad] All legacy roads deactivated and scene saved.");
+        }
+
+        [MenuItem("Zombie Squad/Remove Gun_M41D From Scene")]
+        public static void RemoveGunM41DMenu()
+        {
+            RemoveGunM41DFromScene();
+            var activeScene = EditorSceneManager.GetActiveScene();
+            EditorSceneManager.MarkSceneDirty(activeScene);
+            EditorSceneManager.SaveScene(activeScene);
+            Debug.Log("[Zombie Squad] Gun_M41D completely removed from scene.");
+        }
+
+        public static void RemoveGunM41DFromScene()
+        {
+            GameObject[] all = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            int count = 0;
+            foreach (var go in all)
+            {
+                if (go != null && go.name.Contains("Gun_M41D"))
+                {
+                    Undo.DestroyObjectImmediate(go);
+                    count++;
+                }
+            }
+            if (count > 0)
+            {
+                Debug.Log($"[Zombie Squad] Removed {count} Gun_M41D object(s).");
+            }
         }
     }
 }

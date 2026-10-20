@@ -50,35 +50,31 @@ namespace MobControl.Combat
                 col.isTrigger = true;
             }
 
-            // Equip authentic weapon on ally
-            Transform rightHand = PlayerRunnerController.FindRightHandBone(transform);
-            Transform mount = rightHand != null ? rightHand : transform;
-
-            Transform existingGun = null;
+            // Purge and destroy any Gun_M41D on cloned ally
             foreach (var t in GetComponentsInChildren<Transform>(true))
             {
-                if (t.name.Contains("Gun_M41D") || (t.name == "Gun" && t.parent != null && t.parent.name.Contains("Gun")))
+                if (t != null && t.name.Contains("Gun_M41D"))
                 {
-                    existingGun = t;
-                    break;
+                    if (Application.isPlaying) Destroy(t.gameObject);
+                    else DestroyImmediate(t.gameObject);
                 }
             }
 
-            if (existingGun != null)
+            equippedWeaponInstance = null;
+
+            // Setup clean fire point for ally
+            Transform rightHand = PlayerRunnerController.FindRightHandBone(transform);
+            Transform mp = transform.Find("MuzzleFirePoint");
+            if (mp == null)
             {
-                existingGun.gameObject.SetActive(true);
-                // Reset root transform to identity so the prefab's internal calibrated grip is cleanly held in hand
-                existingGun.localPosition = Vector3.zero;
-                existingGun.localRotation = Quaternion.identity;
-                float scaleMult = leader != null ? leader.WeaponScaleMultiplier : 1.0f;
-                existingGun.localScale = Vector3.one * scaleMult;
-                equippedWeaponInstance = existingGun.gameObject;
-                muzzleFirePoint = existingGun.Find("MuzzleFirePoint");
+                GameObject mpObj = new GameObject("MuzzleFirePoint");
+                mpObj.transform.SetParent(rightHand != null ? rightHand : transform, false);
+                mpObj.transform.localPosition = rightHand != null 
+                    ? new Vector3(0.05f, 0.05f, 0.2f) 
+                    : new Vector3(0.18f, 0.95f, 0.70f);
+                mp = mpObj.transform;
             }
-            else
-            {
-                equippedWeaponInstance = PlayerRunnerController.BuildStylizedAssaultRifle(mount, out muzzleFirePoint, rightHand != null);
-            }
+            muzzleFirePoint = mp;
 
             if (animator != null)
             {

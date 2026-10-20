@@ -71222,6 +71222,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Gun_M41D
       objectReference: {fileID: 0}
+    - target: {fileID: 747961778300531210, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
