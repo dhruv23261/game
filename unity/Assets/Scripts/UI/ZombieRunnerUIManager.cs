@@ -1945,12 +1945,8 @@ namespace MobControl.UI
 
             if (levelNumber <= unlockedLevel)
             {
-                // Playable!
-                Debug.Log($"[ZombieSquad] Launching Level {levelNumber}!");
-                StartCoroutine(PunchScale(nodeTransform, 0.12f, () =>
-                {
-                    StartMission(levelNumber);
-                }));
+                Debug.Log($"[ZombieSquad] Level {levelNumber} clicked! Level gameplay is currently removed/under redesign.");
+                StartCoroutine(PunchScale(nodeTransform, 0.15f, null));
             }
             else
             {
@@ -3722,44 +3718,8 @@ namespace MobControl.UI
         public void StartMission(int levelNumber)
         {
             activeLevel = levelNumber;
-            currentState = ScreenState.Gameplay;
-            isGameActive = true;
-            isFinishedHandled = false;
-
-            if (levelFinishZ <= 10f) levelFinishZ = 120.0f;
-
-            EnsureUIBuilt();
-            SwitchToPanel(gameplayHudPanel);
-
-            Cleanup3DHomeScreenCharacterRig();
-
-            if (hudLevelText != null)
-            {
-                hudLevelText.text = $"MISSION {levelNumber}: OUTBREAK STREET";
-            }
-
-            if (hudProgressBarFillRt != null)
-            {
-                hudProgressBarFillRt.sizeDelta = new Vector2(0f, 0f);
-            }
-
-            if (starRigRoot != null)
-            {
-                starRigRoot.SetActive(false);
-            }
-
-            if (playerRunner != null)
-            {
-                playerRunner.ResetForNewRun(0f);
-                playerRunner.ApplyEquippedHeroStats();
-                playerRunner.EnsureEquippedWeapon();
-            }
-
-            // Ensure Level 1 asphalt road, side guardrails, and pine tree forest corridor are active
-            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
-
-            // Unlock player to start running and shooting!
-            LockPlayer(false);
+            // 3D level objects removed as requested; stay on Level Map screen
+            ShowZombieSquadLevelMap();
         }
 
         private void UpdateGameplayHud()
