@@ -6,140 +6,42 @@ using MobControl.Level;
 
 namespace MobControl.EditorTools
 {
-    [InitializeOnLoad]
     public static class RoadGeneratorMenuItem
     {
-        static RoadGeneratorMenuItem()
+        [MenuItem("Zombie Squad/Clean Level 1 Scene (Remove All Clutter)")]
+        public static void CleanLevel1Scene()
         {
-            EditorApplication.delayCall += AutoFixRoadOnCompile;
-        }
-
-        private static void AutoFixRoadOnCompile()
-        {
-            if (Application.isPlaying) return;
-
-            // Check if active scene has active old roads or is missing new road
-            bool hasActiveOldRoad = false;
-            GameObject[] allObjs = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            foreach (var go in allObjs)
-            {
-                if (go == null) continue;
-                if (go.name.StartsWith("NewRoad") || go.transform.root.name.StartsWith("NewRoad")) continue;
-
-                string lower = go.name.ToLower().Trim();
-                if (lower == "road" || lower.StartsWith("road ") || lower.StartsWith("road(") || lower.StartsWith("road_") || lower.Contains("road.obj"))
-                {
-                    if (go.activeSelf)
-                    {
-                        hasActiveOldRoad = true;
-                        break;
-                    }
-                }
-            }
-
-            GameObject newRoadRoot = GameObject.Find("NewRoad_Level1_Root");
-            bool needsRegen = hasActiveOldRoad || newRoadRoot == null;
-            if (!needsRegen && newRoadRoot != null)
-            {
-                if (newRoadRoot.transform.Find("NewRoad_GroundLandscape") == null)
-                {
-                    needsRegen = true;
-                }
-            }
-
-            if (needsRegen)
-            {
-                GenerateRoad();
-            }
-            else
-            {
-                RemoveGunM41DFromScene();
-                SetupAtmosphereAndCamera();
-            }
-        }
-
-        [MenuItem("Zombie Squad/Replace Old Road With New Stylized Road")]
-        [MenuItem("Zombie Squad/Generate Level 1 Road & Forest")]
-        public static void GenerateRoad()
-        {
-            // 1. Purge & deactivate all legacy road objects and Gun_M41D
-            NewRoadBuilder.DeactivateOldRoad();
-            RemoveGunM41DFromScene();
-
-            // 2. Setup Camera and Fog Atmosphere
-            SetupAtmosphereAndCamera();
-
-            // 3. Build or recreate the complete Level 1 new road with vast landscape, trees, guardrails, banners
-            GameObject builderObj = GameObject.Find("NewRoadBuilder_Manager");
-            if (builderObj == null)
-            {
-                builderObj = new GameObject("NewRoadBuilder_Manager");
-                Undo.RegisterCreatedObjectUndo(builderObj, "Create New Road Builder");
-            }
-            NewRoadBuilder builder = builderObj.GetComponent<NewRoadBuilder>() ?? builderObj.AddComponent<NewRoadBuilder>();
-            builder.BuildRoad();
-
-            GameObject newRoadRoot = GameObject.Find("NewRoad_Level1_Root");
-            if (newRoadRoot != null)
-            {
-                EditorUtility.SetDirty(newRoadRoot);
-            }
-
-            var activeScene = EditorSceneManager.GetActiveScene();
-            EditorSceneManager.MarkSceneDirty(activeScene);
-            EditorSceneManager.SaveScene(activeScene);
-
-            Debug.Log("[Zombie Squad] Level 1 New Stylized Road generated in Scene, old roads deactivated and scene saved!");
-        }
-
-        private static void SetupAtmosphereAndCamera()
-        {
-            Color skyBlue = new Color(0.42f, 0.65f, 0.88f, 1f);
-            Camera mainCam = Camera.main;
-            if (mainCam != null)
-            {
-                mainCam.farClipPlane = 600.0f;
-                mainCam.backgroundColor = skyBlue;
-                mainCam.clearFlags = CameraClearFlags.SolidColor;
-                EditorUtility.SetDirty(mainCam);
-            }
-
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = skyBlue;
-            RenderSettings.fogStartDistance = 250f;
-            RenderSettings.fogEndDistance = 550f;
-        }
-
-        [MenuItem("Zombie Squad/Clear New Road")]
-        public static void ClearRoad()
-        {
+            // 1. Remove procedural road root if any
             GameObject root = GameObject.Find("NewRoad_Level1_Root");
             if (root != null)
             {
                 Undo.DestroyObjectImmediate(root);
-                Debug.Log("[Zombie Squad] Cleared New Road.");
             }
-        }
 
-        [MenuItem("Zombie Squad/Deactivate All Old Roads")]
-        public static void DeactivateOldRoadsMenu()
-        {
-            NewRoadBuilder.DeactivateOldRoad();
-            var activeScene = EditorSceneManager.GetActiveScene();
-            EditorSceneManager.MarkSceneDirty(activeScene);
-            EditorSceneManager.SaveScene(activeScene);
-            Debug.Log("[Zombie Squad] All legacy roads deactivated and scene saved.");
-        }
+            GameObject mgr = GameObject.Find("NewRoadBuilder_Manager");
+            if (mgr != null)
+            {
+                Undo.DestroyObjectImmediate(mgr);
+            }
 
-        [MenuItem("Zombie Squad/Remove Gun_M41D From Scene")]
-        public static void RemoveGunM41DMenu()
-        {
+            // 2. Remove any Gun_M41D objects
             RemoveGunM41DFromScene();
+
+            // 3. Setup clean Camera
+            Camera mainCam = Camera.main;
+            if (mainCam != null)
+            {
+                mainCam.farClipPlane = 300.0f;
+                mainCam.backgroundColor = new Color(0.42f, 0.65f, 0.88f, 1f);
+                mainCam.clearFlags = CameraClearFlags.SolidColor;
+                EditorUtility.SetDirty(mainCam);
+            }
+
             var activeScene = EditorSceneManager.GetActiveScene();
             EditorSceneManager.MarkSceneDirty(activeScene);
             EditorSceneManager.SaveScene(activeScene);
-            Debug.Log("[Zombie Squad] Gun_M41D completely removed from scene.");
+
+            Debug.Log("[Zombie Squad] Level 1 cleaned successfully! All procedural clutter removed and scene saved.");
         }
 
         public static void RemoveGunM41DFromScene()
