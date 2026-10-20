@@ -601,9 +601,13 @@ namespace MobControl.Combat
                     if (gunMat != null) r.sharedMaterial = gunMat;
                 }
 
-                float parentScale = (existingGun.parent != null && existingGun.parent.lossyScale.x > 0.001f) ? existingGun.parent.lossyScale.x : 100f;
-                float gunScale = parentScale > 10f ? 0.008f : 0.8f;
-                Vector3 gunPos = parentScale > 10f ? new Vector3(-0.003f, 0.003f, 0.0015f) : new Vector3(-0.03f, 0.03f, 0.015f);
+                float rootScale = (existingGun.transform.root != null && existingGun.transform.root.lossyScale.x > 0.001f) 
+                    ? existingGun.transform.root.lossyScale.x 
+                    : 100f;
+                float gunScale = (rootScale > 10f) ? 0.0004f : 0.04f;
+                Vector3 gunPos = (rootScale > 10f) 
+                    ? new Vector3(-0.00127f, 0.00099f, 0.00052f) 
+                    : new Vector3(-0.0127f, 0.0099f, 0.0052f);
 
                 existingGun.localScale = new Vector3(gunScale, gunScale, gunScale);
                 existingGun.localPosition = gunPos;
@@ -642,9 +646,13 @@ namespace MobControl.Combat
                 newGun.name = "Gun_M41D";
                 newGun.SetActive(true);
 
-                float parentScale = (mount.lossyScale.x > 0.001f) ? mount.lossyScale.x : 100f;
-                float gunScale = parentScale > 10f ? 0.008f : 0.8f;
-                Vector3 gunPos = parentScale > 10f ? new Vector3(-0.003f, 0.003f, 0.0015f) : new Vector3(-0.03f, 0.03f, 0.015f);
+                float rootScale = (mount.transform.root != null && mount.transform.root.lossyScale.x > 0.001f) 
+                    ? mount.transform.root.lossyScale.x 
+                    : 100f;
+                float gunScale = (rootScale > 10f) ? 0.0004f : 0.04f;
+                Vector3 gunPos = (rootScale > 10f) 
+                    ? new Vector3(-0.00127f, 0.00099f, 0.00052f) 
+                    : new Vector3(-0.0127f, 0.0099f, 0.0052f);
 
                 newGun.transform.localScale = new Vector3(gunScale, gunScale, gunScale);
                 newGun.transform.localPosition = gunPos;
