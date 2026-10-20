@@ -1945,8 +1945,11 @@ namespace MobControl.UI
 
             if (levelNumber <= unlockedLevel)
             {
-                Debug.Log($"[ZombieSquad] Level {levelNumber} clicked! Level gameplay is currently removed/under redesign.");
-                StartCoroutine(PunchScale(nodeTransform, 0.15f, null));
+                Debug.Log($"[ZombieSquad] Level {levelNumber} clicked! Launching Level {levelNumber}...");
+                StartCoroutine(PunchScale(nodeTransform, 0.15f, () =>
+                {
+                    StartMission(levelNumber);
+                }));
             }
             else
             {
@@ -3077,64 +3080,111 @@ namespace MobControl.UI
             gameplayHudPanel = CreateFullPanel("GameplayHud", canvasRoot, Color.clear);
             gameplayHudPanel.GetComponent<Image>().raycastTarget = false;
 
-            // Top HUD Bar (Sleek dark translucent pill)
-            GameObject hudBar = new GameObject("HudBar");
-            hudBar.transform.SetParent(gameplayHudPanel.transform, false);
-            RectTransform hRt = hudBar.AddComponent<RectTransform>();
-            hRt.anchorMin = new Vector2(0.5f, 1f);
-            hRt.anchorMax = new Vector2(0.5f, 1f);
-            hRt.pivot = new Vector2(0.5f, 1f);
-            hRt.sizeDelta = new Vector2(560, 68);
-            hRt.anchoredPosition = new Vector2(0, -18);
-            Image hImg = hudBar.AddComponent<Image>();
-            hImg.color = new Color(0.08f, 0.11f, 0.17f, 0.88f);
-            hImg.raycastTarget = false;
+            // Top Header Bar (Matches reference screenshot exactly)
+            GameObject headerBar = new GameObject("TopHeaderBar");
+            headerBar.transform.SetParent(gameplayHudPanel.transform, false);
+            RectTransform hbRt = headerBar.AddComponent<RectTransform>();
+            hbRt.anchorMin = new Vector2(0f, 1f);
+            hbRt.anchorMax = new Vector2(1f, 1f);
+            hbRt.pivot = new Vector2(0.5f, 1f);
+            hbRt.sizeDelta = new Vector2(0f, 130f);
+            hbRt.anchoredPosition = new Vector2(0f, 0f);
 
-            hudLevelText = CreateText("LevelName", hudBar.transform, "MISSION 1: OUTBREAK STREET", 22, Color.white, TextAlignmentOptions.Center, true);
-            RectTransform lRt = hudLevelText.GetComponent<RectTransform>();
-            lRt.anchoredPosition = new Vector2(0, 10);
+            // 1. Back Button [←] (Top Left rounded blue button with cyan border)
+            GameObject backBtnObj = new GameObject("BackBtn");
+            backBtnObj.transform.SetParent(headerBar.transform, false);
+            RectTransform bRt = backBtnObj.AddComponent<RectTransform>();
+            bRt.anchorMin = new Vector2(0f, 1f);
+            bRt.anchorMax = new Vector2(0f, 1f);
+            bRt.pivot = new Vector2(0.5f, 0.5f);
+            bRt.sizeDelta = new Vector2(76f, 72f);
+            bRt.anchoredPosition = new Vector2(65f, -65f);
+            Image bImg = backBtnObj.AddComponent<Image>();
+            bImg.color = new Color(0.10f, 0.44f, 0.92f, 1f);
+            bImg.raycastTarget = true;
+            Button bBtn = backBtnObj.AddComponent<Button>();
+            bBtn.targetGraphic = bImg;
+            bBtn.onClick.AddListener(() =>
+            {
+                ShowZombieSquadLevelMap();
+            });
 
-            // Progress Bar Track (Slim elegant track)
-            GameObject pbBg = new GameObject("ProgressTrack");
-            pbBg.transform.SetParent(hudBar.transform, false);
-            RectTransform pbRt = pbBg.AddComponent<RectTransform>();
-            hudProgressTrackWidth = 460f;
-            pbRt.sizeDelta = new Vector2(hudProgressTrackWidth, 8);
-            pbRt.anchoredPosition = new Vector2(0, -16);
-            Image pbImg = pbBg.AddComponent<Image>();
-            pbImg.color = new Color(0.18f, 0.22f, 0.32f, 0.9f);
-            pbImg.raycastTarget = false;
+            TextMeshProUGUI bTxt = CreateText("Arrow", backBtnObj.transform, "←", 38, Color.white, TextAlignmentOptions.Center, true);
+            bTxt.rectTransform.anchoredPosition = new Vector2(0, 2);
 
-            // Progress Bar Fill (Starts at 0 width, expands cleanly with player progress)
-            GameObject pbFill = new GameObject("ProgressFill");
-            pbFill.transform.SetParent(pbBg.transform, false);
-            hudProgressBarFillRt = pbFill.AddComponent<RectTransform>();
-            hudProgressBarFillRt.anchorMin = new Vector2(0f, 0f);
-            hudProgressBarFillRt.anchorMax = new Vector2(0f, 1f);
-            hudProgressBarFillRt.pivot = new Vector2(0f, 0.5f);
-            hudProgressBarFillRt.offsetMin = Vector2.zero;
-            hudProgressBarFillRt.offsetMax = Vector2.zero;
-            hudProgressBarFillRt.sizeDelta = new Vector2(0f, 0f); // Starts completely empty (0 width)!
-            hudProgressBarFill = pbFill.AddComponent<Image>();
-            hudProgressBarFill.color = new Color(0.2f, 0.9f, 0.45f, 1f);
-            hudProgressBarFill.raycastTarget = false;
+            // 2. LEVEL 1 Pill Badge (Royal Blue with metallic tone)
+            GameObject levelPill = new GameObject("LevelPill");
+            levelPill.transform.SetParent(headerBar.transform, false);
+            RectTransform lpRt = levelPill.AddComponent<RectTransform>();
+            lpRt.anchorMin = new Vector2(0f, 1f);
+            lpRt.anchorMax = new Vector2(0f, 1f);
+            lpRt.pivot = new Vector2(0f, 0.5f);
+            lpRt.sizeDelta = new Vector2(215f, 66f);
+            lpRt.anchoredPosition = new Vector2(115f, -65f);
+            Image lpImg = levelPill.AddComponent<Image>();
+            lpImg.color = new Color(0.06f, 0.35f, 0.82f, 1f);
+            lpImg.raycastTarget = false;
 
-            // Health Badge (Top-Left sleek dark pill badge)
-            GameObject hpBadge = new GameObject("HpBadge");
-            hpBadge.transform.SetParent(gameplayHudPanel.transform, false);
-            RectTransform hpRt = hpBadge.AddComponent<RectTransform>();
-            hpRt.anchorMin = new Vector2(0f, 1f);
-            hpRt.anchorMax = new Vector2(0f, 1f);
-            hpRt.pivot = new Vector2(0f, 1f);
-            hpRt.sizeDelta = new Vector2(170, 48);
-            hpRt.anchoredPosition = new Vector2(25, -20);
-            Image hpImg = hpBadge.AddComponent<Image>();
-            hpImg.color = new Color(0.08f, 0.11f, 0.17f, 0.85f);
-            hpImg.raycastTarget = false;
+            hudLevelText = CreateText("LevelText", levelPill.transform, "LEVEL 1", 28, Color.white, TextAlignmentOptions.Center, true);
+            hudLevelText.rectTransform.anchoredPosition = Vector2.zero;
 
-            hudHealthText = CreateText("HealthText", hpBadge.transform, "HP: 3 / 3", 20, new Color(1f, 0.35f, 0.35f, 1f), TextAlignmentOptions.Center, true);
-            RectTransform htRt = hudHealthText.GetComponent<RectTransform>();
-            htRt.anchoredPosition = Vector2.zero;
+            // 3. Coin Counter Pill [🪙 12,340 +]
+            GameObject coinPill = new GameObject("CoinPill");
+            coinPill.transform.SetParent(headerBar.transform, false);
+            RectTransform cpRt = coinPill.AddComponent<RectTransform>();
+            cpRt.anchorMin = new Vector2(1f, 1f);
+            cpRt.anchorMax = new Vector2(1f, 1f);
+            cpRt.pivot = new Vector2(1f, 0.5f);
+            cpRt.sizeDelta = new Vector2(195f, 56f);
+            cpRt.anchoredPosition = new Vector2(-190f, -65f);
+            Image cpImg = coinPill.AddComponent<Image>();
+            cpImg.color = new Color(0.04f, 0.18f, 0.44f, 0.95f);
+            cpImg.raycastTarget = false;
+
+            TextMeshProUGUI cpTxt = CreateText("Coins", coinPill.transform, "🪙 12,340", 20, new Color(1f, 0.92f, 0.4f, 1f), TextAlignmentOptions.MidlineLeft, true);
+            cpTxt.rectTransform.anchoredPosition = new Vector2(16, 0);
+
+            GameObject coinPlus = new GameObject("PlusBtn");
+            coinPlus.transform.SetParent(coinPill.transform, false);
+            RectTransform cPlusRt = coinPlus.AddComponent<RectTransform>();
+            cPlusRt.anchorMin = new Vector2(1f, 0.5f);
+            cPlusRt.anchorMax = new Vector2(1f, 0.5f);
+            cPlusRt.pivot = new Vector2(1f, 0.5f);
+            cPlusRt.sizeDelta = new Vector2(44f, 44f);
+            cPlusRt.anchoredPosition = new Vector2(-6f, 0f);
+            Image cPlusImg = coinPlus.AddComponent<Image>();
+            cPlusImg.color = new Color(0.18f, 0.78f, 0.28f, 1f);
+            TextMeshProUGUI cPlusTxt = CreateText("PlusTxt", coinPlus.transform, "+", 26, Color.white, TextAlignmentOptions.Center, true);
+            cPlusTxt.rectTransform.anchoredPosition = Vector2.zero;
+
+            // 4. Gem Counter Pill [💎 520 +]
+            GameObject gemPill = new GameObject("GemPill");
+            gemPill.transform.SetParent(headerBar.transform, false);
+            RectTransform gpRt = gemPill.AddComponent<RectTransform>();
+            gpRt.anchorMin = new Vector2(1f, 1f);
+            gpRt.anchorMax = new Vector2(1f, 1f);
+            gpRt.pivot = new Vector2(1f, 0.5f);
+            gpRt.sizeDelta = new Vector2(165f, 56f);
+            gpRt.anchoredPosition = new Vector2(-15f, -65f);
+            Image gpImg = gemPill.AddComponent<Image>();
+            gpImg.color = new Color(0.04f, 0.18f, 0.44f, 0.95f);
+            gpImg.raycastTarget = false;
+
+            TextMeshProUGUI gpTxt = CreateText("Gems", gemPill.transform, "💎 520", 20, new Color(0.4f, 0.85f, 1f, 1f), TextAlignmentOptions.MidlineLeft, true);
+            gpTxt.rectTransform.anchoredPosition = new Vector2(16, 0);
+
+            GameObject gemPlus = new GameObject("PlusBtn");
+            gemPlus.transform.SetParent(gemPill.transform, false);
+            RectTransform gPlusRt = gemPlus.AddComponent<RectTransform>();
+            gPlusRt.anchorMin = new Vector2(1f, 0.5f);
+            gPlusRt.anchorMax = new Vector2(1f, 0.5f);
+            gPlusRt.pivot = new Vector2(1f, 0.5f);
+            gPlusRt.sizeDelta = new Vector2(44f, 44f);
+            gPlusRt.anchoredPosition = new Vector2(-6f, 0f);
+            Image gPlusImg = gemPlus.AddComponent<Image>();
+            gPlusImg.color = new Color(0.18f, 0.78f, 0.28f, 1f);
+            TextMeshProUGUI gPlusTxt = CreateText("PlusTxt", gemPlus.transform, "+", 26, Color.white, TextAlignmentOptions.Center, true);
+            gPlusTxt.rectTransform.anchoredPosition = Vector2.zero;
         }
 
         private void BuildVictoryPanel(Transform canvasRoot)
@@ -3718,8 +3768,26 @@ namespace MobControl.UI
         public void StartMission(int levelNumber)
         {
             activeLevel = levelNumber;
-            // 3D level objects removed as requested; stay on Level Map screen
-            ShowZombieSquadLevelMap();
+            isFinishedHandled = false;
+            isGameActive = true;
+            currentState = ScreenState.Gameplay;
+
+            // 1. Ensure Reference Level 1 Road & Environment is built
+            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
+
+            // 2. Setup Camera and Atmosphere for Level 1 Road
+            MobControl.Level.NewRoadBuilder.SetupCameraAndAtmosphere();
+
+            // 3. Update HUD level title
+            if (hudLevelText != null)
+            {
+                hudLevelText.text = $"LEVEL {levelNumber}";
+            }
+
+            // 4. Switch to Gameplay HUD
+            SwitchToPanel(gameplayHudPanel);
+
+            Debug.Log($"[ZombieSquad] Level {levelNumber} started! Displaying Level 1 Reference Road.");
         }
 
         private void UpdateGameplayHud()
