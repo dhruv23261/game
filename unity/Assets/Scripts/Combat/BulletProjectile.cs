@@ -10,10 +10,10 @@ namespace MobControl.Combat
     public class BulletProjectile : MonoBehaviour
     {
         [Header("Bullet Settings")]
-        [SerializeField] private float speed = 42.0f;
-        [SerializeField] private int damage = 1;
-        [SerializeField] private float maxDistance = 52.0f;
-        [SerializeField] private float lifeTime = 1.8f;
+        [SerializeField] private float speed = 75.0f;
+        [SerializeField] private int damage = 3;
+        [SerializeField] private float maxDistance = 75.0f;
+        [SerializeField] private float lifeTime = 2.0f;
         [Header("Bullet Visuals")]
         [SerializeField] private bool overrideVisualScale = false;
         [SerializeField] private Vector3 bulletVisualScale = new Vector3(0.14f, 0.38f, 0.14f);
@@ -33,10 +33,21 @@ namespace MobControl.Combat
             passedGateIds.Clear();
             isAlive = true;
 
-            // Standardized reach & speed: guaranteed to reach any visible gate or enemy
-            if (maxDistance < 50.0f) maxDistance = 52.0f;
-            if (speed < 40.0f) speed = 42.0f;
-            if (lifeTime < 1.6f) lifeTime = 1.8f;
+            int bonusDamage = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Damage", 0);
+            damage = 6 + bonusDamage;
+
+            string weapon = PlayerPrefs.GetString("ZombieSquad_SelectedWeapon", "AssaultRifle");
+            int wepDmg = PlayerPrefs.GetInt($"ZombieSquad_Wep_{weapon}_Damage", 0);
+            damage += wepDmg;
+            if (weapon == "Sniper") damage += 4;
+            else if (weapon == "Shotgun") damage += 3;
+
+            // Standardized reach & speed: guaranteed to reach any visible gate or enemy rapidly
+            float rangeBonus = PlayerPrefs.GetInt($"ZombieSquad_Wep_{weapon}_Range", 0) * 4.0f;
+            if (maxDistance < 70.0f) maxDistance = 75.0f;
+            maxDistance += rangeBonus;
+            speed = 75.0f;
+            if (lifeTime < 1.8f) lifeTime = 2.0f;
 
             if (overrideVisualScale)
             {
@@ -59,9 +70,9 @@ namespace MobControl.Combat
             Vector3 currentPos = transform.position;
             Vector3 moveDir = Vector3.forward;
 
-            // Continuous SphereCast sweep check with generous 0.28m radius
-            // Ensures reliable hit registration along bullet's lane without phantom collisions across lanes
-            int hitCount = Physics.SphereCastNonAlloc(currentPos, 0.28f, moveDir, s_sweepHits, stepDistance, ~0, QueryTriggerInteraction.Collide);
+            // Generous 0.65m radius sweep check (1.3m diameter)
+            // Reliably hits any upcoming zombies directly in the runner's lane
+            int hitCount = Physics.SphereCastNonAlloc(currentPos, 0.65f, moveDir, s_sweepHits, stepDistance, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < hitCount; i++)
             {
                 RaycastHit hit = s_sweepHits[i];

@@ -1,0 +1,30 @@
+fileFormatVersion: 2
+guid: d1a2b3c4e5f6789012345678abcdef02
+ModelImporter:
+  serializedVersion: 24600
+  internalIDToNameTable: []
+  externalObjects: {}
+  materials:
+    materialImportMode: 2
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+    searchTexturesGlobally: 0
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
+    importAnimation: 1
+    clipAnimations:
+    - serializedVersion: 16
+      name: mixamo.com
+      takeName: mixamo.com
+      firstFrame: 0
+      lastFrame: 100
+      wrapMode: 0
+      loopTime: 1
+      loop: 1
+  animationType: 2
+  useFileScale: 1

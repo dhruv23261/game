@@ -27,13 +27,21 @@ namespace MobControl.UI
         {
             SplashScreen,
             LevelSelect,
+            HomeScreen,
+            LevelMap,
+            Characters,
+            Upgrade,
+            Weapons,
+            Shop,
+            Missions,
+            Daily,
             Gameplay,
             Victory,
             Defeat
         }
 
         [Header("State")]
-        [SerializeField] private ScreenState currentState = ScreenState.SplashScreen;
+        [SerializeField] private ScreenState currentState = ScreenState.HomeScreen;
 
         [Header("Level Track Settings")]
         [SerializeField] private float levelFinishZ = 120.0f; // End of the zombie street
@@ -44,12 +52,116 @@ namespace MobControl.UI
         [SerializeField] private float splashDurationSeconds = 2.8f;
 
         // UI Canvas and Panels
-        private Canvas mainCanvas;
-        private GameObject splashPanel;
-        private GameObject levelSelectPanel;
-        private GameObject gameplayHudPanel;
-        private GameObject victoryPanel;
-        private GameObject defeatPanel;
+        [SerializeField] private Canvas mainCanvas;
+        [SerializeField] private GameObject homeScreenPanel;
+        [SerializeField] private RectTransform homeScreenPlayBtnRect;
+        [SerializeField] private RectTransform homeScreenCharactersBtnRect;
+        [SerializeField] private RectTransform homeScreenUpgradeBtnRect;
+        [SerializeField] private RectTransform homeScreenWeaponsBtnRect;
+        [SerializeField] private RectTransform homeScreenShopBtnRect;
+        [SerializeField] private RectTransform homeScreenMissionsBtnRect;
+        [SerializeField] private RectTransform homeScreenDailyBtnRect;
+        [SerializeField] private GameObject levelMapPanel;
+        [SerializeField] private RectTransform levelMapBackBtnRect;
+        [SerializeField] private GameObject charactersPanel;
+        [SerializeField] private RectTransform charactersBackBtnRect;
+        [SerializeField] private GameObject upgradePanel;
+        [SerializeField] private RectTransform upgradeBackBtnRect;
+        [SerializeField] private GameObject weaponsPanel;
+        [SerializeField] private RectTransform weaponsBackBtnRect;
+        [SerializeField] private Image weaponsScreenBgImage;
+        [SerializeField] private GameObject shopPanel;
+        [SerializeField] private RectTransform shopBackBtnRect;
+        [SerializeField] private Image shopScreenBgImage;
+        [SerializeField] private GameObject missionsPanel;
+        [SerializeField] private RectTransform missionsBackBtnRect;
+        [SerializeField] private Image missionsScreenBgImage;
+        [SerializeField] private GameObject dailyPanel;
+        [SerializeField] private RectTransform dailyBackBtnRect;
+        [SerializeField] private Image dailyScreenBgImage;
+        [SerializeField] private GameObject splashPanel;
+        [SerializeField] private GameObject levelSelectPanel;
+        [SerializeField] private GameObject gameplayHudPanel;
+        [SerializeField] private GameObject victoryPanel;
+        [SerializeField] private GameObject defeatPanel;
+
+        private class HeroData
+        {
+            public string key;
+            public string name;
+            public string role;
+            public string desc;
+            public float damage;
+            public float health;
+            public float fireRate;
+            public float speed;
+            public int damageVal;
+            public int healthVal;
+            public int fireRateVal;
+            public int speedVal;
+            public Color accentColor;
+        }
+
+        private readonly Dictionary<string, HeroData> heroes = new Dictionary<string, HeroData>
+        {
+            { "Soldier", new HeroData { key = "Soldier", name = "SOLDIER", role = "Assault Specialist", desc = "Versatile combat trooper with high resilience and steady assault rifle firepower.", damage = 0.65f, health = 0.70f, fireRate = 0.60f, speed = 0.65f, damageVal = 25, healthVal = 100, fireRateVal = 60, speedVal = 65, accentColor = new Color(0.2f, 0.75f, 1f, 1f) } },
+            { "Ranger", new HeroData { key = "Ranger", name = "RANGER", role = "Rapid Scout", desc = "High-mobility vanguard equipped with rapid dual SMGs and sprint bonuses.", damage = 0.50f, health = 0.55f, fireRate = 0.90f, speed = 0.85f, damageVal = 18, healthVal = 85, fireRateVal = 90, speedVal = 85, accentColor = new Color(0.95f, 0.30f, 0.30f, 1f) } },
+            { "Heavy", new HeroData { key = "Heavy", name = "HEAVY", role = "Tank Juggernaut", desc = "Armor-plated frontliner armed with heavy explosive rounds and high survivability.", damage = 0.85f, health = 0.95f, fireRate = 0.40f, speed = 0.45f, damageVal = 45, healthVal = 160, fireRateVal = 40, speedVal = 45, accentColor = new Color(0.95f, 0.75f, 0.15f, 1f) } },
+            { "Sniper", new HeroData { key = "Sniper", name = "SNIPER", role = "Long-Range Marksman", desc = "Deadly sharpshooter delivering lethal critical hits and piercing headshots.", damage = 0.95f, health = 0.45f, fireRate = 0.35f, speed = 0.60f, damageVal = 65, healthVal = 75, fireRateVal = 35, speedVal = 60, accentColor = new Color(0.70f, 0.35f, 0.95f, 1f) } },
+            { "Medic", new HeroData { key = "Medic", name = "MEDIC", role = "Field Support", desc = "Combat doctor providing periodic health regeneration and defensive shields.", damage = 0.50f, health = 0.80f, fireRate = 0.55f, speed = 0.75f, damageVal = 20, healthVal = 110, fireRateVal = 55, speedVal = 75, accentColor = new Color(0.95f, 0.40f, 0.70f, 1f) } }
+        };
+
+        private string selectedCharacterKey = "Soldier";
+        private Image charPreviewHeroImage;
+        private TextMeshProUGUI charPreviewNameText;
+        private TextMeshProUGUI charPreviewRoleText;
+        private Image charPreviewDmgFill;
+        private Image charPreviewHpFill;
+        private Image charPreviewRateFill;
+        private Image charPreviewSpeedFill;
+        private TextMeshProUGUI charPreviewDmgText;
+        private TextMeshProUGUI charPreviewHpText;
+        private TextMeshProUGUI charPreviewRateText;
+        private TextMeshProUGUI charPreviewSpeedText;
+        private Button charPreviewEquipBtn;
+        private TextMeshProUGUI charPreviewEquipBtnText;
+        private Image charPreviewEquipBtnBg;
+
+        [System.Serializable]
+        private class CharacterCardItem
+        {
+            public string heroKey;
+            public GameObject cardObj;
+            public Image selectionBorder;
+            public TextMeshProUGUI pillText;
+            public Image pillBg;
+        }
+        [SerializeField] private List<CharacterCardItem> characterCardItems = new List<CharacterCardItem>();
+
+        [System.Serializable]
+        private class MapNodeItem
+        {
+            public int levelNumber;
+            public GameObject rootObj;
+            public Image outerRing;
+            public Image innerDisc;
+            public Image iconImage;
+            public RectTransform iconRt;
+            public TextMeshProUGUI numberText;
+            public RectTransform textRt;
+            public GameObject starsContainer;
+            public Image[] starImages;
+            public Button button;
+            public bool isBoss;
+            [System.NonSerialized] public Coroutine pulseCoroutine;
+        }
+        [SerializeField] private List<MapNodeItem> mapNodeItems = new List<MapNodeItem>();
+
+        public static bool startAtHomeScreen = true;
+        public static bool startAtLevelMap = false;
+        public static bool startAtLevelSelect = false;
+        public static bool autoStartMissionOnLoad = false;
+        public static int levelToAutoStart = 1;
 
         // Splash Elements
         private RectTransform splashBannerRect;
@@ -60,10 +172,6 @@ namespace MobControl.UI
         // Defeat Elements
         private TextMeshProUGUI defeatTitleText;
         private TextMeshProUGUI defeatSubText;
-
-        public static bool startAtLevelSelect = false;
-        public static bool autoStartMissionOnLoad = false;
-        public static int levelToAutoStart = 1;
 
         // Level Select Elements
         private TextMeshProUGUI coinsText;
@@ -100,6 +208,10 @@ namespace MobControl.UI
         private List<Vector3> star3DBaseScales = new List<Vector3>();
         private RawImage victory3DStarRawImage;
 
+        // 3D Hero Preview Rig Elements (for Home Screen cleanup)
+        private RenderTexture homeHeroRenderTexture;
+        private GameObject homeHeroRigRoot;
+
         // Player reference
         private PlayerRunnerController playerRunner;
         private float playerStartZ = 0f;
@@ -122,19 +234,24 @@ namespace MobControl.UI
 
         public static ZombieRunnerUIManager EnsureInstance()
         {
+            ZombieRunnerUIManager[] allManagers = FindObjectsByType<ZombieRunnerUIManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (allManagers != null && allManagers.Length > 0)
+            {
+                Instance = allManagers[0];
+                for (int i = 1; i < allManagers.Length; i++)
+                {
+                    if (allManagers[i] != null && allManagers[i] != Instance)
+                    {
+                        DestroyImmediate(allManagers[i].gameObject);
+                    }
+                }
+            }
+
             if (Instance == null)
             {
-                ZombieRunnerUIManager existing = FindAnyObjectByType<ZombieRunnerUIManager>();
-                if (existing == null)
-                {
-                    GameObject uiRoot = new GameObject("[ZombieRunner_UI_Manager]");
-                    Instance = uiRoot.AddComponent<ZombieRunnerUIManager>();
-                    DontDestroyOnLoad(uiRoot);
-                }
-                else
-                {
-                    Instance = existing;
-                }
+                GameObject uiRoot = new GameObject("[ZombieRunner_UI_Manager]");
+                Instance = uiRoot.AddComponent<ZombieRunnerUIManager>();
+                DontDestroyOnLoad(uiRoot);
             }
             return Instance;
         }
@@ -147,18 +264,20 @@ namespace MobControl.UI
 
         private void Awake()
         {
-            if (Instance == null)
+            ZombieRunnerUIManager[] all = FindObjectsByType<ZombieRunnerUIManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var m in all)
             {
-                Instance = this;
-                DontDestroyOnLoad(gameObject);
-            }
-            else if (Instance != this)
-            {
-                Destroy(gameObject);
-                return;
+                if (m != null && m != this)
+                {
+                    DestroyImmediate(m.gameObject);
+                }
             }
 
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+
             EnsureEventSystem();
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
             LockPlayer(true);
         }
@@ -219,15 +338,23 @@ namespace MobControl.UI
 
             isFinishedHandled = false;
 
-            if (startAtLevelSelect)
+            if (startAtLevelMap)
             {
+                startAtLevelMap = false;
+                startAtHomeScreen = false;
                 startAtLevelSelect = false;
-                ShowLevelSelect();
+                ShowZombieSquadLevelMap();
             }
             else if (autoStartMissionOnLoad)
             {
                 autoStartMissionOnLoad = false;
                 StartMission(levelToAutoStart);
+            }
+            else
+            {
+                startAtHomeScreen = false;
+                startAtLevelSelect = false;
+                ShowZombieSquadHomeScreen();
             }
         }
 
@@ -246,21 +373,17 @@ namespace MobControl.UI
                 playerRunner.SetControllable(false);
             }
 
-            BuildUIHierarchy();
+            EnsureUIBuilt();
+            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
 
-            if (startAtLevelSelect)
-            {
-                startAtLevelSelect = false;
-                ShowLevelSelect();
-            }
-            else if (autoStartMissionOnLoad)
+            if (autoStartMissionOnLoad)
             {
                 autoStartMissionOnLoad = false;
                 StartMission(levelToAutoStart);
             }
             else
             {
-                ShowSplashScreen();
+                ShowZombieSquadHomeScreen();
             }
         }
 
@@ -283,8 +406,166 @@ namespace MobControl.UI
                 playerRunner.SetControllable(false);
             }
 
-            // High-reliability touch/mouse fallback for Defeat & Victory buttons
-            if (currentState == ScreenState.Defeat && defeatPanel != null && defeatPanel.activeInHierarchy && !isSceneReloading)
+#if UNITY_EDITOR
+            // Quick test shortcut: Press 'U' on Level Map to advance unlocked levels & preview earned stars
+            if (currentState == ScreenState.LevelMap && Input.GetKeyDown(KeyCode.U))
+            {
+                int currentUnlocked = PlayerPrefs.GetInt(PREF_UNLOCKED_LEVEL, 1);
+                int next = (currentUnlocked >= 8) ? 1 : currentUnlocked + 1;
+                PlayerPrefs.SetInt(PREF_UNLOCKED_LEVEL, next);
+                for (int i = 1; i < next; i++)
+                {
+                    int testStars = (i == 2 || i == 5) ? 2 : 3;
+                    PlayerPrefs.SetInt(PREF_STARS_PREFIX + i, testStars);
+                }
+                PlayerPrefs.Save();
+                Debug.Log($"[ZombieRunnerUIManager] DEBUG (U pressed): Unlocked level set to {next}");
+                UpdateLevelMapVisuals();
+            }
+#endif
+
+            // High-reliability touch/mouse fallback for HomeScreen, LevelMap, Characters, Defeat & Victory buttons
+            if (currentState == ScreenState.HomeScreen && homeScreenPanel != null && homeScreenPanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (homeScreenCharactersBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenCharactersBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen CHARACTERS clicked -> Instant Open!");
+                        ShowZombieSquadCharactersScreen();
+                        return;
+                    }
+                    else if (homeScreenUpgradeBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenUpgradeBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen UPGRADE clicked -> Instant Open!");
+                        ShowZombieSquadUpgradeScreen();
+                        return;
+                    }
+                    else if (homeScreenWeaponsBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenWeaponsBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen WEAPONS clicked -> Instant Open!");
+                        ShowZombieSquadWeaponsScreen();
+                        return;
+                    }
+                    else if (homeScreenShopBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenShopBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen SHOP clicked -> Instant Open!");
+                        ShowZombieSquadShopScreen();
+                        return;
+                    }
+                    else if (homeScreenMissionsBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenMissionsBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen MISSIONS clicked -> Instant Open!");
+                        ShowZombieSquadMissionsScreen();
+                        return;
+                    }
+                    else if (homeScreenDailyBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenDailyBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen DAILY clicked -> Instant Open!");
+                        ShowZombieSquadDailyScreen();
+                        return;
+                    }
+                    else if (homeScreenPlayBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenPlayBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen PLAY clicked -> Opening Level Map Screen!");
+                        ShowZombieSquadLevelMap();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.Characters && charactersPanel != null && charactersPanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (charactersBackBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(charactersBackBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] Characters Back clicked via direct screen fallback!");
+                        ShowZombieSquadHomeScreen();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.Upgrade && upgradePanel != null && upgradePanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (upgradeBackBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(upgradeBackBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] Upgrade Back clicked via direct screen fallback!");
+                        ShowZombieSquadHomeScreen();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.Weapons && weaponsPanel != null && weaponsPanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (weaponsBackBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(weaponsBackBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] Weapons Back clicked via direct screen fallback!");
+                        ShowZombieSquadHomeScreen();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.Shop && shopPanel != null && shopPanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (shopBackBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(shopBackBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] Shop Back clicked via direct screen fallback!");
+                        ShowZombieSquadHomeScreen();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.Missions && missionsPanel != null && missionsPanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (missionsBackBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(missionsBackBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] Missions Back clicked via direct screen fallback!");
+                        ShowZombieSquadHomeScreen();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.Daily && dailyPanel != null && dailyPanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (dailyBackBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(dailyBackBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] Daily Back clicked via direct screen fallback!");
+                        ShowZombieSquadHomeScreen();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.LevelMap && levelMapPanel != null && levelMapPanel.activeInHierarchy && !isSceneReloading)
+            {
+                if (Input.GetMouseButtonDown(0))
+                {
+                    Vector2 mousePos = Input.mousePosition;
+                    if (levelMapBackBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(levelMapBackBtnRect, mousePos, null))
+                    {
+                        Debug.Log("[ZombieRunnerUIManager] LevelMap Back clicked via direct screen fallback!");
+                        ShowZombieSquadHomeScreen();
+                        return;
+                    }
+                }
+            }
+            else if (currentState == ScreenState.Defeat && defeatPanel != null && defeatPanel.activeInHierarchy && !isSceneReloading)
             {
                 if (Input.GetMouseButtonDown(0))
                 {
@@ -365,13 +646,15 @@ namespace MobControl.UI
                 }
             }
 
+
+
             // Gameplay tracking
             if (isGameActive && playerRunner != null && !isFinishedHandled)
             {
                 UpdateGameplayHud();
 
-                // Check Victory: Reached end of street
-                if (playerRunner.transform.position.z >= levelFinishZ)
+                // Check Victory: Reached end of street (ensure levelFinishZ is valid)
+                if (levelFinishZ > 10f && playerRunner.transform.position.z >= levelFinishZ)
                 {
                     TriggerVictory();
                 }
@@ -379,23 +662,6 @@ namespace MobControl.UI
                 else if (playerRunner.IsDead || playerRunner.Health <= 0)
                 {
                     TriggerDefeatWithReason("YOU WERE OVERWHELMED!", "The zombie horde infected your squad.");
-                }
-                else
-                {
-                    // Check Defeat: If any zombie has breached past the player runner!
-                    MobControl.Crowd.MobUnit[] activeMobs = FindObjectsByType<MobControl.Crowd.MobUnit>();
-                    for (int i = 0; i < activeMobs.Length; i++)
-                    {
-                        MobControl.Crowd.MobUnit m = activeMobs[i];
-                        if (m != null && m.Team == MobControl.Crowd.MobTeam.Enemy && !m.IsDead && m.gameObject.activeInHierarchy)
-                        {
-                            if (m.transform.position.z < playerRunner.transform.position.z - 0.6f)
-                            {
-                                TriggerDefeatWithReason("GAME OVER", "A zombie breached your defense line!");
-                                break;
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -415,7 +681,17 @@ namespace MobControl.UI
             // 1. Ensure Persistent EventSystem
             EnsureEventSystem();
 
-            // 2. Main Canvas
+            // 2. Destroy any existing duplicate canvases in the scene/DontDestroyOnLoad
+            Canvas[] allExistingCanvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var c in allExistingCanvases)
+            {
+                if (c != null && c.name.Contains("ZombieRunnerCanvas"))
+                {
+                    DestroyImmediate(c.gameObject);
+                }
+            }
+
+            // 3. Main Canvas
             GameObject canvasObj = new GameObject("ZombieRunnerCanvas");
             canvasObj.transform.SetParent(transform);
             mainCanvas = canvasObj.AddComponent<Canvas>();
@@ -424,22 +700,22 @@ namespace MobControl.UI
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            if (Screen.width >= Screen.height)
-            {
-                scaler.referenceResolution = new Vector2(1920, 1080);
-                scaler.matchWidthOrHeight = 0.5f;
-            }
-            else
-            {
-                scaler.referenceResolution = new Vector2(1080, 1920);
-                scaler.matchWidthOrHeight = 0.5f;
-            }
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            scaler.matchWidthOrHeight = 0.5f;
             scaler.referencePixelsPerUnit = 100;
 
             GraphicRaycaster gr = canvasObj.AddComponent<GraphicRaycaster>();
             gr.enabled = true;
 
             // 3. Build Sub-Panels
+            BuildZombieSquadHomeScreenPanel(canvasObj.transform);
+            BuildZombieSquadLevelMapPanel(canvasObj.transform);
+            BuildZombieSquadCharactersScreenPanel(canvasObj.transform);
+            BuildZombieSquadUpgradeScreenPanel(canvasObj.transform);
+            BuildZombieSquadWeaponsScreenPanel(canvasObj.transform);
+            BuildZombieSquadShopScreenPanel(canvasObj.transform);
+            BuildZombieSquadMissionsScreenPanel(canvasObj.transform);
+            BuildZombieSquadDailyScreenPanel(canvasObj.transform);
             BuildSplashPanel(canvasObj.transform);
             BuildLevelSelectPanel(canvasObj.transform);
             BuildGameplayHudPanel(canvasObj.transform);
@@ -462,6 +738,8 @@ namespace MobControl.UI
             Image img = panel.AddComponent<Image>();
             img.color = bgColor;
             img.raycastTarget = true; // Blocks clicks behind to the 3D scene
+
+            panel.SetActive(false); // Ensure panel starts hidden so nothing flickers during UI build
 
             return panel;
         }
@@ -532,15 +810,70 @@ namespace MobControl.UI
             return btn;
         }
 
-        #region Star Sprite Generator (High-Res Procedural Graphics)
+        #region Star Sprite Generator & Loaders
 
         private static Sprite s_goldStarSprite;
         private static Sprite s_dimStarSprite;
+        private static Sprite s_starBadgeBgSprite;
+
+        public static Sprite LoadStarBadgeBgSprite()
+        {
+            if (s_starBadgeBgSprite != null) return s_starBadgeBgSprite;
+            try
+            {
+                Sprite loaded = Resources.Load<Sprite>("UI/Star_Badge_Bg");
+                if (loaded != null) { s_starBadgeBgSprite = loaded; return loaded; }
+
+                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "Star_Badge_Bg.png");
+                if (System.IO.File.Exists(localPath))
+                {
+                    byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                    Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (diskTex.LoadImage(fileData))
+                    {
+                        s_starBadgeBgSprite = Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+                        return s_starBadgeBgSprite;
+                    }
+                }
+            }
+            catch {}
+            return null;
+        }
 
         public static Sprite GetStarSprite(bool filled)
         {
             if (filled && s_goldStarSprite != null) return s_goldStarSprite;
             if (!filled && s_dimStarSprite != null) return s_dimStarSprite;
+
+            // 1. Try loading from Resources/UI/
+            try
+            {
+                string resName = filled ? "UI/Star_Gold" : "UI/Star_Empty";
+                Sprite loaded = Resources.Load<Sprite>(resName);
+                if (loaded != null)
+                {
+                    if (filled) s_goldStarSprite = loaded;
+                    else s_dimStarSprite = loaded;
+                    return loaded;
+                }
+
+                // 2. Direct disk file fallback
+                string fileName = filled ? "Star_Gold.png" : "Star_Empty.png";
+                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "UI", fileName);
+                if (System.IO.File.Exists(localPath))
+                {
+                    byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                    Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (diskTex.LoadImage(fileData))
+                    {
+                        Sprite s = Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+                        if (filled) s_goldStarSprite = s;
+                        else s_dimStarSprite = s;
+                        return s;
+                    }
+                }
+            }
+            catch {}
 
             int size = 128;
             Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -879,6 +1212,38 @@ namespace MobControl.UI
             starRigRoot.SetActive(false);
         }
 
+        #region 3D HomeScreen Hero Rig Cleanup
+
+        private void Cleanup3DHomeScreenCharacterRig()
+        {
+            if (homeHeroRigRoot != null)
+            {
+                DestroyImmediate(homeHeroRigRoot);
+                homeHeroRigRoot = null;
+            }
+
+            GameObject orphan = GameObject.Find("[HomeScreen_3D_Hero_Rig]");
+            if (orphan != null) DestroyImmediate(orphan);
+
+            if (homeHeroRenderTexture != null)
+            {
+                homeHeroRenderTexture.Release();
+                DestroyImmediate(homeHeroRenderTexture);
+                homeHeroRenderTexture = null;
+            }
+        }
+
+        private void Ensure3DHomeScreenCharacterRig()
+        {
+            Cleanup3DHomeScreenCharacterRig();
+        }
+
+        private void TriggerHeroFistPunch()
+        {
+        }
+
+        #endregion
+
         #endregion
 
         private Sprite LoadSplashBannerSprite()
@@ -894,7 +1259,7 @@ namespace MobControl.UI
                     return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
                 }
 
-                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "ZombieSplashBanner.jpg");
+                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSplashBanner.png");
                 if (System.IO.File.Exists(localPath))
                 {
                     byte[] fileData = System.IO.File.ReadAllBytes(localPath);
@@ -911,6 +1276,1661 @@ namespace MobControl.UI
             }
             return null;
         }
+
+        private Sprite LoadZombieSquadHomeScreenSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_HomeScreen");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_HomeScreen");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string[] localPaths = new string[]
+                {
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_HomeScreen.png"),
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_HomeScreen.jpg")
+                };
+
+                foreach (string localPath in localPaths)
+                {
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (tex.LoadImage(fileData))
+                        {
+                            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] ZombieSquad HomeScreen loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private IEnumerator PunchScale(Transform tr, float duration, System.Action onComplete)
+        {
+            if (tr == null)
+            {
+                onComplete?.Invoke();
+                yield break;
+            }
+            Vector3 originalScale = tr.localScale;
+            Vector3 punchScale = originalScale * 0.92f;
+            float half = duration * 0.5f;
+            float elapsed = 0f;
+
+            while (elapsed < half)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                if (tr != null) tr.localScale = Vector3.Lerp(originalScale, punchScale, elapsed / half);
+                yield return null;
+            }
+
+            elapsed = 0f;
+            while (elapsed < half)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                if (tr != null) tr.localScale = Vector3.Lerp(punchScale, originalScale, elapsed / half);
+                yield return null;
+            }
+
+            if (tr != null) tr.localScale = originalScale;
+            onComplete?.Invoke();
+        }
+
+        private void BuildZombieSquadHomeScreenPanel(Transform canvasRoot)
+        {
+            // Full screen panel
+            homeScreenPanel = CreateFullPanel("ZombieSquadHomeScreenPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for full screen UI
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(homeScreenPanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+            // Background Image - Stretches across the full screen seamlessly
+            Image homeImg = artContainer.AddComponent<Image>();
+            Sprite homeSprite = LoadZombieSquadHomeScreenSprite();
+            if (homeSprite != null)
+            {
+                homeImg.sprite = homeSprite;
+            }
+            homeImg.type = Image.Type.Simple;
+            homeImg.preserveAspect = false;
+            homeImg.raycastTarget = true;
+
+            // Clean up any stale 3D hero objects or rigs
+            Cleanup3DHomeScreenCharacterRig();
+            Transform oldHero = artContainer.transform.Find("HomeScreen_3D_Hero");
+            if (oldHero != null) DestroyImmediate(oldHero.gameObject);
+
+            // Transparent Button Creator Helper
+            Button CreateTransparentButton(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, System.Action onClick)
+            {
+                GameObject btnObj = new GameObject(name);
+                btnObj.transform.SetParent(parent, false);
+
+                RectTransform rt = btnObj.AddComponent<RectTransform>();
+                rt.anchorMin = anchorMin;
+                rt.anchorMax = anchorMax;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.001f); // Virtually transparent but captures raycasts
+                img.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = img;
+
+                ColorBlock cb = btn.colors;
+                cb.normalColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.highlightedColor = new Color(1f, 1f, 1f, 0.15f);
+                cb.pressedColor = new Color(0f, 0f, 0f, 0.25f);
+                cb.selectedColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.fadeDuration = 0.05f;
+                btn.colors = cb;
+
+                if (onClick != null)
+                {
+                    btn.onClick.AddListener(() =>
+                    {
+                        onClick(); // Instant execution with ZERO lag!
+                        StartCoroutine(PunchScale(btnObj.transform, 0.10f, null));
+                    });
+                }
+                return btn;
+            }
+
+            // 1. PLAY Button (Over the big yellow button at the bottom) -> Opens Level Map Screen!
+            Button playBtn = CreateTransparentButton("Btn_Play", artContainer.transform, new Vector2(0.210f, 0.055f), new Vector2(0.790f, 0.175f), () =>
+            {
+                Debug.Log("[ZombieSquad] PLAY Button Pressed -> Opening Level Map Screen!");
+                ShowZombieSquadLevelMap();
+            });
+            homeScreenPlayBtnRect = playBtn.GetComponent<RectTransform>();
+
+            Button shopBtn = CreateTransparentButton("Btn_Shop", artContainer.transform, new Vector2(0.020f, 0.550f), new Vector2(0.240f, 0.680f), () =>
+            {
+                Debug.Log("[ZombieSquad] Shop Clicked -> Opening Shop Screen!");
+                ShowZombieSquadShopScreen();
+            });
+            homeScreenShopBtnRect = shopBtn.GetComponent<RectTransform>();
+            Button charBtn = CreateTransparentButton("Btn_Characters", artContainer.transform, new Vector2(0.020f, 0.410f), new Vector2(0.240f, 0.545f), () =>
+            {
+                Debug.Log("[ZombieSquad] Characters Clicked -> Opening Characters Screen!");
+                ShowZombieSquadCharactersScreen();
+            });
+            homeScreenCharactersBtnRect = charBtn.GetComponent<RectTransform>();
+            Button wepBtn = CreateTransparentButton("Btn_Weapons", artContainer.transform, new Vector2(0.020f, 0.280f), new Vector2(0.240f, 0.410f), () =>
+            {
+                Debug.Log("[ZombieSquad] Weapons Clicked -> Opening Weapons Screen!");
+                ShowZombieSquadWeaponsScreen();
+            });
+            homeScreenWeaponsBtnRect = wepBtn.GetComponent<RectTransform>();
+
+            // 3. Right Menu Buttons: Missions, Daily, Upgrade (EXACT Pixel Mapping!)
+            Button missionsBtn = CreateTransparentButton("Btn_Missions", artContainer.transform, new Vector2(0.760f, 0.550f), new Vector2(0.975f, 0.680f), () =>
+            {
+                Debug.Log("[ZombieSquad] Missions Clicked -> Opening Missions Screen!");
+                ShowZombieSquadMissionsScreen();
+            });
+            homeScreenMissionsBtnRect = missionsBtn.GetComponent<RectTransform>();
+
+            Button dailyBtn = CreateTransparentButton("Btn_Daily", artContainer.transform, new Vector2(0.760f, 0.410f), new Vector2(0.975f, 0.545f), () =>
+            {
+                Debug.Log("[ZombieSquad] Daily Rewards Clicked -> Opening Daily Screen!");
+                ShowZombieSquadDailyScreen();
+            });
+            homeScreenDailyBtnRect = dailyBtn.GetComponent<RectTransform>();
+
+            Button upgBtn = CreateTransparentButton("Btn_Upgrade", artContainer.transform, new Vector2(0.760f, 0.280f), new Vector2(0.975f, 0.410f), () =>
+            {
+                Debug.Log("[ZombieSquad] Upgrade Clicked -> Opening Squad Upgrade Screen!");
+                ShowZombieSquadUpgradeScreen();
+            });
+            homeScreenUpgradeBtnRect = upgBtn.GetComponent<RectTransform>();
+
+            // 4. Settings Gear (Top Right)
+            CreateTransparentButton("Btn_Settings", artContainer.transform, new Vector2(0.84f, 0.87f), new Vector2(0.98f, 0.98f), () => Debug.Log("[ZombieSquad] Settings Clicked"));
+        }
+
+        private Sprite LoadZombieSquadLevelMapSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_LevelMap");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_LevelMap");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_LevelMap.jpg");
+                if (System.IO.File.Exists(localPath))
+                {
+                    byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                    Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                    if (tex.LoadImage(fileData))
+                    {
+                        return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] LevelMap sprite loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private static Sprite s_circleBadgeSprite;
+        private static Sprite GetCircleBadgeSprite()
+        {
+            if (s_circleBadgeSprite != null) return s_circleBadgeSprite;
+            int size = 128;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            Vector2 center = new Vector2(size * 0.5f, size * 0.5f);
+            float radius = size * 0.46f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dist = Vector2.Distance(new Vector2(x, y), center);
+                    float alpha = Mathf.Clamp01(radius - dist + 0.5f);
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+            tex.Apply();
+            s_circleBadgeSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return s_circleBadgeSprite;
+        }
+
+        private Sprite LoadPadlockSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/Padlock");
+                if (s != null) return s;
+                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "Padlock.png");
+                if (System.IO.File.Exists(localPath))
+                {
+                    byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                    Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (tex.LoadImage(fileData))
+                    {
+                        return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    }
+                }
+            }
+            catch {}
+            return null;
+        }
+
+        private Sprite LoadBossSkullSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/BossSkull");
+                if (s != null) return s;
+                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "BossSkull.png");
+                if (System.IO.File.Exists(localPath))
+                {
+                    byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                    Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (tex.LoadImage(fileData))
+                    {
+                        return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    }
+                }
+            }
+            catch {}
+            return null;
+        }
+
+        private void BuildZombieSquadLevelMapPanel(Transform canvasRoot)
+        {
+            levelMapPanel = CreateFullPanel("ZombieSquadLevelMapPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for 9:16 aspect ratio
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(levelMapPanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+
+            // Background Image (The 9:16 Level Map Image)
+            Image mapImg = artContainer.AddComponent<Image>();
+            Sprite mapSprite = LoadZombieSquadLevelMapSprite();
+            if (mapSprite != null)
+            {
+                mapImg.sprite = mapSprite;
+            }
+            mapImg.raycastTarget = true;
+
+            // Top-Left Back Button to Home Screen
+            GameObject backBtnObj = new GameObject("Btn_Back");
+            backBtnObj.transform.SetParent(artContainer.transform, false);
+            RectTransform backRt = backBtnObj.AddComponent<RectTransform>();
+            backRt.anchorMin = new Vector2(0.04f, 0.89f);
+            backRt.anchorMax = new Vector2(0.16f, 0.98f);
+            backRt.offsetMin = Vector2.zero;
+            backRt.offsetMax = Vector2.zero;
+
+            Image backImg = backBtnObj.AddComponent<Image>();
+            backImg.color = new Color(1f, 1f, 1f, 0.001f);
+            backImg.raycastTarget = true;
+
+            Button backBtn = backBtnObj.AddComponent<Button>();
+            backBtn.targetGraphic = backImg;
+            levelMapBackBtnRect = backRt;
+            backBtn.onClick.AddListener(() =>
+            {
+                StartCoroutine(PunchScale(backBtnObj.transform, 0.12f, ShowZombieSquadHomeScreen));
+            });
+
+            // Precise Road Coordinates along the clean asphalt track
+            Vector2[] nodePositions = new Vector2[]
+            {
+                new Vector2(0.196f, 0.459f), // Node 1 (Start of road at bottom-left)
+                new Vector2(0.207f, 0.524f), // Node 2 (Upward curve)
+                new Vector2(0.290f, 0.580f), // Node 3 (Top curve near house)
+                new Vector2(0.441f, 0.551f), // Node 4 (Bridge curve)
+                new Vector2(0.545f, 0.485f), // Node 5 (S-curve)
+                new Vector2(0.675f, 0.423f), // Node 6 (Desert road)
+                new Vector2(0.804f, 0.322f), // Node 7 (End of road near torches)
+                new Vector2(0.847f, 0.819f)  // Boss (Over the drawn Red Skull)
+            };
+
+            // Compact, cute sizes matching the road width
+            Vector2[] nodeSizes = new Vector2[]
+            {
+                new Vector2(88f, 88f), // Node 1
+                new Vector2(88f, 88f), // Node 2
+                new Vector2(88f, 88f), // Node 3
+                new Vector2(88f, 88f), // Node 4
+                new Vector2(94f, 94f), // Node 5
+                new Vector2(88f, 88f), // Node 6
+                new Vector2(88f, 88f), // Node 7
+                new Vector2(170f, 170f) // Boss (Transparent clickable button over skull)
+            };
+
+            mapNodeItems.Clear();
+
+            for (int i = 0; i < nodePositions.Length; i++)
+            {
+                int lvlNum = i + 1;
+                bool isBoss = (i == 7);
+                Vector2 normPos = nodePositions[i];
+                Vector2 size = nodeSizes[i];
+
+                GameObject nodeRoot = new GameObject(isBoss ? "Node_Boss" : $"Node_Lvl_{lvlNum}");
+                nodeRoot.transform.SetParent(artContainer.transform, false);
+
+                RectTransform nodeRt = nodeRoot.AddComponent<RectTransform>();
+                nodeRt.anchorMin = normPos;
+                nodeRt.anchorMax = normPos;
+                nodeRt.pivot = new Vector2(0.5f, 0.5f);
+                nodeRt.anchoredPosition = Vector2.zero;
+                nodeRt.sizeDelta = size;
+
+                // Outer border ring
+                GameObject outerRingObj = new GameObject("OuterRing");
+                outerRingObj.transform.SetParent(nodeRoot.transform, false);
+                RectTransform outerRt = outerRingObj.AddComponent<RectTransform>();
+                outerRt.anchorMin = Vector2.zero;
+                outerRt.anchorMax = Vector2.one;
+                outerRt.offsetMin = Vector2.zero;
+                outerRt.offsetMax = Vector2.zero;
+                Image outerRing = outerRingObj.AddComponent<Image>();
+                outerRing.sprite = GetCircleBadgeSprite();
+                outerRing.raycastTarget = false;
+
+                // Inner Disc
+                GameObject innerDiscObj = new GameObject("InnerDisc");
+                innerDiscObj.transform.SetParent(nodeRoot.transform, false);
+                RectTransform innerRt = innerDiscObj.AddComponent<RectTransform>();
+                innerRt.anchorMin = Vector2.zero;
+                innerRt.anchorMax = Vector2.one;
+                innerRt.offsetMin = isBoss ? Vector2.zero : new Vector2(5, 5);
+                innerRt.offsetMax = isBoss ? Vector2.zero : new Vector2(-5, -5);
+                Image innerDisc = innerDiscObj.AddComponent<Image>();
+                innerDisc.sprite = isBoss ? null : GetCircleBadgeSprite();
+                innerDisc.raycastTarget = true;
+
+                // Icon (Padlock for locked levels)
+                GameObject iconObj = new GameObject("Icon");
+                iconObj.transform.SetParent(nodeRoot.transform, false);
+                RectTransform iconRt = iconObj.AddComponent<RectTransform>();
+                iconRt.anchorMin = new Vector2(0.5f, 0.60f);
+                iconRt.anchorMax = new Vector2(0.5f, 0.60f);
+                iconRt.pivot = new Vector2(0.5f, 0.5f);
+                iconRt.sizeDelta = new Vector2(36, 36);
+                iconRt.anchoredPosition = Vector2.zero;
+                Image iconImg = iconObj.AddComponent<Image>();
+                iconImg.raycastTarget = false;
+                iconObj.SetActive(false);
+
+                // Text (Clean bold level number)
+                TextMeshProUGUI tmp = CreateText("Label", nodeRoot.transform, lvlNum.ToString(), 42, Color.white, TextAlignmentOptions.Center, true);
+                RectTransform txtRt = tmp.GetComponent<RectTransform>();
+                txtRt.anchorMin = Vector2.zero;
+                txtRt.anchorMax = Vector2.one;
+                txtRt.offsetMin = Vector2.zero;
+                txtRt.offsetMax = Vector2.zero;
+                tmp.raycastTarget = false;
+
+                Button btn = nodeRoot.AddComponent<Button>();
+                btn.targetGraphic = innerDisc;
+
+                int capturedLvl = lvlNum;
+                btn.onClick.AddListener(() =>
+                {
+                    OnMapNodeClicked(capturedLvl, nodeRoot.transform);
+                });
+
+                // Stars Container (3 Mini Stars arc right on top of the node)
+                GameObject starsObj = null;
+                Image[] starImgs = null;
+
+                if (!isBoss)
+                {
+                    starsObj = new GameObject("StarsContainer");
+                    starsObj.transform.SetParent(nodeRoot.transform, false);
+                    RectTransform starsRt = starsObj.AddComponent<RectTransform>();
+                    starsRt.anchorMin = new Vector2(0.5f, 1f);
+                    starsRt.anchorMax = new Vector2(0.5f, 1f);
+                    starsRt.pivot = new Vector2(0.5f, 0.5f);
+                    starsRt.anchoredPosition = new Vector2(0, 10);
+                    starsRt.sizeDelta = new Vector2(76, 28);
+
+                    // Pill Badge background for high contrast against map grass/road
+                    Image badgeBg = starsObj.AddComponent<Image>();
+                    Sprite bgSp = LoadStarBadgeBgSprite();
+                    if (bgSp != null) badgeBg.sprite = bgSp;
+                    badgeBg.color = Color.white;
+                    badgeBg.raycastTarget = false;
+
+                    starImgs = new Image[3];
+                    Vector2[] starOffsets = new Vector2[] { new Vector2(-22, -1), new Vector2(0, 4), new Vector2(22, -1) };
+                    Vector2[] starSizes = new Vector2[] { new Vector2(20, 20), new Vector2(26, 26), new Vector2(20, 20) };
+
+                    for (int s = 0; s < 3; s++)
+                    {
+                        GameObject sObj = new GameObject($"Star_{s}");
+                        sObj.transform.SetParent(starsObj.transform, false);
+                        RectTransform sRt = sObj.AddComponent<RectTransform>();
+                        sRt.anchorMin = new Vector2(0.5f, 0.5f);
+                        sRt.anchorMax = new Vector2(0.5f, 0.5f);
+                        sRt.pivot = new Vector2(0.5f, 0.5f);
+                        sRt.anchoredPosition = starOffsets[s];
+                        sRt.sizeDelta = starSizes[s];
+                        if (s == 0) sRt.localEulerAngles = new Vector3(0, 0, 10);
+                        else if (s == 2) sRt.localEulerAngles = new Vector3(0, 0, -10);
+
+                        Image sImg = sObj.AddComponent<Image>();
+                        sImg.sprite = GetStarSprite(true);
+                        sImg.raycastTarget = false;
+                        starImgs[s] = sImg;
+                    }
+                    starsObj.SetActive(false);
+                }
+
+                MapNodeItem item = new MapNodeItem
+                {
+                    levelNumber = lvlNum,
+                    rootObj = nodeRoot,
+                    outerRing = outerRing,
+                    innerDisc = innerDisc,
+                    iconImage = iconImg,
+                    iconRt = iconRt,
+                    numberText = tmp,
+                    textRt = txtRt,
+                    starsContainer = starsObj,
+                    starImages = starImgs,
+                    button = btn,
+                    isBoss = isBoss
+                };
+                mapNodeItems.Add(item);
+            }
+        }
+
+        private void UpdateLevelMapVisuals()
+        {
+            int unlockedLevel = PlayerPrefs.GetInt(PREF_UNLOCKED_LEVEL, 1);
+            if (unlockedLevel < 1) unlockedLevel = 1;
+
+            Sprite padlockSprite = LoadPadlockSprite();
+
+            for (int i = 0; i < mapNodeItems.Count; i++)
+            {
+                MapNodeItem item = mapNodeItems[i];
+                if (item == null || item.rootObj == null) continue;
+
+                if (item.pulseCoroutine != null)
+                {
+                    StopCoroutine(item.pulseCoroutine);
+                    item.pulseCoroutine = null;
+                    item.rootObj.transform.localScale = Vector3.one;
+                }
+
+                if (item.isBoss)
+                {
+                    // The Red Skull is already drawn on the background image!
+                    // Keep transparent so background skull shows through cleanly
+                    item.outerRing.color = Color.clear;
+                    item.innerDisc.color = new Color(1f, 1f, 1f, 0.001f);
+                    item.iconImage.gameObject.SetActive(false);
+                    item.numberText.gameObject.SetActive(false);
+                    item.button.interactable = true;
+
+                    if (unlockedLevel >= 8)
+                    {
+                        // Unlocked Boss! Add subtle pulse animation on the skull
+                        item.pulseCoroutine = StartCoroutine(PulseActiveNode(item.rootObj.transform));
+                    }
+                    continue;
+                }
+
+                if (item.levelNumber < unlockedLevel)
+                {
+                    // COMPLETED -> BLUE COLOR + STARS DISPLAY
+                    item.outerRing.color = new Color(0.02f, 0.28f, 0.65f, 1f); // Dark blue rim
+                    item.innerDisc.color = new Color(0.08f, 0.62f, 0.98f, 1f); // Vibrant cyan blue
+
+                    item.iconImage.gameObject.SetActive(false);
+                    item.numberText.gameObject.SetActive(true);
+                    item.numberText.text = item.levelNumber.ToString();
+                    item.numberText.fontSize = 42;
+                    item.numberText.color = Color.white;
+
+                    item.textRt.anchorMin = Vector2.zero;
+                    item.textRt.anchorMax = Vector2.one;
+                    item.textRt.offsetMin = Vector2.zero;
+                    item.textRt.offsetMax = Vector2.zero;
+
+                    // Display earned stars on top of node
+                    if (item.starsContainer != null && item.starImages != null)
+                    {
+                        item.starsContainer.SetActive(true);
+                        int stars = PlayerPrefs.GetInt(PREF_STARS_PREFIX + item.levelNumber, 3);
+                        if (stars < 1) stars = 3;
+                        if (stars > 3) stars = 3;
+
+                        for (int s = 0; s < 3; s++)
+                        {
+                            if (s < stars)
+                            {
+                                item.starImages[s].sprite = GetStarSprite(true);
+                                item.starImages[s].color = Color.white;
+                            }
+                            else
+                            {
+                                item.starImages[s].sprite = GetStarSprite(false);
+                                item.starImages[s].color = Color.white;
+                            }
+                        }
+                    }
+
+                    item.button.interactable = true;
+                }
+                else if (item.levelNumber == unlockedLevel)
+                {
+                    // CURRENT PLAYING -> GOLDEN COLOR with PULSE
+                    item.outerRing.color = new Color(0.88f, 0.44f, 0.05f, 1f); // Amber gold rim
+                    item.innerDisc.color = new Color(1.0f, 0.82f, 0.12f, 1f);  // Glowing Golden Yellow
+
+                    item.iconImage.gameObject.SetActive(false);
+                    item.numberText.gameObject.SetActive(true);
+                    item.numberText.text = item.levelNumber.ToString();
+                    item.numberText.fontSize = 44;
+                    item.numberText.color = new Color(0.24f, 0.12f, 0.02f, 1f); // Dark amber bold text
+
+                    item.textRt.anchorMin = Vector2.zero;
+                    item.textRt.anchorMax = Vector2.one;
+                    item.textRt.offsetMin = Vector2.zero;
+                    item.textRt.offsetMax = Vector2.zero;
+
+                    // If replaying or previously earned stars exist on this level, show them!
+                    int prevStars = PlayerPrefs.GetInt(PREF_STARS_PREFIX + item.levelNumber, 0);
+                    if (prevStars > 0 && item.starsContainer != null && item.starImages != null)
+                    {
+                        item.starsContainer.SetActive(true);
+                        for (int s = 0; s < 3; s++)
+                        {
+                            if (s < prevStars)
+                            {
+                                item.starImages[s].sprite = GetStarSprite(true);
+                                item.starImages[s].color = Color.white;
+                            }
+                            else
+                            {
+                                item.starImages[s].sprite = GetStarSprite(false);
+                                item.starImages[s].color = Color.white;
+                            }
+                        }
+                    }
+                    else if (item.starsContainer != null)
+                    {
+                        item.starsContainer.SetActive(false);
+                    }
+
+                    item.button.interactable = true;
+                    item.pulseCoroutine = StartCoroutine(PulseActiveNode(item.rootObj.transform));
+                }
+                else
+                {
+                    // LOCKED -> GREY COLOR with METALLIC PADLOCK ICON
+                    if (item.starsContainer != null) item.starsContainer.SetActive(false);
+                    item.outerRing.color = new Color(0.18f, 0.22f, 0.28f, 1f); // Slate dark rim
+                    item.innerDisc.color = new Color(0.36f, 0.42f, 0.50f, 1f); // Slate grey disc
+
+                    item.iconImage.gameObject.SetActive(true);
+                    if (padlockSprite != null) item.iconImage.sprite = padlockSprite;
+                    item.iconImage.color = new Color(0.95f, 0.95f, 0.95f, 0.95f);
+                    item.iconRt.anchoredPosition = new Vector2(0, 10);
+                    item.iconRt.sizeDelta = new Vector2(36, 36);
+
+                    item.numberText.gameObject.SetActive(true);
+                    item.numberText.text = item.levelNumber.ToString();
+                    item.numberText.fontSize = 20;
+                    item.numberText.color = new Color(0.85f, 0.88f, 0.92f, 0.9f);
+                    item.textRt.anchorMin = new Vector2(0.5f, 0.22f);
+                    item.textRt.anchorMax = new Vector2(0.5f, 0.22f);
+                    item.textRt.pivot = new Vector2(0.5f, 0.5f);
+                    item.textRt.sizeDelta = new Vector2(60, 24);
+                    item.textRt.anchoredPosition = Vector2.zero;
+
+                    item.button.interactable = true; // Clickable for wobble feedback!
+                }
+            }
+        }
+
+        private IEnumerator PulseActiveNode(Transform tr)
+        {
+            while (tr != null && currentState == ScreenState.LevelMap)
+            {
+                float t = Time.unscaledTime * 3.5f;
+                float scale = 1.0f + 0.08f * Mathf.Sin(t);
+                tr.localScale = new Vector3(scale, scale, 1f);
+                yield return null;
+            }
+            if (tr != null) tr.localScale = Vector3.one;
+        }
+
+        private void OnMapNodeClicked(int levelNumber, Transform nodeTransform)
+        {
+            int unlockedLevel = PlayerPrefs.GetInt(PREF_UNLOCKED_LEVEL, 1);
+
+            if (levelNumber <= unlockedLevel)
+            {
+                // Playable!
+                Debug.Log($"[ZombieSquad] Launching Level {levelNumber}!");
+                StartCoroutine(PunchScale(nodeTransform, 0.12f, () =>
+                {
+                    StartMission(levelNumber);
+                }));
+            }
+            else
+            {
+                // Locked!
+                Debug.Log($"[ZombieSquad] Level {levelNumber} is LOCKED! Complete Level {unlockedLevel} first.");
+                StartCoroutine(WobbleShake(nodeTransform, 0.25f));
+            }
+        }
+
+        private IEnumerator WobbleShake(Transform tr, float duration)
+        {
+            if (tr == null) yield break;
+            Vector3 originalPos = tr.localPosition;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float offset = Mathf.Sin(elapsed * 45f) * 10f * (1f - (elapsed / duration));
+                tr.localPosition = originalPos + new Vector3(offset, 0, 0);
+                yield return null;
+            }
+            tr.localPosition = originalPos;
+        }
+
+        #region Zombie Squad Characters Screen
+
+        private Sprite LoadZombieSquadCharactersScreenSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_CharactersScreen");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_CharactersScreen");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string[] localPaths = new string[]
+                {
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_CharactersScreen.png"),
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_CharactersScreen.jpg")
+                };
+
+                foreach (string localPath in localPaths)
+                {
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (tex.LoadImage(fileData))
+                        {
+                            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] CharactersScreen sprite loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private Sprite LoadHeroIcon(string heroKey)
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>($"UI/Hero_{heroKey}_Icon");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>($"UI/Hero_{heroKey}_Icon");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string localPath = System.IO.Path.Combine(Application.dataPath, "Resources", "UI", $"Hero_{heroKey}_Icon.png");
+                if (System.IO.File.Exists(localPath))
+                {
+                    byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                    Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (tex.LoadImage(fileData))
+                    {
+                        return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[ZombieRunnerUIManager] Hero {heroKey} icon loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private void BuildZombieSquadCharactersScreenPanel(Transform canvasRoot)
+        {
+            charactersPanel = CreateFullPanel("ZombieSquadCharactersPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for 9:16 aspect ratio
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(charactersPanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+
+            // Background Image - exactly the uploaded artwork
+            Image charImg = artContainer.AddComponent<Image>();
+            Sprite charSprite = LoadZombieSquadCharactersScreenSprite();
+            if (charSprite != null)
+            {
+                charImg.sprite = charSprite;
+            }
+            charImg.type = Image.Type.Simple;
+            charImg.preserveAspect = false;
+            charImg.raycastTarget = true;
+
+            // Transparent Button Creator Helper (Instant zero-delay response!)
+            Button CreateTransparentBtn(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, System.Action onClick)
+            {
+                GameObject btnObj = new GameObject(name);
+                btnObj.transform.SetParent(parent, false);
+
+                RectTransform rt = btnObj.AddComponent<RectTransform>();
+                rt.anchorMin = anchorMin;
+                rt.anchorMax = anchorMax;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.001f);
+                img.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = img;
+
+                ColorBlock cb = btn.colors;
+                cb.normalColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.highlightedColor = new Color(1f, 1f, 1f, 0.15f);
+                cb.pressedColor = new Color(0f, 0f, 0f, 0.25f);
+                cb.selectedColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.fadeDuration = 0.05f;
+                btn.colors = cb;
+
+                if (onClick != null)
+                {
+                    btn.onClick.AddListener(() =>
+                    {
+                        onClick(); // Instant execution with ZERO lag!
+                        StartCoroutine(PunchScale(btnObj.transform, 0.10f, null));
+                    });
+                }
+                return btn;
+            }
+
+            // Top-Left Back Button to Home Screen: (0.025, 0.900) to (0.170, 0.980)
+            Button backBtn = CreateTransparentBtn("Btn_Back", artContainer.transform, new Vector2(0.025f, 0.900f), new Vector2(0.170f, 0.980f), () =>
+            {
+                Debug.Log("[ZombieSquad] Characters Screen -> Back pressed -> Returning to Home Screen");
+                ShowZombieSquadHomeScreen();
+            });
+            charactersBackBtnRect = backBtn.GetComponent<RectTransform>();
+
+            // 5 Character Card Buttons (EXACT mapping over each card from the artwork!):
+            // Row 1: Soldier, Ranger, Heavy
+            CreateTransparentBtn("Btn_Card_Soldier", artContainer.transform, new Vector2(0.025f, 0.275f), new Vector2(0.335f, 0.495f), () => SelectCharacter("Soldier"));
+            CreateTransparentBtn("Btn_Card_Ranger",  artContainer.transform, new Vector2(0.340f, 0.275f), new Vector2(0.655f, 0.495f), () => SelectCharacter("Ranger"));
+            CreateTransparentBtn("Btn_Card_Heavy",   artContainer.transform, new Vector2(0.660f, 0.275f), new Vector2(0.975f, 0.495f), () => SelectCharacter("Heavy"));
+
+            // Row 2: Sniper, Medic
+            CreateTransparentBtn("Btn_Card_Sniper",  artContainer.transform, new Vector2(0.180f, 0.045f), new Vector2(0.495f, 0.270f), () => SelectCharacter("Sniper"));
+            CreateTransparentBtn("Btn_Card_Medic",   artContainer.transform, new Vector2(0.510f, 0.045f), new Vector2(0.830f, 0.270f), () => SelectCharacter("Medic"));
+        }
+
+        public void SelectCharacter(string heroKey)
+        {
+            selectedCharacterKey = heroKey;
+            PlayerPrefs.SetString("ZombieSquad_SelectedHero", heroKey);
+            PlayerPrefs.Save();
+            if (playerRunner != null)
+            {
+                playerRunner.ApplyEquippedHeroStats();
+            }
+            Debug.Log($"[ZombieSquad] Selected and Equipped Character: {heroKey}");
+        }
+
+        public void EquipSelectedCharacter()
+        {
+            SelectCharacter(selectedCharacterKey);
+        }
+
+        public void UpdateCharactersScreenVisuals()
+        {
+            // Follows user uploaded artwork exactly with zero added overlays
+        }
+
+        #endregion
+
+        #region Zombie Squad Upgrade Screen
+
+        private Sprite LoadZombieSquadUpgradeScreenSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_UpgradeScreen");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_UpgradeScreen");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string[] localPaths = new string[]
+                {
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_UpgradeScreen.png"),
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_UpgradeScreen.jpg")
+                };
+
+                foreach (string localPath in localPaths)
+                {
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (tex.LoadImage(fileData))
+                        {
+                            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] UpgradeScreen sprite loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private void BuildZombieSquadUpgradeScreenPanel(Transform canvasRoot)
+        {
+            upgradePanel = CreateFullPanel("ZombieSquadUpgradePanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for 9:16 aspect ratio
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(upgradePanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+
+            // Background Image - exactly the uploaded artwork
+            Image upgImg = artContainer.AddComponent<Image>();
+            Sprite upgSprite = LoadZombieSquadUpgradeScreenSprite();
+            if (upgSprite != null)
+            {
+                upgImg.sprite = upgSprite;
+            }
+            upgImg.type = Image.Type.Simple;
+            upgImg.preserveAspect = false;
+            upgImg.raycastTarget = true;
+
+            // Transparent Button Creator Helper (Instant zero-delay response!)
+            Button CreateTransparentBtn(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, System.Action onClick)
+            {
+                GameObject btnObj = new GameObject(name);
+                btnObj.transform.SetParent(parent, false);
+
+                RectTransform rt = btnObj.AddComponent<RectTransform>();
+                rt.anchorMin = anchorMin;
+                rt.anchorMax = anchorMax;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.001f);
+                img.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = img;
+
+                ColorBlock cb = btn.colors;
+                cb.normalColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.highlightedColor = new Color(1f, 1f, 1f, 0.15f);
+                cb.pressedColor = new Color(0f, 0f, 0f, 0.25f);
+                cb.selectedColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.fadeDuration = 0.05f;
+                btn.colors = cb;
+
+                if (onClick != null)
+                {
+                    btn.onClick.AddListener(() =>
+                    {
+                        onClick(); // Instant execution with ZERO lag!
+                        StartCoroutine(PunchScale(btnObj.transform, 0.10f, null));
+                    });
+                }
+                return btn;
+            }
+
+            // Top-Left Back Button to Home Screen: (0.025, 0.900) to (0.170, 0.980)
+            Button backBtn = CreateTransparentBtn("Btn_Back", artContainer.transform, new Vector2(0.025f, 0.900f), new Vector2(0.170f, 0.980f), () =>
+            {
+                Debug.Log("[ZombieSquad] Upgrade Screen -> Back pressed -> Returning to Home Screen");
+                ShowZombieSquadHomeScreen();
+            });
+            upgradeBackBtnRect = backBtn.GetComponent<RectTransform>();
+
+            // 4 Upgrade Buttons (Green Buttons / Cards EXACT Pixel Mapping from the artwork!):
+            // 1. Soldier Count (Top-Left)
+            CreateTransparentBtn("Btn_Upgrade_Count", artContainer.transform, new Vector2(0.050f, 0.500f), new Vector2(0.460f, 0.600f), () => UpgradeStat("Count"));
+
+            // 2. Soldier Health (Top-Right)
+            CreateTransparentBtn("Btn_Upgrade_Health", artContainer.transform, new Vector2(0.540f, 0.500f), new Vector2(0.950f, 0.600f), () => UpgradeStat("Health"));
+
+            // 3. Soldier Damage (Bottom-Left)
+            CreateTransparentBtn("Btn_Upgrade_Damage", artContainer.transform, new Vector2(0.050f, 0.060f), new Vector2(0.460f, 0.160f), () => UpgradeStat("Damage"));
+
+            // 4. Soldier Speed (Bottom-Right)
+            CreateTransparentBtn("Btn_Upgrade_Speed", artContainer.transform, new Vector2(0.540f, 0.060f), new Vector2(0.950f, 0.160f), () => UpgradeStat("Speed"));
+        }
+
+        public void UpgradeStat(string statName)
+        {
+            string prefKey = $"ZombieSquad_Upgrade_{statName}";
+            int currentLevel = PlayerPrefs.GetInt(prefKey, 0);
+            int newLevel = currentLevel + 1;
+            PlayerPrefs.SetInt(prefKey, newLevel);
+            PlayerPrefs.Save();
+
+            Debug.Log($"[ZombieSquad] Upgraded {statName} to Level {newLevel}!");
+            UpdateUpgradeScreenVisuals();
+        }
+
+        public void UpdateUpgradeScreenVisuals()
+        {
+            // Follows user uploaded artwork exactly with zero added overlays
+        }
+
+        #endregion
+
+        #region Zombie Squad Weapons Screen
+
+        private Sprite LoadZombieSquadWeaponsScreenSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_WeaponsScreen");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_WeaponsScreen");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string[] localPaths = new string[]
+                {
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_WeaponsScreen.png"),
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_WeaponsScreen.jpg")
+                };
+
+                foreach (string localPath in localPaths)
+                {
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (tex.LoadImage(fileData))
+                        {
+                            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] WeaponsScreen sprite loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private static readonly string[] s_weaponKeys = new string[] { "AssaultRifle", "Shotgun", "Sniper", "Minigun" };
+
+        private void BuildZombieSquadWeaponsScreenPanel(Transform canvasRoot)
+        {
+            weaponsPanel = CreateFullPanel("ZombieSquadWeaponsPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for 9:16 aspect ratio
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(weaponsPanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+
+            // Background Image - exactly the uploaded artwork
+            Image wepImg = artContainer.AddComponent<Image>();
+            weaponsScreenBgImage = wepImg;
+            Sprite wepSprite = LoadZombieSquadWeaponsScreenSprite();
+            if (wepSprite != null)
+            {
+                wepImg.sprite = wepSprite;
+            }
+            wepImg.type = Image.Type.Simple;
+            wepImg.preserveAspect = false;
+            wepImg.raycastTarget = true;
+
+            // Transparent Button Creator Helper (Instant zero-delay response!)
+            Button CreateTransparentBtn(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, System.Action onClick)
+            {
+                GameObject btnObj = new GameObject(name);
+                btnObj.transform.SetParent(parent, false);
+
+                RectTransform rt = btnObj.AddComponent<RectTransform>();
+                rt.anchorMin = anchorMin;
+                rt.anchorMax = anchorMax;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.001f);
+                img.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = img;
+
+                ColorBlock cb = btn.colors;
+                cb.normalColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.highlightedColor = new Color(1f, 1f, 1f, 0.15f);
+                cb.pressedColor = new Color(0f, 0f, 0f, 0.25f);
+                cb.selectedColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.fadeDuration = 0.05f;
+                btn.colors = cb;
+
+                if (onClick != null)
+                {
+                    btn.onClick.AddListener(() =>
+                    {
+                        onClick(); // Instant execution with ZERO lag!
+                        StartCoroutine(PunchScale(btnObj.transform, 0.10f, null));
+                    });
+                }
+                return btn;
+            }
+
+            // Top-Left Back Button to Home Screen: (0.025, 0.900) to (0.170, 0.980)
+            Button backBtn = CreateTransparentBtn("Btn_Back", artContainer.transform, new Vector2(0.025f, 0.900f), new Vector2(0.170f, 0.980f), () =>
+            {
+                Debug.Log("[ZombieSquad] Weapons Screen -> Back pressed -> Returning to Home Screen");
+                ShowZombieSquadHomeScreen();
+            });
+            weaponsBackBtnRect = backBtn.GetComponent<RectTransform>();
+
+            // Carousel Arrow Buttons (< and >)
+            CreateTransparentBtn("Btn_Prev_Weapon", artContainer.transform, new Vector2(0.010f, 0.700f), new Vector2(0.100f, 0.790f), () => CycleWeapon(-1));
+            CreateTransparentBtn("Btn_Next_Weapon", artContainer.transform, new Vector2(0.900f, 0.700f), new Vector2(0.990f, 0.790f), () => CycleWeapon(1));
+
+            // 4 Stat Upgrade Buttons (Green Up-Arrow buttons on the right side):
+            // Row 1: Damage
+            CreateTransparentBtn("Btn_Upgrade_Damage", artContainer.transform, new Vector2(0.740f, 0.450f), new Vector2(0.960f, 0.540f), () => UpgradeWeaponStat("Damage"));
+
+            // Row 2: Fire Rate
+            CreateTransparentBtn("Btn_Upgrade_FireRate", artContainer.transform, new Vector2(0.740f, 0.360f), new Vector2(0.960f, 0.450f), () => UpgradeWeaponStat("FireRate"));
+
+            // Row 3: Range
+            CreateTransparentBtn("Btn_Upgrade_Range", artContainer.transform, new Vector2(0.740f, 0.270f), new Vector2(0.960f, 0.360f), () => UpgradeWeaponStat("Range"));
+
+            // Row 4: Magazine
+            CreateTransparentBtn("Btn_Upgrade_Magazine", artContainer.transform, new Vector2(0.740f, 0.180f), new Vector2(0.960f, 0.270f), () => UpgradeWeaponStat("Magazine"));
+
+            // 4 Bottom Weapon Cards:
+            CreateTransparentBtn("Btn_Weapon_AssaultRifle", artContainer.transform, new Vector2(0.020f, 0.025f), new Vector2(0.260f, 0.160f), () => SelectWeapon("AssaultRifle"));
+            CreateTransparentBtn("Btn_Weapon_Shotgun",      artContainer.transform, new Vector2(0.265f, 0.025f), new Vector2(0.505f, 0.160f), () => SelectWeapon("Shotgun"));
+            CreateTransparentBtn("Btn_Weapon_Sniper",       artContainer.transform, new Vector2(0.510f, 0.025f), new Vector2(0.750f, 0.160f), () => SelectWeapon("Sniper"));
+            CreateTransparentBtn("Btn_Weapon_Minigun",      artContainer.transform, new Vector2(0.755f, 0.025f), new Vector2(0.980f, 0.160f), () => SelectWeapon("Minigun"));
+        }
+
+        public void CycleWeapon(int direction)
+        {
+            string current = PlayerPrefs.GetString("ZombieSquad_SelectedWeapon", "AssaultRifle");
+            int idx = System.Array.IndexOf(s_weaponKeys, current);
+            if (idx < 0) idx = 0;
+            idx = (idx + direction + s_weaponKeys.Length) % s_weaponKeys.Length;
+            SelectWeapon(s_weaponKeys[idx]);
+        }
+
+        public void SelectWeapon(string weaponKey)
+        {
+            PlayerPrefs.SetString("ZombieSquad_SelectedWeapon", weaponKey);
+            PlayerPrefs.Save();
+            Debug.Log($"[ZombieSquad] Selected Weapon: {weaponKey}");
+            UpdateWeaponsScreenVisuals();
+        }
+
+        public void UpgradeWeaponStat(string statName)
+        {
+            string currentWeapon = PlayerPrefs.GetString("ZombieSquad_SelectedWeapon", "AssaultRifle");
+            string prefKey = $"ZombieSquad_Wep_{currentWeapon}_{statName}";
+            int currentLevel = PlayerPrefs.GetInt(prefKey, 0);
+            int newLevel = currentLevel + 1;
+            PlayerPrefs.SetInt(prefKey, newLevel);
+            PlayerPrefs.Save();
+
+            Debug.Log($"[ZombieSquad] Upgraded {currentWeapon} {statName} to Level {newLevel}!");
+            UpdateWeaponsScreenVisuals();
+        }
+
+        public void UpdateWeaponsScreenVisuals()
+        {
+            if (weaponsScreenBgImage != null)
+            {
+                Sprite sp = LoadZombieSquadWeaponsScreenSprite();
+                if (sp != null) weaponsScreenBgImage.sprite = sp;
+            }
+        }
+
+        #endregion
+
+        #region Zombie Squad Shop Screen
+
+        private Sprite LoadZombieSquadShopScreenSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_ShopScreen");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_ShopScreen");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string[] localPaths = new string[]
+                {
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_ShopScreen.png"),
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_ShopScreen.jpg")
+                };
+
+                foreach (string localPath in localPaths)
+                {
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (tex.LoadImage(fileData))
+                        {
+                            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] ShopScreen sprite loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private void BuildZombieSquadShopScreenPanel(Transform canvasRoot)
+        {
+            shopPanel = CreateFullPanel("ZombieSquadShopPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for 9:16 aspect ratio
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(shopPanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+
+            // Background Image - exactly the uploaded artwork
+            Image shopImg = artContainer.AddComponent<Image>();
+            shopScreenBgImage = shopImg;
+            Sprite shopSprite = LoadZombieSquadShopScreenSprite();
+            if (shopSprite != null)
+            {
+                shopImg.sprite = shopSprite;
+            }
+            shopImg.type = Image.Type.Simple;
+            shopImg.preserveAspect = false;
+            shopImg.raycastTarget = true;
+
+            // Transparent Button Creator Helper (Instant zero-delay response!)
+            Button CreateTransparentBtn(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, System.Action onClick)
+            {
+                GameObject btnObj = new GameObject(name);
+                btnObj.transform.SetParent(parent, false);
+
+                RectTransform rt = btnObj.AddComponent<RectTransform>();
+                rt.anchorMin = anchorMin;
+                rt.anchorMax = anchorMax;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.001f);
+                img.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = img;
+
+                ColorBlock cb = btn.colors;
+                cb.normalColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.highlightedColor = new Color(1f, 1f, 1f, 0.15f);
+                cb.pressedColor = new Color(0f, 0f, 0f, 0.25f);
+                cb.selectedColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.fadeDuration = 0.05f;
+                btn.colors = cb;
+
+                if (onClick != null)
+                {
+                    btn.onClick.AddListener(() =>
+                    {
+                        onClick(); // Instant execution with ZERO lag!
+                        StartCoroutine(PunchScale(btnObj.transform, 0.10f, null));
+                    });
+                }
+                return btn;
+            }
+
+            // Top-Left Back Button to Home Screen: (0.025, 0.900) to (0.170, 0.980)
+            Button backBtn = CreateTransparentBtn("Btn_Back", artContainer.transform, new Vector2(0.025f, 0.900f), new Vector2(0.170f, 0.980f), () =>
+            {
+                Debug.Log("[ZombieSquad] Shop Screen -> Back pressed -> Returning to Home Screen");
+                ShowZombieSquadHomeScreen();
+            });
+            shopBackBtnRect = backBtn.GetComponent<RectTransform>();
+
+            // Category Tabs: Coins, Diamonds, Special, Skins
+            CreateTransparentBtn("Btn_Tab_Coins",    artContainer.transform, new Vector2(0.025f, 0.810f), new Vector2(0.260f, 0.875f), () => SelectShopTab("Coins"));
+            CreateTransparentBtn("Btn_Tab_Diamonds", artContainer.transform, new Vector2(0.265f, 0.810f), new Vector2(0.505f, 0.875f), () => SelectShopTab("Diamonds"));
+            CreateTransparentBtn("Btn_Tab_Special",  artContainer.transform, new Vector2(0.510f, 0.810f), new Vector2(0.745f, 0.875f), () => SelectShopTab("Special"));
+            CreateTransparentBtn("Btn_Tab_Skins",    artContainer.transform, new Vector2(0.750f, 0.810f), new Vector2(0.975f, 0.875f), () => SelectShopTab("Skins"));
+
+            // 4 Coin Pack Green Buttons:
+            // 1. 1,000 Coins (Top-Left)
+            CreateTransparentBtn("Btn_Buy_1000_Coins",  artContainer.transform, new Vector2(0.055f, 0.480f), new Vector2(0.455f, 0.555f), () => BuyCoins(1000));
+
+            // 2. 5,000 Coins (Top-Right)
+            CreateTransparentBtn("Btn_Buy_5000_Coins",  artContainer.transform, new Vector2(0.550f, 0.480f), new Vector2(0.945f, 0.555f), () => BuyCoins(5000));
+
+            // 3. 20,000 Coins (Bottom-Left)
+            CreateTransparentBtn("Btn_Buy_20000_Coins", artContainer.transform, new Vector2(0.055f, 0.105f), new Vector2(0.455f, 0.180f), () => BuyCoins(20000));
+
+            // 4. 50,000 Coins (Bottom-Right)
+            CreateTransparentBtn("Btn_Buy_50000_Coins", artContainer.transform, new Vector2(0.550f, 0.105f), new Vector2(0.945f, 0.180f), () => BuyCoins(50000));
+        }
+
+        public void SelectShopTab(string tabKey)
+        {
+            Debug.Log($"[ZombieSquad] Selected Shop Tab: {tabKey}");
+        }
+
+        public void BuyCoins(int amount)
+        {
+            int currentCoins = PlayerPrefs.GetInt(PREF_COINS, 250);
+            currentCoins += amount;
+            PlayerPrefs.SetInt(PREF_COINS, currentCoins);
+            PlayerPrefs.Save();
+
+            Debug.Log($"[ZombieSquad] Purchased {amount} Coins! New Balance: {currentCoins}");
+            UpdateCurrencyHud();
+        }
+
+        public void UpdateShopScreenVisuals()
+        {
+            if (shopScreenBgImage != null)
+            {
+                Sprite sp = LoadZombieSquadShopScreenSprite();
+                if (sp != null) shopScreenBgImage.sprite = sp;
+            }
+        }
+
+        #endregion
+
+        #region Zombie Squad Missions Screen
+
+        private Sprite LoadZombieSquadMissionsScreenSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_MissionsScreen");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_MissionsScreen");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string[] localPaths = new string[]
+                {
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_MissionsScreen.png"),
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_MissionsScreen.jpg")
+                };
+
+                foreach (string localPath in localPaths)
+                {
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (tex.LoadImage(fileData))
+                        {
+                            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] MissionsScreen sprite loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private void BuildZombieSquadMissionsScreenPanel(Transform canvasRoot)
+        {
+            missionsPanel = CreateFullPanel("ZombieSquadMissionsPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for 9:16 aspect ratio
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(missionsPanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+
+            // Background Image - exactly the uploaded artwork
+            Image missionsImg = artContainer.AddComponent<Image>();
+            missionsScreenBgImage = missionsImg;
+            Sprite missionsSprite = LoadZombieSquadMissionsScreenSprite();
+            if (missionsSprite != null)
+            {
+                missionsImg.sprite = missionsSprite;
+            }
+            missionsImg.type = Image.Type.Simple;
+            missionsImg.preserveAspect = false;
+            missionsImg.raycastTarget = true;
+
+            // Transparent Button Creator Helper (Instant zero-delay response!)
+            Button CreateTransparentBtn(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, System.Action onClick)
+            {
+                GameObject btnObj = new GameObject(name);
+                btnObj.transform.SetParent(parent, false);
+
+                RectTransform rt = btnObj.AddComponent<RectTransform>();
+                rt.anchorMin = anchorMin;
+                rt.anchorMax = anchorMax;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.001f);
+                img.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = img;
+
+                ColorBlock cb = btn.colors;
+                cb.normalColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.highlightedColor = new Color(1f, 1f, 1f, 0.15f);
+                cb.pressedColor = new Color(0f, 0f, 0f, 0.25f);
+                cb.selectedColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.fadeDuration = 0.05f;
+                btn.colors = cb;
+
+                if (onClick != null)
+                {
+                    btn.onClick.AddListener(() =>
+                    {
+                        onClick(); // Instant execution with ZERO lag!
+                        StartCoroutine(PunchScale(btnObj.transform, 0.10f, null));
+                    });
+                }
+                return btn;
+            }
+
+            // Top-Left Back Button to Home Screen: (0.025, 0.900) to (0.170, 0.980)
+            Button backBtn = CreateTransparentBtn("Btn_Back", artContainer.transform, new Vector2(0.025f, 0.900f), new Vector2(0.170f, 0.980f), () =>
+            {
+                Debug.Log("[ZombieSquad] Missions Screen -> Back pressed -> Returning to Home Screen");
+                ShowZombieSquadHomeScreen();
+            });
+            missionsBackBtnRect = backBtn.GetComponent<RectTransform>();
+
+            // 3 Claim Buttons:
+            // Mission 1: Play 30 Minutes -> 100 Coins
+            CreateTransparentBtn("Btn_Claim_Mission1", artContainer.transform, new Vector2(0.680f, 0.485f), new Vector2(0.940f, 0.550f), () => ClaimMissionReward(1, 100));
+
+            // Mission 2: Play 60 Minutes -> 200 Coins
+            CreateTransparentBtn("Btn_Claim_Mission2", artContainer.transform, new Vector2(0.680f, 0.270f), new Vector2(0.940f, 0.335f), () => ClaimMissionReward(2, 200));
+
+            // Mission 3: Play 4 Hours -> 500 Coins
+            CreateTransparentBtn("Btn_Claim_Mission3", artContainer.transform, new Vector2(0.680f, 0.055f), new Vector2(0.940f, 0.120f), () => ClaimMissionReward(3, 500));
+        }
+
+        public void ClaimMissionReward(int missionId, int coinsReward)
+        {
+            int currentCoins = PlayerPrefs.GetInt(PREF_COINS, 250);
+            currentCoins += coinsReward;
+            PlayerPrefs.SetInt(PREF_COINS, currentCoins);
+            PlayerPrefs.Save();
+            Debug.Log($"[ZombieSquad] Claimed Mission {missionId} Reward: +{coinsReward} Coins! Total: {currentCoins}");
+            UpdateCurrencyHud();
+        }
+
+        public void UpdateMissionsScreenVisuals()
+        {
+            if (missionsScreenBgImage != null)
+            {
+                Sprite sp = LoadZombieSquadMissionsScreenSprite();
+                if (sp != null) missionsScreenBgImage.sprite = sp;
+            }
+        }
+
+        #endregion
+
+        #region Zombie Squad Daily Screen
+
+        private Sprite LoadZombieSquadDailyScreenSprite()
+        {
+            try
+            {
+                Sprite s = Resources.Load<Sprite>("UI/ZombieSquad_DailyScreen");
+                if (s != null) return s;
+
+                Texture2D resTex = Resources.Load<Texture2D>("UI/ZombieSquad_DailyScreen");
+                if (resTex != null)
+                {
+                    return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+                }
+
+                string[] localPaths = new string[]
+                {
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_DailyScreen.png"),
+                    System.IO.Path.Combine(Application.dataPath, "Resources", "UI", "ZombieSquad_DailyScreen.jpg")
+                };
+
+                foreach (string localPath in localPaths)
+                {
+                    if (System.IO.File.Exists(localPath))
+                    {
+                        byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (tex.LoadImage(fileData))
+                        {
+                            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] DailyScreen sprite loading: " + ex.Message);
+            }
+            return null;
+        }
+
+        private void BuildZombieSquadDailyScreenPanel(Transform canvasRoot)
+        {
+            dailyPanel = CreateFullPanel("ZombieSquadDailyPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+
+            // Container for 9:16 aspect ratio
+            GameObject artContainer = new GameObject("ArtContainer");
+            artContainer.transform.SetParent(dailyPanel.transform, false);
+            RectTransform artRt = artContainer.AddComponent<RectTransform>();
+            artRt.anchorMin = Vector2.zero;
+            artRt.anchorMax = Vector2.one;
+            artRt.offsetMin = Vector2.zero;
+            artRt.offsetMax = Vector2.zero;
+
+
+            // Background Image - exactly the uploaded artwork
+            Image dailyImg = artContainer.AddComponent<Image>();
+            dailyScreenBgImage = dailyImg;
+            Sprite dailySprite = LoadZombieSquadDailyScreenSprite();
+            if (dailySprite != null)
+            {
+                dailyImg.sprite = dailySprite;
+            }
+            dailyImg.type = Image.Type.Simple;
+            dailyImg.preserveAspect = false;
+            dailyImg.raycastTarget = true;
+
+            // Transparent Button Creator Helper (Instant zero-delay response!)
+            Button CreateTransparentBtn(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, System.Action onClick)
+            {
+                GameObject btnObj = new GameObject(name);
+                btnObj.transform.SetParent(parent, false);
+
+                RectTransform rt = btnObj.AddComponent<RectTransform>();
+                rt.anchorMin = anchorMin;
+                rt.anchorMax = anchorMax;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0.001f);
+                img.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = img;
+
+                ColorBlock cb = btn.colors;
+                cb.normalColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.highlightedColor = new Color(1f, 1f, 1f, 0.15f);
+                cb.pressedColor = new Color(0f, 0f, 0f, 0.25f);
+                cb.selectedColor = new Color(1f, 1f, 1f, 0.001f);
+                cb.fadeDuration = 0.05f;
+                btn.colors = cb;
+
+                if (onClick != null)
+                {
+                    btn.onClick.AddListener(() =>
+                    {
+                        onClick(); // Instant execution with ZERO lag!
+                        StartCoroutine(PunchScale(btnObj.transform, 0.10f, null));
+                    });
+                }
+                return btn;
+            }
+
+            // Top-Left Back Button to Home Screen: (0.025, 0.900) to (0.170, 0.980)
+            Button backBtn = CreateTransparentBtn("Btn_Back", artContainer.transform, new Vector2(0.025f, 0.900f), new Vector2(0.170f, 0.980f), () =>
+            {
+                Debug.Log("[ZombieSquad] Daily Screen -> Back pressed -> Returning to Home Screen");
+                ShowZombieSquadHomeScreen();
+            });
+            dailyBackBtnRect = backBtn.GetComponent<RectTransform>();
+
+            // Day 1 to 7 reward buttons:
+            int[] dailyAmounts = new int[] { 10, 20, 30, 40, 50, 60, 100 };
+            float[] colStarts = new float[] { 0.020f, 0.155f, 0.292f, 0.429f, 0.566f, 0.703f, 0.840f };
+            float[] colEnds = new float[] { 0.155f, 0.292f, 0.429f, 0.566f, 0.703f, 0.840f, 0.980f };
+
+            for (int i = 0; i < 7; i++)
+            {
+                int day = i + 1;
+                int rewardCoins = dailyAmounts[i];
+                Vector2 min = new Vector2(colStarts[i], 0.300f);
+                Vector2 max = new Vector2(colEnds[i], 0.530f);
+                CreateTransparentBtn($"Btn_Day_{day}", artContainer.transform, min, max, () => ClaimDailyReward(day, rewardCoins));
+            }
+        }
+
+        public void ClaimDailyReward(int day, int coinsReward)
+        {
+            int currentCoins = PlayerPrefs.GetInt(PREF_COINS, 250);
+            currentCoins += coinsReward;
+            PlayerPrefs.SetInt(PREF_COINS, currentCoins);
+            PlayerPrefs.Save();
+            Debug.Log($"[ZombieSquad] Claimed Day {day} Daily Reward: +{coinsReward} Coins! Total: {currentCoins}");
+            UpdateCurrencyHud();
+        }
+
+        public void UpdateDailyScreenVisuals()
+        {
+            if (dailyScreenBgImage != null)
+            {
+                Sprite sp = LoadZombieSquadDailyScreenSprite();
+                if (sp != null) dailyScreenBgImage.sprite = sp;
+            }
+        }
+
+        #endregion
 
         private void BuildSplashPanel(Transform canvasRoot)
         {
@@ -1272,6 +3292,220 @@ namespace MobControl.UI
 
         #region Screens Flow & Transitions
 
+        private void EnsureUIBuilt()
+        {
+            if (mainCanvas == null)
+            {
+                mainCanvas = GetComponentInChildren<Canvas>(true);
+            }
+
+            if (mainCanvas != null)
+            {
+                if (homeScreenPanel == null) homeScreenPanel = mainCanvas.transform.Find("ZombieSquadHomeScreenPanel")?.gameObject;
+                if (levelMapPanel == null) levelMapPanel = mainCanvas.transform.Find("ZombieSquadLevelMapPanel")?.gameObject;
+                if (charactersPanel == null) charactersPanel = mainCanvas.transform.Find("ZombieSquadCharactersPanel")?.gameObject;
+                if (upgradePanel == null) upgradePanel = mainCanvas.transform.Find("ZombieSquadUpgradePanel")?.gameObject;
+                if (weaponsPanel == null) weaponsPanel = mainCanvas.transform.Find("ZombieSquadWeaponsPanel")?.gameObject;
+                if (shopPanel == null) shopPanel = mainCanvas.transform.Find("ZombieSquadShopPanel")?.gameObject;
+                if (missionsPanel == null) missionsPanel = mainCanvas.transform.Find("ZombieSquadMissionsPanel")?.gameObject;
+                if (dailyPanel == null) dailyPanel = mainCanvas.transform.Find("ZombieSquadDailyPanel")?.gameObject;
+                if (gameplayHudPanel == null) gameplayHudPanel = mainCanvas.transform.Find("GameplayHud")?.gameObject;
+                if (victoryPanel == null) victoryPanel = mainCanvas.transform.Find("VictoryPanel")?.gameObject;
+                if (defeatPanel == null) defeatPanel = mainCanvas.transform.Find("DefeatPanel")?.gameObject;
+            }
+
+            bool allPanelsExist = mainCanvas != null &&
+                homeScreenPanel != null &&
+                levelMapPanel != null &&
+                charactersPanel != null &&
+                upgradePanel != null &&
+                weaponsPanel != null &&
+                shopPanel != null &&
+                missionsPanel != null &&
+                dailyPanel != null;
+
+            if (!allPanelsExist)
+            {
+                if (mainCanvas != null)
+                {
+                    DestroyImmediate(mainCanvas.gameObject);
+                    mainCanvas = null;
+                }
+                for (int i = transform.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = transform.GetChild(i);
+                    if (child.name.Contains("Canvas") || child.GetComponent<Canvas>() != null)
+                    {
+                        DestroyImmediate(child.gameObject);
+                    }
+                }
+                BuildUIHierarchy();
+            }
+        }
+
+        private void SwitchToPanel(GameObject targetPanel)
+        {
+            EnsureUIBuilt();
+
+            // Re-resolve targetPanel based on currentState
+            switch (currentState)
+            {
+                case ScreenState.HomeScreen: targetPanel = homeScreenPanel; break;
+                case ScreenState.LevelMap: targetPanel = levelMapPanel; break;
+                case ScreenState.Characters: targetPanel = charactersPanel; break;
+                case ScreenState.Upgrade: targetPanel = upgradePanel; break;
+                case ScreenState.Weapons: targetPanel = weaponsPanel; break;
+                case ScreenState.Shop: targetPanel = shopPanel; break;
+                case ScreenState.Missions: targetPanel = missionsPanel; break;
+                case ScreenState.Daily: targetPanel = dailyPanel; break;
+                case ScreenState.Gameplay: targetPanel = gameplayHudPanel; break;
+                case ScreenState.Victory: targetPanel = victoryPanel; break;
+                case ScreenState.Defeat: targetPanel = defeatPanel; break;
+            }
+
+            Debug.Log($"[ZombieRunnerUIManager] SwitchToPanel -> Target: {(targetPanel != null ? targetPanel.name : "NULL")}, CurrentState: {currentState}");
+
+            // 1. Purge any duplicate canvases in scene/DontDestroyOnLoad
+            Canvas[] allCanvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var c in allCanvases)
+            {
+                if (c != null && c != mainCanvas && c.name.Contains("ZombieRunnerCanvas"))
+                {
+                    Debug.Log($"[ZombieRunnerUIManager] Purging duplicate canvas: {c.gameObject.name}");
+                    DestroyImmediate(c.gameObject);
+                }
+            }
+
+            // 2. Loop through all children of mainCanvas and toggle active state
+            if (mainCanvas != null)
+            {
+                for (int i = 0; i < mainCanvas.transform.childCount; i++)
+                {
+                    Transform child = mainCanvas.transform.GetChild(i);
+                    bool isTarget = (targetPanel != null && child.gameObject == targetPanel);
+                    child.gameObject.SetActive(isTarget);
+                }
+            }
+
+            // 3. Explicitly set every known panel field to inactive if it's not the target
+            if (homeScreenPanel != null && homeScreenPanel != targetPanel) homeScreenPanel.SetActive(false);
+            if (levelMapPanel != null && levelMapPanel != targetPanel) levelMapPanel.SetActive(false);
+            if (charactersPanel != null && charactersPanel != targetPanel) charactersPanel.SetActive(false);
+            if (upgradePanel != null && upgradePanel != targetPanel) upgradePanel.SetActive(false);
+            if (weaponsPanel != null && weaponsPanel != targetPanel) weaponsPanel.SetActive(false);
+            if (shopPanel != null && shopPanel != targetPanel) shopPanel.SetActive(false);
+            if (missionsPanel != null && missionsPanel != targetPanel) missionsPanel.SetActive(false);
+            if (dailyPanel != null && dailyPanel != targetPanel) dailyPanel.SetActive(false);
+            if (splashPanel != null && splashPanel != targetPanel) splashPanel.SetActive(false);
+            if (levelSelectPanel != null && levelSelectPanel != targetPanel) levelSelectPanel.SetActive(false);
+            if (gameplayHudPanel != null && gameplayHudPanel != targetPanel) gameplayHudPanel.SetActive(false);
+            if (victoryPanel != null && victoryPanel != targetPanel) victoryPanel.SetActive(false);
+            if (defeatPanel != null && defeatPanel != targetPanel) defeatPanel.SetActive(false);
+
+            if (targetPanel != null)
+            {
+                targetPanel.SetActive(true);
+                targetPanel.transform.SetAsLastSibling();
+            }
+
+            // 4. If switching away from HomeScreen, deactivate ANY other HomeScreen object in the scene
+            if (currentState != ScreenState.HomeScreen)
+            {
+                GameObject[] allGos = FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                foreach (var go in allGos)
+                {
+                    if (go != null && go != targetPanel && (go.name == "ZombieSquadHomeScreenPanel" || go.name == "HomeScreen"))
+                    {
+                        go.SetActive(false);
+                    }
+                }
+            }
+
+            // Reset finished flag, lock player and ensure normal time when in menu screens
+            if (currentState != ScreenState.Gameplay && currentState != ScreenState.Victory && currentState != ScreenState.Defeat)
+            {
+                isGameActive = false;
+                isFinishedHandled = false;
+                Time.timeScale = 1f;
+                LockPlayer(true);
+            }
+
+            if (starRigRoot != null) starRigRoot.SetActive(currentState == ScreenState.Victory);
+            if (starCamera != null) starCamera.enabled = (currentState == ScreenState.Victory);
+        }
+
+        public void ShowZombieSquadHomeScreen()
+        {
+            currentState = ScreenState.HomeScreen;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(homeScreenPanel);
+        }
+
+        public void ShowZombieSquadLevelMap()
+        {
+            currentState = ScreenState.LevelMap;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(levelMapPanel);
+            UpdateLevelMapVisuals();
+        }
+
+        public void ShowZombieSquadCharactersScreen()
+        {
+            currentState = ScreenState.Characters;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(charactersPanel);
+            selectedCharacterKey = PlayerPrefs.GetString("ZombieSquad_SelectedHero", "Soldier");
+            UpdateCharactersScreenVisuals();
+        }
+
+        public void ShowZombieSquadUpgradeScreen()
+        {
+            currentState = ScreenState.Upgrade;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(upgradePanel);
+            UpdateUpgradeScreenVisuals();
+        }
+
+        public void ShowZombieSquadWeaponsScreen()
+        {
+            currentState = ScreenState.Weapons;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(weaponsPanel);
+            UpdateWeaponsScreenVisuals();
+        }
+
+        public void ShowZombieSquadShopScreen()
+        {
+            currentState = ScreenState.Shop;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(shopPanel);
+            UpdateShopScreenVisuals();
+        }
+
+        public void ShowZombieSquadMissionsScreen()
+        {
+            currentState = ScreenState.Missions;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(missionsPanel);
+            UpdateMissionsScreenVisuals();
+        }
+
+        public void ShowZombieSquadDailyScreen()
+        {
+            currentState = ScreenState.Daily;
+            isGameActive = false;
+            LockPlayer(true);
+            SwitchToPanel(dailyPanel);
+            UpdateDailyScreenVisuals();
+        }
+
         public void ShowSplashScreen()
         {
             currentState = ScreenState.SplashScreen;
@@ -1279,6 +3513,11 @@ namespace MobControl.UI
             LockPlayer(true);
 
             splashPanel.SetActive(true);
+            if (upgradePanel != null) upgradePanel.SetActive(false);
+            if (weaponsPanel != null) weaponsPanel.SetActive(false);
+            if (shopPanel != null) shopPanel.SetActive(false);
+            if (missionsPanel != null) missionsPanel.SetActive(false);
+            if (dailyPanel != null) dailyPanel.SetActive(false);
             levelSelectPanel.SetActive(false);
             gameplayHudPanel.SetActive(false);
             victoryPanel.SetActive(false);
@@ -1344,11 +3583,19 @@ namespace MobControl.UI
             isGameActive = false;
             LockPlayer(true);
 
-            splashPanel.SetActive(false);
-            levelSelectPanel.SetActive(true);
-            gameplayHudPanel.SetActive(false);
-            victoryPanel.SetActive(false);
-            defeatPanel.SetActive(false);
+            if (splashPanel != null) splashPanel.SetActive(false);
+            if (levelSelectPanel != null) levelSelectPanel.SetActive(true);
+            if (charactersPanel != null) charactersPanel.SetActive(false);
+            if (upgradePanel != null) upgradePanel.SetActive(false);
+            if (weaponsPanel != null) weaponsPanel.SetActive(false);
+            if (shopPanel != null) shopPanel.SetActive(false);
+            if (missionsPanel != null) missionsPanel.SetActive(false);
+            if (dailyPanel != null) dailyPanel.SetActive(false);
+            if (homeScreenPanel != null) homeScreenPanel.SetActive(false);
+            if (levelMapPanel != null) levelMapPanel.SetActive(false);
+            if (gameplayHudPanel != null) gameplayHudPanel.SetActive(false);
+            if (victoryPanel != null) victoryPanel.SetActive(false);
+            if (defeatPanel != null) defeatPanel.SetActive(false);
             if (starRigRoot != null) starRigRoot.SetActive(false);
             if (starCamera != null) starCamera.enabled = false;
 
@@ -1479,11 +3726,12 @@ namespace MobControl.UI
             isGameActive = true;
             isFinishedHandled = false;
 
-            splashPanel.SetActive(false);
-            levelSelectPanel.SetActive(false);
-            gameplayHudPanel.SetActive(true);
-            victoryPanel.SetActive(false);
-            defeatPanel.SetActive(false);
+            if (levelFinishZ <= 10f) levelFinishZ = 120.0f;
+
+            EnsureUIBuilt();
+            SwitchToPanel(gameplayHudPanel);
+
+            Cleanup3DHomeScreenCharacterRig();
 
             if (hudLevelText != null)
             {
@@ -1499,6 +3747,16 @@ namespace MobControl.UI
             {
                 starRigRoot.SetActive(false);
             }
+
+            if (playerRunner != null)
+            {
+                playerRunner.ResetForNewRun(0f);
+                playerRunner.ApplyEquippedHeroStats();
+                playerRunner.EnsureEquippedWeapon();
+            }
+
+            // Ensure Level 1 asphalt road, side guardrails, and pine tree forest corridor are active
+            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
 
             // Unlock player to start running and shooting!
             LockPlayer(false);
@@ -1546,13 +3804,11 @@ namespace MobControl.UI
             Cursor.lockState = CursorLockMode.None;
 
             EnsureEventSystem();
+            SwitchToPanel(victoryPanel);
 
             Ensure3DStarRig();
             if (starRigRoot != null) starRigRoot.SetActive(true);
             if (starCamera != null) starCamera.enabled = true;
-
-            if (gameplayHudPanel != null) gameplayHudPanel.SetActive(false);
-            if (defeatPanel != null) defeatPanel.SetActive(false);
 
             // 1. Calculate Stars based on remaining player HP:
             // 3 HP -> 3 Stars
@@ -1734,20 +3990,10 @@ namespace MobControl.UI
             Cursor.lockState = CursorLockMode.None;
 
             EnsureEventSystem();
+            SwitchToPanel(defeatPanel);
 
             if (defeatTitleText != null) defeatTitleText.text = title;
             if (defeatSubText != null) defeatSubText.text = subtitle;
-
-            if (gameplayHudPanel != null) gameplayHudPanel.SetActive(false);
-            if (victoryPanel != null) victoryPanel.SetActive(false);
-            if (starRigRoot != null) starRigRoot.SetActive(false);
-            if (starCamera != null) starCamera.enabled = false;
-
-            if (defeatPanel != null)
-            {
-                defeatPanel.SetActive(true);
-                defeatPanel.transform.SetAsLastSibling();
-            }
         }
 
         public void TriggerDefeat()
@@ -1798,7 +4044,9 @@ namespace MobControl.UI
             if (starRigRoot != null) starRigRoot.SetActive(false);
             if (starCamera != null) starCamera.enabled = false;
 
-            startAtLevelSelect = true;
+            startAtLevelMap = true; // Open Level Map so user sees their updated progress!
+            startAtHomeScreen = false;
+            startAtLevelSelect = false;
             autoStartMissionOnLoad = false;
             ReloadCurrentScene();
         }

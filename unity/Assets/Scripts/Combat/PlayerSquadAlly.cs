@@ -15,6 +15,8 @@ namespace MobControl.Combat
         private GameObject bulletPrefab;
         private MobUnit mobUnit;
         private bool isInitialized = false;
+        private GameObject equippedWeaponInstance;
+        private Transform muzzleFirePoint;
 
         public void Initialize(PlayerRunnerController leaderRef, Vector3 offset, GameObject bulletRef, Vector3 muzzleOff, float rate)
         {
@@ -27,10 +29,57 @@ namespace MobControl.Combat
             animator = GetComponent<Animator>();
             mobUnit = GetComponent<MobUnit>();
 
+            Material mat = Resources.Load<Material>("Materials/PlayerMaterial");
+#if UNITY_EDITOR
+            if (mat == null) mat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/PlayerMaterial.mat");
+#endif
+            if (mat != null)
+            {
+                foreach (var r in GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r.GetComponent<LineRenderer>() == null && !r.name.Contains("Gun") && !r.name.Contains("M4") && !r.name.Contains("Receiver") && !r.name.Contains("Barrel") && !r.name.Contains("Magazine") && !r.name.Contains("Stock") && !r.name.Contains("Sight"))
+                    {
+                        r.sharedMaterial = mat;
+                    }
+                }
+            }
+
             Collider col = GetComponent<Collider>();
             if (col != null)
             {
                 col.isTrigger = true;
+            }
+
+            // Equip authentic weapon on ally
+            Transform rightHand = PlayerRunnerController.FindRightHandBone(transform);
+            Transform mount = rightHand != null ? rightHand : transform;
+
+            Transform existingGun = null;
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name.Contains("Gun_M41D") || (t.name == "Gun" && t.parent != null && t.parent.name.Contains("Gun")))
+                {
+                    existingGun = t;
+                    break;
+                }
+            }
+
+            if (existingGun != null)
+            {
+                existingGun.gameObject.SetActive(true);
+                float parentScale = (existingGun.parent != null && existingGun.parent.lossyScale.x > 0.001f) ? existingGun.parent.lossyScale.x : 100f;
+                float gunScale = parentScale > 10f ? 0.008f : 0.8f;
+                Vector3 gunPos = parentScale > 10f ? new Vector3(-0.003f, 0.003f, 0.0015f) : new Vector3(-0.03f, 0.03f, 0.015f);
+
+                existingGun.localScale = new Vector3(gunScale, gunScale, gunScale);
+                existingGun.localPosition = gunPos;
+                existingGun.localRotation = Quaternion.Euler(183.274f, 90f, 93.656f);
+                equippedWeaponInstance = existingGun.gameObject;
+                muzzleFirePoint = existingGun.Find("MuzzleFirePoint");
+            }
+            else
+            {
+                equippedWeaponInstance = PlayerRunnerController.BuildStylizedAssaultRifle(mount, out muzzleFirePoint, rightHand != null);
             }
 
             if (animator != null)
@@ -83,10 +132,9 @@ namespace MobControl.Combat
         {
             if (bulletPrefab == null) return;
 
-            Vector3 spawnPos = transform.position 
-                + (transform.right * muzzleOffset.x) 
-                + (transform.up * muzzleOffset.y) 
-                + (transform.forward * muzzleOffset.z);
+            Vector3 spawnPos = muzzleFirePoint != null 
+                ? muzzleFirePoint.position 
+                : (transform.position + (transform.right * muzzleOffset.x) + (transform.up * muzzleOffset.y) + (transform.forward * muzzleOffset.z));
 
             if (ObjectPooler.Instance != null)
             {
@@ -95,6 +143,23 @@ namespace MobControl.Combat
             else
             {
                 Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
+            }
+
+            if (equippedWeaponInstance != null)
+            {
+                StartCoroutine(WeaponRecoilPunch(equippedWeaponInstance.transform));
+            }
+        }
+
+        private System.Collections.IEnumerator WeaponRecoilPunch(Transform gunTr)
+        {
+            if (gunTr == null) yield break;
+            Vector3 originalPos = gunTr.localPosition;
+            gunTr.localPosition = originalPos - new Vector3(0f, 0f, 0.025f);
+            yield return new WaitForSeconds(0.04f);
+            if (gunTr != null)
+            {
+                gunTr.localPosition = originalPos;
             }
         }
 

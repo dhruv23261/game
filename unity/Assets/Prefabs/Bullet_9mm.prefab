@@ -66,7 +66,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: dea76e8b77b6f4caeb04ab74d2340138, type: 2}
+  - {fileID: 2100000, guid: 7397f2fd6282460e83f26047672822a7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -273,8 +273,8 @@ TrailRenderer:
       m_RotationOrder: 4
     colorGradient:
       serializedVersion: 2
-      key0: {r: 0.2, g: 0.85, b: 1, a: 0.95}
-      key1: {r: 0.05, g: 0.45, b: 1, a: 0}
+      key0: {r: 1, g: 0.75, b: 0.15, a: 1}
+      key1: {r: 1, g: 0.35, b: 0.02, a: 0}
       key2: {r: 0, g: 0, b: 0, a: 0}
       key3: {r: 0, g: 0, b: 0, a: 0}
       key4: {r: 0, g: 0, b: 0, a: 0}
@@ -327,7 +327,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &8889774786863732892
 Transform:
   m_ObjectHideFlags: 0

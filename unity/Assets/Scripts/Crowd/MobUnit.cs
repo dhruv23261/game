@@ -187,17 +187,9 @@ namespace MobControl.Crowd
                     Vector3 playerPos = PlayerRunnerController.Instance.transform.position;
                     float dz = transform.position.z - playerPos.z;
 
-                // Check if this enemy zombie has breached past the player runner!
-                if (dz < -0.6f)
+                // If the player runner has safely run past this zombie, stop the zombie
+                if (dz < -2.0f)
                 {
-                    ZombieRunnerUIManager ui = ZombieRunnerUIManager.Instance != null 
-                        ? ZombieRunnerUIManager.Instance 
-                        : ZombieRunnerUIManager.EnsureInstance();
-
-                    if (ui != null)
-                    {
-                        ui.TriggerDefeatWithReason("GAME OVER", "A zombie breached your defense line!");
-                    }
                     if (animator != null) animator.SetBool("isMoving", false);
                     return;
                 }

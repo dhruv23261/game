@@ -16,19 +16,19 @@ namespace MobControl.Core
 
         [Header("Upcoming Zone Streaming")]
         [Tooltip("How far ahead of the player upcoming enemies and gates activate (meters)")]
-        [SerializeField] private float upcomingAheadDistance = 48.0f;
+        [SerializeField] private float upcomingAheadDistance = 140.0f;
 
         [Tooltip("How far behind the player passed objects get deactivated permanently (meters)")]
-        [SerializeField] private float behindDeactivateDistance = 8.0f;
+        [SerializeField] private float behindDeactivateDistance = 12.0f;
 
         [Tooltip("Interval between zone update sweeps in seconds")]
         [SerializeField] private float updateInterval = 0.08f; // ~12 times a second
 
         [Header("Atmosphere / Horizon Fog")]
-        [SerializeField] private bool enableAtmosphericFog = true;
-        [SerializeField] private float fogStartDistance = 28.0f;
-        [SerializeField] private float fogEndDistance = 52.0f;
-        [SerializeField] private Color fogColor = new Color(0.72f, 0.84f, 0.95f, 1f); // Sky-blue horizon haze
+        [SerializeField] private bool enableAtmosphericFog = false;
+        [SerializeField] private float fogStartDistance = 150.0f;
+        [SerializeField] private float fogEndDistance = 250.0f;
+        [SerializeField] private Color fogColor = new Color(0.48f, 0.68f, 0.88f, 1f); // Pleasant sky blue
 
         private class TrackItem
         {
@@ -77,20 +77,28 @@ namespace MobControl.Core
 
         private void Start()
         {
-            // Configure mobile-friendly camera distance, solid horizon background, and linear fog
-            if (enableAtmosphericFog)
+            Camera mainCam = Camera.main;
+            if (mainCam != null)
             {
-                Camera mainCam = Camera.main;
-                if (mainCam != null)
+                mainCam.farClipPlane = 300.0f;
+                // Use skybox or pleasant sky blue so horizon never flickers to solid white
+                if (RenderSettings.skybox != null)
                 {
-                    mainCam.farClipPlane = 58.0f;
+                    mainCam.clearFlags = CameraClearFlags.Skybox;
+                }
+                else
+                {
                     mainCam.clearFlags = CameraClearFlags.SolidColor;
                     mainCam.backgroundColor = fogColor;
-                    mainCam.allowHDR = false;
-                    mainCam.allowMSAA = false;
                 }
+                mainCam.allowHDR = false;
+                mainCam.allowMSAA = false;
+            }
 
-                RenderSettings.fog = true;
+            // Keep fog disabled or smooth to prevent distance flickering
+            RenderSettings.fog = enableAtmosphericFog;
+            if (enableAtmosphericFog)
+            {
                 RenderSettings.fogMode = FogMode.Linear;
                 RenderSettings.fogStartDistance = fogStartDistance;
                 RenderSettings.fogEndDistance = fogEndDistance;
@@ -150,24 +158,6 @@ namespace MobControl.Core
                 gate.gameObject.SetActive(shouldBeActive);
             }
 
-            // 3. Register Road Segments (cull segments far behind player)
-            GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-            foreach (var root in rootObjects)
-            {
-                if (root.name.ToLower().Contains("road"))
-                {
-                    float z = root.transform.position.z;
-                    TrackItem item = new TrackItem
-                    {
-                        gameObject = root,
-                        initialZ = z,
-                        isPassed = false,
-                        isRoad = true
-                    };
-                    trackedItems.Add(item);
-                }
-            }
-
             Debug.Log($"[UpcomingZoneManager] Initialized with {trackedItems.Count} tracked elements. Upcoming window: {upcomingAheadDistance}m.");
         }
 
@@ -197,21 +187,6 @@ namespace MobControl.Core
                 if (item.isPassed)
                 {
                     if (item.gameObject.activeSelf) item.gameObject.SetActive(false);
-                    continue;
-                }
-
-                // Check road specific thresholds (keep road ahead a bit longer)
-                if (item.isRoad)
-                {
-                    if (item.initialZ < playerZ - 18.0f)
-                    {
-                        item.isPassed = true;
-                        item.gameObject.SetActive(false);
-                    }
-                    else if (item.initialZ <= playerZ + 60.0f)
-                    {
-                        if (!item.gameObject.activeSelf) item.gameObject.SetActive(true);
-                    }
                     continue;
                 }
 

@@ -32,6 +32,6 @@ Material:
     m_Floats:
     - _InvFade: 1
     m_Colors:
-    - _TintColor: {r: 0.15, g: 0.8, b: 1, a: 0.95}
+    - _TintColor: {r: 1.0, g: 0.72, b: 0.15, a: 0.95}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
