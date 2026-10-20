@@ -431,111 +431,143 @@ namespace MobControl.Level
             GameObject natureRoot = new GameObject("Nature_Canyon_And_Pine_Forest");
             natureRoot.transform.SetParent(parent, false);
 
-            // 1. Place towering cliff rock monoliths and layered pine trees along both sides
-            for (float z = startZ + 2f; z <= endZ - 4f; z += 6.5f)
+            // Step along road with dense 4.5m spacing to form a continuous, lush corridor
+            // Seed Random so placement is consistent and perfectly reproducible
+            Random.InitState(424242);
+
+            for (float z = startZ - 5f; z <= endZ + 15f; z += 4.5f)
             {
-                // ================= LEFT BANK =================
-                // A. Towering Cliff Rock Wall (forms continuous canyon edge right behind curb)
+                // Alternating cadence: rocks and trees alternate prominently along the road verge
+                bool rockPrimary = ((int)(z / 4.5f) % 2 == 0);
+
+                // ================= LEFT BANK (Close to Road & Prominent) =================
+                // 1. Towering Cliff Rock Monolith (Placed right behind guardrail)
                 if (cachedRockMesh != null)
                 {
-                    float rockXL = -(guardrailX + 1.8f + Random.Range(0f, 0.6f));
-                    float rockScaleL = Random.Range(6.0f, 8.5f);
-                    SpawnMeshProp(natureRoot.transform, "CliffRock_L", cachedRockMesh, cachedRockMat,
-                        new Vector3(rockXL, 0f, z + Random.Range(-0.6f, 0.6f)),
-                        new Vector3(rockScaleL * 0.7f, rockScaleL, rockScaleL * 0.7f),
-                        Quaternion.Euler(0f, Random.Range(-25f, 25f), 0f));
+                    float rockOffset = rockPrimary ? 0.55f : 1.20f;
+                    float rockXL = -(guardrailX + rockOffset + Random.Range(0f, 0.35f));
+                    float rScaleW = Random.Range(9.5f, 13.5f);
+                    float rScaleH = Random.Range(12.0f, 16.5f);
+                    float rScaleD = Random.Range(9.5f, 13.5f);
 
-                    // Small foreground boulder near the guardrail
-                    if (Random.value > 0.35f)
+                    SpawnMeshProp(natureRoot.transform, "CliffRock_L", cachedRockMesh, cachedRockMat,
+                        new Vector3(rockXL, -0.1f, z + Random.Range(-0.4f, 0.4f)),
+                        new Vector3(rScaleW, rScaleH, rScaleD),
+                        Quaternion.Euler(0f, Random.Range(-30f, 30f), 0f));
+
+                    // Roadside Boulder nestled right at guardrail verge
+                    if (Random.value > 0.40f)
                     {
-                        float smallRockXL = -(guardrailX + 1.1f + Random.Range(0f, 0.4f));
+                        float boulderXL = -(guardrailX + 0.45f + Random.Range(0f, 0.30f));
                         SpawnMeshProp(natureRoot.transform, "Boulder_L", cachedRockMesh, cachedRockMat,
-                            new Vector3(smallRockXL, 0f, z + 3.2f),
-                            Vector3.one * Random.Range(2.0f, 3.0f),
+                            new Vector3(boulderXL, 0f, z + 2.2f),
+                            Vector3.one * Random.Range(4.0f, 6.2f),
                             Quaternion.Euler(Random.Range(-15f, 15f), Random.Range(0f, 360f), 0f));
                     }
                 }
 
-                // B. Stylized Pine Trees atop and behind the cliff rocks
+                // 2. Stylized Pine Trees (Framing the road prominently)
                 if (cachedTreeMesh != null)
                 {
-                    // Main towering tree on the cliff crest
-                    float treeXL = -(guardrailX + 3.5f + Random.Range(0f, 1.8f));
-                    float treeScaleL = Random.Range(6.5f, 9.5f);
-                    SpawnMeshProp(natureRoot.transform, "PineTree_L", cachedTreeMesh, cachedTreeMat,
-                        new Vector3(treeXL, Random.Range(1.2f, 3.0f), z + Random.Range(-1.0f, 1.0f)),
+                    // Front-Row Prominent Pine Tree (Right at road verge)
+                    float treeOffset = rockPrimary ? 1.10f : 0.65f;
+                    float treeXL = -(guardrailX + treeOffset + Random.Range(0f, 0.40f));
+                    float treeScaleL = Random.Range(15.0f, 21.0f);
+                    SpawnMeshProp(natureRoot.transform, "PineTree_Front_L", cachedTreeMesh, cachedTreeMat,
+                        new Vector3(treeXL, Random.Range(0f, 0.4f), z + (rockPrimary ? 2.2f : 0f)),
                         Vector3.one * treeScaleL,
                         Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
 
-                    // Secondary canopy tree deeper in the background
-                    if (Random.value > 0.3f)
+                    // Crest Pine Tree atop cliff rock / second row
+                    float crestXL = -(guardrailX + 2.4f + Random.Range(0.2f, 1.2f));
+                    float crestScaleL = Random.Range(17.0f, 25.0f);
+                    SpawnMeshProp(natureRoot.transform, "PineTree_Crest_L", cachedTreeMesh, cachedTreeMat,
+                        new Vector3(crestXL, Random.Range(1.8f, 4.0f), z + 1.5f),
+                        Vector3.one * crestScaleL,
+                        Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+
+                    // Dense Deep Background Forest Canopy Tree
+                    if (Random.value > 0.30f)
                     {
-                        float treeXL2 = -(guardrailX + 6.2f + Random.Range(0f, 2.5f));
-                        float treeScaleL2 = Random.Range(8.0f, 11.5f);
-                        SpawnMeshProp(natureRoot.transform, "PineTree_Back_L", cachedTreeMesh, cachedTreeMat,
-                            new Vector3(treeXL2, 2.5f, z + 2.5f),
-                            Vector3.one * treeScaleL2,
+                        float backXL = -(guardrailX + 4.5f + Random.Range(0.5f, 2.5f));
+                        float backScaleL = Random.Range(22.0f, 32.0f);
+                        SpawnMeshProp(natureRoot.transform, "PineTree_Forest_L", cachedTreeMesh, cachedTreeMat,
+                            new Vector3(backXL, Random.Range(3.5f, 6.5f), z + 2.5f),
+                            Vector3.one * backScaleL,
                             Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
                     }
 
-                    // Young sapling tree growing near the road verge
+                    // Roadside Young Sapling Fir Tree right outside guardrail post
                     if (Random.value > 0.45f)
                     {
-                        float saplingXL = -(guardrailX + 1.3f + Random.Range(0f, 0.5f));
+                        float saplingXL = -(guardrailX + 0.50f + Random.Range(0f, 0.30f));
                         SpawnMeshProp(natureRoot.transform, "Sapling_L", cachedTreeMesh, cachedTreeMat,
-                            new Vector3(saplingXL, 0f, z - 2.8f),
-                            Vector3.one * Random.Range(2.5f, 3.6f),
+                            new Vector3(saplingXL, 0f, z - 1.8f),
+                            Vector3.one * Random.Range(6.5f, 9.5f),
                             Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
                     }
                 }
 
-                // ================= RIGHT BANK =================
-                // A. Towering Cliff Rock Wall
+                // ================= RIGHT BANK (Close to Road & Prominent) =================
+                // 1. Towering Cliff Rock Monolith (Right bank)
                 if (cachedRockMesh != null)
                 {
-                    float rockXR = (guardrailX + 1.8f + Random.Range(0f, 0.6f));
-                    float rockScaleR = Random.Range(6.0f, 8.5f);
-                    SpawnMeshProp(natureRoot.transform, "CliffRock_R", cachedRockMesh, cachedRockMat,
-                        new Vector3(rockXR, 0f, z + Random.Range(-0.6f, 0.6f)),
-                        new Vector3(rockScaleR * 0.7f, rockScaleR, rockScaleR * 0.7f),
-                        Quaternion.Euler(0f, Random.Range(-25f, 25f), 0f));
+                    float rockOffset = (!rockPrimary) ? 0.55f : 1.20f;
+                    float rockXR = (guardrailX + rockOffset + Random.Range(0f, 0.35f));
+                    float rScaleW = Random.Range(9.5f, 13.5f);
+                    float rScaleH = Random.Range(12.0f, 16.5f);
+                    float rScaleD = Random.Range(9.5f, 13.5f);
 
-                    if (Random.value > 0.35f)
+                    SpawnMeshProp(natureRoot.transform, "CliffRock_R", cachedRockMesh, cachedRockMat,
+                        new Vector3(rockXR, -0.1f, z + Random.Range(-0.4f, 0.4f)),
+                        new Vector3(rScaleW, rScaleH, rScaleD),
+                        Quaternion.Euler(0f, Random.Range(-30f, 30f), 0f));
+
+                    // Roadside Boulder
+                    if (Random.value > 0.40f)
                     {
-                        float smallRockXR = (guardrailX + 1.1f + Random.Range(0f, 0.4f));
+                        float boulderXR = (guardrailX + 0.45f + Random.Range(0f, 0.30f));
                         SpawnMeshProp(natureRoot.transform, "Boulder_R", cachedRockMesh, cachedRockMat,
-                            new Vector3(smallRockXR, 0f, z + 3.2f),
-                            Vector3.one * Random.Range(2.0f, 3.0f),
+                            new Vector3(boulderXR, 0f, z + 2.2f),
+                            Vector3.one * Random.Range(4.0f, 6.2f),
                             Quaternion.Euler(Random.Range(-15f, 15f), Random.Range(0f, 360f), 0f));
                     }
                 }
 
-                // B. Stylized Pine Trees
+                // 2. Stylized Pine Trees (Right bank)
                 if (cachedTreeMesh != null)
                 {
-                    float treeXR = (guardrailX + 3.5f + Random.Range(0f, 1.8f));
-                    float treeScaleR = Random.Range(6.5f, 9.5f);
-                    SpawnMeshProp(natureRoot.transform, "PineTree_R", cachedTreeMesh, cachedTreeMat,
-                        new Vector3(treeXR, Random.Range(1.2f, 3.0f), z + Random.Range(-1.0f, 1.0f)),
+                    float treeOffset = (!rockPrimary) ? 1.10f : 0.65f;
+                    float treeXR = (guardrailX + treeOffset + Random.Range(0f, 0.40f));
+                    float treeScaleR = Random.Range(15.0f, 21.0f);
+                    SpawnMeshProp(natureRoot.transform, "PineTree_Front_R", cachedTreeMesh, cachedTreeMat,
+                        new Vector3(treeXR, Random.Range(0f, 0.4f), z + ((!rockPrimary) ? 2.2f : 0f)),
                         Vector3.one * treeScaleR,
                         Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
 
-                    if (Random.value > 0.3f)
+                    float crestXR = (guardrailX + 2.4f + Random.Range(0.2f, 1.2f));
+                    float crestScaleR = Random.Range(17.0f, 25.0f);
+                    SpawnMeshProp(natureRoot.transform, "PineTree_Crest_R", cachedTreeMesh, cachedTreeMat,
+                        new Vector3(crestXR, Random.Range(1.8f, 4.0f), z + 1.5f),
+                        Vector3.one * crestScaleR,
+                        Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+
+                    if (Random.value > 0.30f)
                     {
-                        float treeXR2 = (guardrailX + 6.2f + Random.Range(0f, 2.5f));
-                        float treeScaleR2 = Random.Range(8.0f, 11.5f);
-                        SpawnMeshProp(natureRoot.transform, "PineTree_Back_R", cachedTreeMesh, cachedTreeMat,
-                            new Vector3(treeXR2, 2.5f, z + 2.5f),
-                            Vector3.one * treeScaleR2,
+                        float backXR = (guardrailX + 4.5f + Random.Range(0.5f, 2.5f));
+                        float backScaleR = Random.Range(22.0f, 32.0f);
+                        SpawnMeshProp(natureRoot.transform, "PineTree_Forest_R", cachedTreeMesh, cachedTreeMat,
+                            new Vector3(backXR, Random.Range(3.5f, 6.5f), z + 2.5f),
+                            Vector3.one * backScaleR,
                             Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
                     }
 
                     if (Random.value > 0.45f)
                     {
-                        float saplingXR = (guardrailX + 1.3f + Random.Range(0f, 0.5f));
+                        float saplingXR = (guardrailX + 0.50f + Random.Range(0f, 0.30f));
                         SpawnMeshProp(natureRoot.transform, "Sapling_R", cachedTreeMesh, cachedTreeMat,
-                            new Vector3(saplingXR, 0f, z - 2.8f),
-                            Vector3.one * Random.Range(2.5f, 3.6f),
+                            new Vector3(saplingXR, 0f, z - 1.8f),
+                            Vector3.one * Random.Range(6.5f, 9.5f),
                             Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
                     }
                 }
@@ -591,9 +623,9 @@ namespace MobControl.Level
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
-                mainCam.transform.position = new Vector3(0f, 1.8f, -3.6f);
-                mainCam.transform.rotation = Quaternion.Euler(8.0f, 0f, 0f);
-                mainCam.fieldOfView = 62.0f;
+                mainCam.transform.position = new Vector3(0f, 2.05f, -4.2f);
+                mainCam.transform.rotation = Quaternion.Euler(8.6f, 0f, 0f);
+                mainCam.fieldOfView = 58.0f;
                 mainCam.farClipPlane = 450.0f;
                 mainCam.backgroundColor = skyBlue;
                 mainCam.clearFlags = CameraClearFlags.SolidColor;
