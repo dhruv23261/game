@@ -34,6 +34,18 @@ namespace MobControl.Level
             else DestroyImmediate(obj);
         }
 
+        public static void EnsureNewRoad()
+        {
+            GameObject existingRoot = GameObject.Find(ROOT_NAME);
+            if (existingRoot == null)
+            {
+                GameObject builderObj = new GameObject("Level1_RoadBuilder_Temp");
+                NewRoadBuilder builder = builderObj.AddComponent<NewRoadBuilder>();
+                builder.BuildRoadScene();
+                SafeDestroy(builderObj);
+            }
+        }
+
         private void Start()
         {
             BuildRoadScene();

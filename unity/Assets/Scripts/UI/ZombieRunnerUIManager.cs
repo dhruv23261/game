@@ -682,7 +682,7 @@ namespace MobControl.UI
             EnsureEventSystem();
 
             // 2. Destroy any existing duplicate canvases in the scene/DontDestroyOnLoad
-            Canvas[] allExistingCanvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Canvas[] allExistingCanvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include);
             foreach (var c in allExistingCanvases)
             {
                 if (c != null && c.name.Contains("ZombieRunnerCanvas"))
@@ -3362,7 +3362,7 @@ namespace MobControl.UI
             Debug.Log($"[ZombieRunnerUIManager] SwitchToPanel -> Target: {(targetPanel != null ? targetPanel.name : "NULL")}, CurrentState: {currentState}");
 
             // 1. Purge any duplicate canvases in scene/DontDestroyOnLoad
-            Canvas[] allCanvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Canvas[] allCanvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include);
             foreach (var c in allCanvases)
             {
                 if (c != null && c != mainCanvas && c.name.Contains("ZombieRunnerCanvas"))
@@ -3407,7 +3407,7 @@ namespace MobControl.UI
             // 4. If switching away from HomeScreen, deactivate ANY other HomeScreen object in the scene
             if (currentState != ScreenState.HomeScreen)
             {
-                GameObject[] allGos = FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                GameObject[] allGos = FindObjectsByType<GameObject>(FindObjectsInactive.Include);
                 foreach (var go in allGos)
                 {
                     if (go != null && go != targetPanel && (go.name == "ZombieSquadHomeScreenPanel" || go.name == "HomeScreen"))

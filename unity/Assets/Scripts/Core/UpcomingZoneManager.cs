@@ -89,12 +89,15 @@ namespace MobControl.Core
             }
 
             // Atmosphere Linear Fog matching the sky blue - smoothly blends distant landscape into sky
-            RenderSettings.skybox = null;
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = skyBlue;
-            RenderSettings.fogStartDistance = 250.0f;
-            RenderSettings.fogEndDistance = 550.0f;
+            if (enableAtmosphericFog)
+            {
+                RenderSettings.skybox = null;
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.Linear;
+                RenderSettings.fogColor = fogColor;
+                RenderSettings.fogStartDistance = fogStartDistance;
+                RenderSettings.fogEndDistance = fogEndDistance;
+            }
 
             // Find player
             if (PlayerRunnerController.Instance != null)
