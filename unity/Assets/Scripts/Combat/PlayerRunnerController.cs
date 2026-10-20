@@ -31,6 +31,8 @@ namespace MobControl.Combat
         [Header("Equipped Weapon Visuals")]
         [SerializeField] private GameObject equippedWeaponInstance;
         [SerializeField] private Transform muzzleFirePoint;
+        [Range(0.2f, 2.0f)] [SerializeField] private float weaponScaleMultiplier = 1.0f;
+        public float WeaponScaleMultiplier => weaponScaleMultiplier;
 
         [Header("Global Zombie Tuning")]
         [Tooltip("Easily increase or decrease all zombie walking speeds together for Level 1")]
@@ -604,7 +606,7 @@ namespace MobControl.Combat
                 // Root transform at zero/identity so the prefab's internal calibrated grip is cleanly held in hand
                 existingGun.localPosition = Vector3.zero;
                 existingGun.localRotation = Quaternion.identity;
-                existingGun.localScale = Vector3.one;
+                existingGun.localScale = Vector3.one * weaponScaleMultiplier;
 
                 Transform mp = existingGun.Find("MuzzleFirePoint");
                 if (mp == null)
@@ -641,7 +643,7 @@ namespace MobControl.Combat
 
                 newGun.transform.localPosition = Vector3.zero;
                 newGun.transform.localRotation = Quaternion.identity;
-                newGun.transform.localScale = Vector3.one;
+                newGun.transform.localScale = Vector3.one * weaponScaleMultiplier;
 
                 Transform mp = newGun.transform.Find("MuzzleFirePoint");
                 if (mp == null)

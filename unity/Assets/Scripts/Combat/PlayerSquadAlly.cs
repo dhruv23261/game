@@ -70,7 +70,8 @@ namespace MobControl.Combat
                 // Reset root transform to identity so the prefab's internal calibrated grip is cleanly held in hand
                 existingGun.localPosition = Vector3.zero;
                 existingGun.localRotation = Quaternion.identity;
-                existingGun.localScale = Vector3.one;
+                float scaleMult = leader != null ? leader.WeaponScaleMultiplier : 1.0f;
+                existingGun.localScale = Vector3.one * scaleMult;
                 equippedWeaponInstance = existingGun.gameObject;
                 muzzleFirePoint = existingGun.Find("MuzzleFirePoint");
             }
