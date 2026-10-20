@@ -3128,21 +3128,33 @@ namespace MobControl.UI
             hudLevelText = CreateText("LevelText", levelPill.transform, "LEVEL 1", 28, Color.white, TextAlignmentOptions.Center, true);
             hudLevelText.rectTransform.anchoredPosition = Vector2.zero;
 
-            // 3. Coin Counter Pill [🪙 12,340 +]
+            // 3. Coin Counter Pill [Gold Icon + 12,340 + Green Button]
             GameObject coinPill = new GameObject("CoinPill");
             coinPill.transform.SetParent(headerBar.transform, false);
             RectTransform cpRt = coinPill.AddComponent<RectTransform>();
             cpRt.anchorMin = new Vector2(1f, 1f);
             cpRt.anchorMax = new Vector2(1f, 1f);
             cpRt.pivot = new Vector2(1f, 0.5f);
-            cpRt.sizeDelta = new Vector2(195f, 56f);
-            cpRt.anchoredPosition = new Vector2(-190f, -65f);
+            cpRt.sizeDelta = new Vector2(210f, 60f);
+            cpRt.anchoredPosition = new Vector2(-235f, -65f);
             Image cpImg = coinPill.AddComponent<Image>();
-            cpImg.color = new Color(0.04f, 0.18f, 0.44f, 0.95f);
+            cpImg.color = new Color(0.04f, 0.16f, 0.40f, 0.95f);
             cpImg.raycastTarget = false;
 
-            TextMeshProUGUI cpTxt = CreateText("Coins", coinPill.transform, "🪙 12,340", 20, new Color(1f, 0.92f, 0.4f, 1f), TextAlignmentOptions.MidlineLeft, true);
-            cpTxt.rectTransform.anchoredPosition = new Vector2(16, 0);
+            // Gold Coin Icon (Clean round coin graphic)
+            GameObject coinIcon = new GameObject("CoinIcon");
+            coinIcon.transform.SetParent(coinPill.transform, false);
+            RectTransform ciRt = coinIcon.AddComponent<RectTransform>();
+            ciRt.anchorMin = new Vector2(0f, 0.5f);
+            ciRt.anchorMax = new Vector2(0f, 0.5f);
+            ciRt.pivot = new Vector2(0f, 0.5f);
+            ciRt.sizeDelta = new Vector2(34f, 34f);
+            ciRt.anchoredPosition = new Vector2(10f, 0f);
+            Image ciImg = coinIcon.AddComponent<Image>();
+            ciImg.color = new Color(1f, 0.82f, 0.12f, 1f);
+
+            TextMeshProUGUI cpTxt = CreateText("Coins", coinPill.transform, "12,340", 22, Color.white, TextAlignmentOptions.MidlineLeft, true);
+            cpTxt.rectTransform.anchoredPosition = new Vector2(40f, 0f);
 
             GameObject coinPlus = new GameObject("PlusBtn");
             coinPlus.transform.SetParent(coinPill.transform, false);
@@ -3151,27 +3163,40 @@ namespace MobControl.UI
             cPlusRt.anchorMax = new Vector2(1f, 0.5f);
             cPlusRt.pivot = new Vector2(1f, 0.5f);
             cPlusRt.sizeDelta = new Vector2(44f, 44f);
-            cPlusRt.anchoredPosition = new Vector2(-6f, 0f);
+            cPlusRt.anchoredPosition = new Vector2(-8f, 0f);
             Image cPlusImg = coinPlus.AddComponent<Image>();
             cPlusImg.color = new Color(0.18f, 0.78f, 0.28f, 1f);
             TextMeshProUGUI cPlusTxt = CreateText("PlusTxt", coinPlus.transform, "+", 26, Color.white, TextAlignmentOptions.Center, true);
             cPlusTxt.rectTransform.anchoredPosition = Vector2.zero;
 
-            // 4. Gem Counter Pill [💎 520 +]
+            // 4. Gem Counter Pill [Cyan Diamond + 520 + Green Button]
             GameObject gemPill = new GameObject("GemPill");
             gemPill.transform.SetParent(headerBar.transform, false);
             RectTransform gpRt = gemPill.AddComponent<RectTransform>();
             gpRt.anchorMin = new Vector2(1f, 1f);
             gpRt.anchorMax = new Vector2(1f, 1f);
             gpRt.pivot = new Vector2(1f, 0.5f);
-            gpRt.sizeDelta = new Vector2(165f, 56f);
-            gpRt.anchoredPosition = new Vector2(-15f, -65f);
+            gpRt.sizeDelta = new Vector2(185f, 60f);
+            gpRt.anchoredPosition = new Vector2(-20f, -65f);
             Image gpImg = gemPill.AddComponent<Image>();
-            gpImg.color = new Color(0.04f, 0.18f, 0.44f, 0.95f);
+            gpImg.color = new Color(0.04f, 0.16f, 0.40f, 0.95f);
             gpImg.raycastTarget = false;
 
-            TextMeshProUGUI gpTxt = CreateText("Gems", gemPill.transform, "💎 520", 20, new Color(0.4f, 0.85f, 1f, 1f), TextAlignmentOptions.MidlineLeft, true);
-            gpTxt.rectTransform.anchoredPosition = new Vector2(16, 0);
+            // Cyan Diamond Gem Icon (Rotated 45-degree square)
+            GameObject gemIcon = new GameObject("GemIcon");
+            gemIcon.transform.SetParent(gemPill.transform, false);
+            RectTransform giRt = gemIcon.AddComponent<RectTransform>();
+            giRt.anchorMin = new Vector2(0f, 0.5f);
+            giRt.anchorMax = new Vector2(0f, 0.5f);
+            giRt.pivot = new Vector2(0.5f, 0.5f);
+            giRt.sizeDelta = new Vector2(24f, 24f);
+            giRt.anchoredPosition = new Vector2(26f, 0f);
+            giRt.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            Image giImg = gemIcon.AddComponent<Image>();
+            giImg.color = new Color(0.15f, 0.85f, 1f, 1f);
+
+            TextMeshProUGUI gpTxt = CreateText("Gems", gemPill.transform, "520", 22, Color.white, TextAlignmentOptions.MidlineLeft, true);
+            gpTxt.rectTransform.anchoredPosition = new Vector2(36f, 0f);
 
             GameObject gemPlus = new GameObject("PlusBtn");
             gemPlus.transform.SetParent(gemPill.transform, false);
@@ -3180,7 +3205,7 @@ namespace MobControl.UI
             gPlusRt.anchorMax = new Vector2(1f, 0.5f);
             gPlusRt.pivot = new Vector2(1f, 0.5f);
             gPlusRt.sizeDelta = new Vector2(44f, 44f);
-            gPlusRt.anchoredPosition = new Vector2(-6f, 0f);
+            gPlusRt.anchoredPosition = new Vector2(-8f, 0f);
             Image gPlusImg = gemPlus.AddComponent<Image>();
             gPlusImg.color = new Color(0.18f, 0.78f, 0.28f, 1f);
             TextMeshProUGUI gPlusTxt = CreateText("PlusTxt", gemPlus.transform, "+", 26, Color.white, TextAlignmentOptions.Center, true);
