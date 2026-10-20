@@ -19,8 +19,8 @@ namespace MobControl.Level
     {
         [Header("Road Dimensions")]
         [SerializeField] private float roadWidth = 6.0f;
-        [SerializeField] private float startZ = -40.0f;
-        [SerializeField] private float endZ = 160.0f;
+        [SerializeField] private float startZ = -80.0f;
+        [SerializeField] private float endZ = 450.0f;
         [SerializeField] private float roadY = 0.005f;
 
         [Header("Level Markers")]
@@ -157,6 +157,13 @@ namespace MobControl.Level
             }
         }
 
+        public static void SafeDestroy(Object obj)
+        {
+            if (obj == null) return;
+            if (Application.isPlaying) Destroy(obj);
+            else DestroyImmediate(obj);
+        }
+
         [ContextMenu("Build New Road In Scene")]
         public void BuildRoad()
         {
@@ -164,11 +171,7 @@ namespace MobControl.Level
 
             // Destroy existing new road root if regenerating
             GameObject oldRoot = GameObject.Find(NEW_ROAD_ROOT_NAME);
-            if (oldRoot != null)
-            {
-                if (Application.isPlaying) Destroy(oldRoot);
-                else DestroyImmediate(oldRoot);
-            }
+            SafeDestroy(oldRoot);
 
             LoadMaterials();
 
@@ -190,8 +193,8 @@ namespace MobControl.Level
                 CreateGuardrails(root.transform, length);
             }
 
-            // 4. Side Grass Banks (Left & Right ground for pine trees)
-            CreateSideGrassBanks(root.transform, length, centerZ);
+            // 4. Vast Seamless Ground Landscape & Horizon Backdrop Mountains (Eliminates all edge clipping)
+            CreateVastGroundLandscape(root.transform, startZ, endZ);
 
             // 5. Level 1 Start Line & Overhead Banner
             CreateStartLine(root.transform, level1StartZ);
@@ -340,7 +343,7 @@ namespace MobControl.Level
             if (mr != null && steelMaterial != null) mr.sharedMaterial = steelMaterial;
 
             Collider c = rail.GetComponent<Collider>();
-            if (c != null) DestroyImmediate(c);
+            SafeDestroy(c);
         }
 
         private void CreateGuardrailPost(Transform parent, string name, float posX, float posZ)
@@ -355,28 +358,57 @@ namespace MobControl.Level
             if (mr != null && steelMaterial != null) mr.sharedMaterial = steelMaterial;
 
             Collider c = post.GetComponent<Collider>();
-            if (c != null) DestroyImmediate(c);
+            SafeDestroy(c);
         }
 
-        private void CreateSideGrassBanks(Transform parent, float length, float centerZ)
+        private void CreateVastGroundLandscape(Transform parent, float startZ, float endZ)
         {
-            float grassWidth = 22.0f;
-            float halfRoad = roadWidth * 0.5f + 0.35f;
+            GameObject groundRoot = new GameObject("NewRoad_GroundLandscape");
+            groundRoot.transform.SetParent(parent, false);
 
-            CreateGrassPlane(parent, "Grass_Left", -(halfRoad + (grassWidth * 0.5f)), centerZ, grassWidth, length);
-            CreateGrassPlane(parent, "Grass_Right", halfRoad + (grassWidth * 0.5f), centerZ, grassWidth, length);
-        }
+            float totalLength = (endZ - startZ) + 300f; // ~830m length
+            float centerZ = (startZ + endZ) * 0.5f + 50f;
+            float totalWidth = 500f; // 250m left, 250m right
 
-        private void CreateGrassPlane(Transform parent, string name, float posX, float centerZ, float width, float length)
-        {
-            GameObject grassObj = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            grassObj.name = name;
-            grassObj.transform.SetParent(parent, false);
-            grassObj.transform.position = new Vector3(posX, roadY - 0.02f, centerZ);
-            grassObj.transform.localScale = new Vector3(width * 0.1f, 1f, length * 0.1f);
+            // Single massive seamless landscape plane covering the entire visible horizon
+            GameObject groundPlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            groundPlane.name = "Ground_Landscape_Plane";
+            groundPlane.transform.SetParent(groundRoot.transform, false);
+            groundPlane.transform.position = new Vector3(0, roadY - 0.025f, centerZ);
+            groundPlane.transform.localScale = new Vector3(totalWidth * 0.1f, 1f, totalLength * 0.1f);
 
-            MeshRenderer mr = grassObj.GetComponent<MeshRenderer>();
+            MeshRenderer mr = groundPlane.GetComponent<MeshRenderer>();
             if (mr != null && grassMaterial != null) mr.sharedMaterial = grassMaterial;
+
+            Collider c = groundPlane.GetComponent<Collider>();
+            SafeDestroy(c);
+
+            // Horizon mountain backdrop ridge at far distance (Z = endZ + 40f)
+            CreateHorizonBackdrop(groundRoot.transform, endZ + 40f);
+        }
+
+        private void CreateHorizonBackdrop(Transform parent, float zPos)
+        {
+            GameObject hillsRoot = new GameObject("Horizon_DistantHills");
+            hillsRoot.transform.SetParent(parent, false);
+
+            for (float x = -240f; x <= 240f; x += 45f)
+            {
+                GameObject hill = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                hill.name = "DistantHill";
+                hill.transform.SetParent(hillsRoot.transform, false);
+                float h = Random.Range(35f, 65f);
+                float w = Random.Range(55f, 85f);
+                hill.transform.position = new Vector3(x + Random.Range(-10f, 10f), h * 0.5f - 4f, zPos + Random.Range(-20f, 20f));
+                hill.transform.localScale = new Vector3(w, h, 40f);
+                hill.transform.localRotation = Quaternion.Euler(0, Random.Range(-25f, 25f), Random.Range(-5f, 5f));
+
+                MeshRenderer mr = hill.GetComponent<MeshRenderer>();
+                if (mr != null && pineFoliageMaterial != null) mr.sharedMaterial = pineFoliageMaterial;
+
+                Collider c = hill.GetComponent<Collider>();
+                SafeDestroy(c);
+            }
         }
 
         // ==========================================
@@ -398,7 +430,7 @@ namespace MobControl.Level
             MeshRenderer mrStripe = stripe.GetComponent<MeshRenderer>();
             if (mrStripe != null && startLineMaterial != null) mrStripe.sharedMaterial = startLineMaterial;
             Collider sc = stripe.GetComponent<Collider>();
-            if (sc != null) DestroyImmediate(sc);
+            SafeDestroy(sc);
 
             // 2. Left & Right Arch Pillars
             float pillarX = roadWidth * 0.5f + 0.4f;
@@ -416,7 +448,7 @@ namespace MobControl.Level
             MeshRenderer mrCb = crossbar.GetComponent<MeshRenderer>();
             if (mrCb != null && finishTrussMaterial != null) mrCb.sharedMaterial = finishTrussMaterial;
             Collider ccc = crossbar.GetComponent<Collider>();
-            if (ccc != null) DestroyImmediate(ccc);
+            SafeDestroy(ccc);
 
             // 4. Overhead "LEVEL 1 START" Banner Signboard
             GameObject bannerObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -427,7 +459,7 @@ namespace MobControl.Level
             MeshRenderer mrB = bannerObj.GetComponent<MeshRenderer>();
             if (mrB != null && startLineMaterial != null) mrB.sharedMaterial = startLineMaterial;
             Collider bCol = bannerObj.GetComponent<Collider>();
-            if (bCol != null) DestroyImmediate(bCol);
+            SafeDestroy(bCol);
 
             // Text on Banner
             Create3DWorldText(bannerObj.transform, "START_TEXT", "LEVEL 1 - START", new Vector3(0, 0, -0.08f), Color.white, 5.0f);
@@ -452,7 +484,7 @@ namespace MobControl.Level
             MeshRenderer mrStripe = stripe.GetComponent<MeshRenderer>();
             if (mrStripe != null && finishBannerMaterial != null) mrStripe.sharedMaterial = finishBannerMaterial;
             Collider sc = stripe.GetComponent<Collider>();
-            if (sc != null) DestroyImmediate(sc);
+            SafeDestroy(sc);
 
             // 2. Heavy Arch Truss Pillars
             float pillarX = roadWidth * 0.5f + 0.45f;
@@ -470,7 +502,7 @@ namespace MobControl.Level
             MeshRenderer mrCb = crossbar.GetComponent<MeshRenderer>();
             if (mrCb != null && finishTrussMaterial != null) mrCb.sharedMaterial = finishTrussMaterial;
             Collider ccc = crossbar.GetComponent<Collider>();
-            if (ccc != null) DestroyImmediate(ccc);
+            SafeDestroy(ccc);
 
             // 4. Large Red Banner ("LEVEL 1 FINISH")
             GameObject bannerObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -482,7 +514,7 @@ namespace MobControl.Level
             MeshRenderer mrB = bannerObj.GetComponent<MeshRenderer>();
             if (mrB != null && finishBannerMaterial != null) mrB.sharedMaterial = finishBannerMaterial;
             Collider bCol = bannerObj.GetComponent<Collider>();
-            if (bCol != null) DestroyImmediate(bCol);
+            SafeDestroy(bCol);
 
             // Golden Border Frame on Banner
             CreateBannerFrame(bannerObj.transform, 5.2f, 1.15f);
@@ -508,7 +540,7 @@ namespace MobControl.Level
             if (mr != null && mat != null) mr.sharedMaterial = mat;
 
             Collider c = pillar.GetComponent<Collider>();
-            if (c != null) DestroyImmediate(c);
+            SafeDestroy(c);
         }
 
         private void CreateBannerFrame(Transform bannerTransform, float w, float h)
@@ -521,7 +553,7 @@ namespace MobControl.Level
             MeshRenderer mr = frameObj.GetComponent<MeshRenderer>();
             if (mr != null && steelMaterial != null) mr.sharedMaterial = steelMaterial;
             Collider c = frameObj.GetComponent<Collider>();
-            if (c != null) DestroyImmediate(c);
+            SafeDestroy(c);
         }
 
         private void CreateCheckeredFlag(Transform parent, string name, float posX, float posY)
@@ -534,7 +566,7 @@ namespace MobControl.Level
             MeshRenderer mrPole = flagPole.GetComponent<MeshRenderer>();
             if (mrPole != null && steelMaterial != null) mrPole.sharedMaterial = steelMaterial;
             Collider cp = flagPole.GetComponent<Collider>();
-            if (cp != null) DestroyImmediate(cp);
+            SafeDestroy(cp);
 
             GameObject flagCloth = GameObject.CreatePrimitive(PrimitiveType.Cube);
             flagCloth.name = "Cloth";
@@ -544,7 +576,7 @@ namespace MobControl.Level
             MeshRenderer mrCloth = flagCloth.GetComponent<MeshRenderer>();
             if (mrCloth != null && finishBannerMaterial != null) mrCloth.sharedMaterial = finishBannerMaterial;
             Collider cc = flagCloth.GetComponent<Collider>();
-            if (cc != null) DestroyImmediate(cc);
+            SafeDestroy(cc);
         }
 
         private void Create3DWorldText(Transform parent, string name, string text, Vector3 localPos, Color color, float fontSize)
@@ -640,7 +672,7 @@ namespace MobControl.Level
             MeshRenderer mrTrunk = trunk.GetComponent<MeshRenderer>();
             if (mrTrunk != null && pineBarkMaterial != null) mrTrunk.sharedMaterial = pineBarkMaterial;
             Collider tc = trunk.GetComponent<Collider>();
-            if (tc != null) DestroyImmediate(tc);
+            SafeDestroy(tc);
 
             // 2. Foliage Tier 1 (Bottom - Darker Green)
             CreateFoliageTier(treeObj.transform, "Tier1", sharedConeTier1, pineFoliageMaterial, new Vector3(0, 0.9f, 0));
@@ -682,7 +714,7 @@ namespace MobControl.Level
             if (mr != null && rockMaterial != null) mr.sharedMaterial = rockMaterial;
 
             Collider c = rockObj.GetComponent<Collider>();
-            if (c != null) DestroyImmediate(c);
+            SafeDestroy(c);
         }
 
         private void EnsureSharedConeMeshes()
@@ -765,11 +797,7 @@ namespace MobControl.Level
         public void ClearNewRoad()
         {
             GameObject root = GameObject.Find(NEW_ROAD_ROOT_NAME);
-            if (root != null)
-            {
-                if (Application.isPlaying) Destroy(root);
-                else DestroyImmediate(root);
-            }
+            SafeDestroy(root);
         }
     }
 }

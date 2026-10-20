@@ -38,13 +38,23 @@ namespace MobControl.EditorTools
             }
 
             GameObject newRoadRoot = GameObject.Find("NewRoad_Level1_Root");
-            if (hasActiveOldRoad || newRoadRoot == null)
+            bool needsRegen = hasActiveOldRoad || newRoadRoot == null;
+            if (!needsRegen && newRoadRoot != null)
+            {
+                if (newRoadRoot.transform.Find("NewRoad_GroundLandscape") == null)
+                {
+                    needsRegen = true;
+                }
+            }
+
+            if (needsRegen)
             {
                 GenerateRoad();
             }
             else
             {
                 RemoveGunM41DFromScene();
+                SetupAtmosphereAndCamera();
             }
         }
 
@@ -56,7 +66,10 @@ namespace MobControl.EditorTools
             NewRoadBuilder.DeactivateOldRoad();
             RemoveGunM41DFromScene();
 
-            // 2. Build or recreate the complete Level 1 new road with trees, guardrails, banners
+            // 2. Setup Camera and Fog Atmosphere
+            SetupAtmosphereAndCamera();
+
+            // 3. Build or recreate the complete Level 1 new road with vast landscape, trees, guardrails, banners
             GameObject builderObj = GameObject.Find("NewRoadBuilder_Manager");
             if (builderObj == null)
             {
@@ -77,6 +90,25 @@ namespace MobControl.EditorTools
             EditorSceneManager.SaveScene(activeScene);
 
             Debug.Log("[Zombie Squad] Level 1 New Stylized Road generated in Scene, old roads deactivated and scene saved!");
+        }
+
+        private static void SetupAtmosphereAndCamera()
+        {
+            Color skyBlue = new Color(0.42f, 0.65f, 0.88f, 1f);
+            Camera mainCam = Camera.main;
+            if (mainCam != null)
+            {
+                mainCam.farClipPlane = 600.0f;
+                mainCam.backgroundColor = skyBlue;
+                mainCam.clearFlags = CameraClearFlags.SolidColor;
+                EditorUtility.SetDirty(mainCam);
+            }
+
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = skyBlue;
+            RenderSettings.fogStartDistance = 250f;
+            RenderSettings.fogEndDistance = 550f;
         }
 
         [MenuItem("Zombie Squad/Clear New Road")]

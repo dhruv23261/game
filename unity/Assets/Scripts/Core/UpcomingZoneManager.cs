@@ -77,20 +77,24 @@ namespace MobControl.Core
 
         private void Start()
         {
+            Color skyBlue = new Color(0.42f, 0.65f, 0.88f, 1f);
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
-                mainCam.farClipPlane = 400.0f;
-                // Always use SolidColor calm sky-blue - never procedural skybox which creates harsh white horizon seams!
+                mainCam.farClipPlane = 600.0f;
                 mainCam.clearFlags = CameraClearFlags.SolidColor;
-                mainCam.backgroundColor = new Color(0.55f, 0.75f, 0.92f, 1f);
+                mainCam.backgroundColor = skyBlue;
                 mainCam.allowHDR = false;
                 mainCam.allowMSAA = false;
             }
 
-            // Disable skybox and fog to guarantee 0 white polygon edge clipping or flickering
+            // Atmosphere Linear Fog matching the sky blue - smoothly blends distant landscape into sky
             RenderSettings.skybox = null;
-            RenderSettings.fog = false;
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = skyBlue;
+            RenderSettings.fogStartDistance = 250.0f;
+            RenderSettings.fogEndDistance = 550.0f;
 
             // Find player
             if (PlayerRunnerController.Instance != null)

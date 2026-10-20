@@ -48,29 +48,15 @@ namespace MobControl.Core
         {
             if (target == null) return;
 
-#if UNITY_EDITOR
-            // 1. Mouse Orbit in Editor (Hold Right Click to orbit camera 360 for debugging)
-            if (Input.GetMouseButton(1))
-            {
-                currentYaw += Input.GetAxis("Mouse X") * mouseSensitivity * 100f * Time.deltaTime;
-                currentPitch -= Input.GetAxis("Mouse Y") * mouseSensitivity * 100f * Time.deltaTime;
-                currentPitch = Mathf.Clamp(currentPitch, minPitch, maxPitch);
-            }
-            else
-            {
-                // Smoothly return yaw to straight forward runner angle
-                currentYaw = Mathf.Lerp(currentYaw, 0f, 10f * Time.deltaTime);
-            }
+            currentYaw = 0f;
+            currentPitch = defaultPitch;
 
-            // 2. Mouse Scroll Zoom
+            // Optional Mouse Scroll Zoom
             float scroll = Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) > 0.01f)
             {
                 currentDistance = Mathf.Clamp(currentDistance - scroll * zoomSpeed, minDistance, maxDistance);
             }
-#else
-            currentYaw = 0f;
-#endif
 
             // 3. Compute Stable 3rd Person Runner Position
             // Subtle horizontal tracking (30%) keeps the road firmly centered without camera tilt
