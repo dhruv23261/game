@@ -12,16 +12,25 @@ namespace MobControl.EditorTools
         public static void CleanLevel1Scene()
         {
             // 1. Remove procedural road root if any
-            GameObject root = GameObject.Find("NewRoad_Level1_Root");
+            GameObject root = GameObject.Find(NewRoadBuilder.ROOT_NAME);
             if (root != null)
             {
                 Undo.DestroyObjectImmediate(root);
             }
 
-            GameObject mgr = GameObject.Find("NewRoadBuilder_Manager");
-            if (mgr != null)
+            GameObject oldRoot = GameObject.Find("NewRoad_Level1_Root");
+            if (oldRoot != null)
             {
-                Undo.DestroyObjectImmediate(mgr);
+                Undo.DestroyObjectImmediate(oldRoot);
+            }
+
+            // Remove any in-world 3D TextMeshPro floating labels
+            foreach (var txt in Object.FindObjectsByType<TMPro.TextMeshPro>(FindObjectsInactive.Include))
+            {
+                if (txt != null && txt.GetComponentInParent<Canvas>() == null)
+                {
+                    Undo.DestroyObjectImmediate(txt.gameObject);
+                }
             }
 
             // 2. Remove any Gun_M41D objects
