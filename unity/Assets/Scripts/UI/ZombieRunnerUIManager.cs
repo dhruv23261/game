@@ -3154,10 +3154,7 @@ namespace MobControl.UI
             ciImg.color = new Color(1f, 0.82f, 0.12f, 1f);
 
             TextMeshProUGUI cpTxt = CreateText("Coins", coinPill.transform, "12,340", 22, Color.white, TextAlignmentOptions.MidlineLeft, true);
-            cpTxt.rectTransform.anchorMin = new Vector2(0f, 0f);
-            cpTxt.rectTransform.anchorMax = new Vector2(1f, 1f);
-            cpTxt.rectTransform.offsetMin = new Vector2(50f, 0f);
-            cpTxt.rectTransform.offsetMax = new Vector2(-55f, 0f);
+            cpTxt.rectTransform.anchoredPosition = new Vector2(40f, 0f);
 
             GameObject coinPlus = new GameObject("PlusBtn");
             coinPlus.transform.SetParent(coinPill.transform, false);
@@ -3199,10 +3196,7 @@ namespace MobControl.UI
             giImg.color = new Color(0.15f, 0.85f, 1f, 1f);
 
             TextMeshProUGUI gpTxt = CreateText("Gems", gemPill.transform, "520", 22, Color.white, TextAlignmentOptions.MidlineLeft, true);
-            gpTxt.rectTransform.anchorMin = new Vector2(0f, 0f);
-            gpTxt.rectTransform.anchorMax = new Vector2(1f, 1f);
-            gpTxt.rectTransform.offsetMin = new Vector2(48f, 0f);
-            gpTxt.rectTransform.offsetMax = new Vector2(-55f, 0f);
+            gpTxt.rectTransform.anchoredPosition = new Vector2(36f, 0f);
 
             GameObject gemPlus = new GameObject("PlusBtn");
             gemPlus.transform.SetParent(gemPill.transform, false);

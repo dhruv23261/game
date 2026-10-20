@@ -463,12 +463,30 @@ namespace MobControl.Combat
 
         public Vector3 GetMuzzlePosition()
         {
+            if (muzzleFirePoint != null)
+            {
+                return muzzleFirePoint.position;
+            }
+            if (firePoint != null)
+            {
+                return firePoint.position;
+            }
             // Consistent forward aiming down the player's track at torso/chest height
-            return new Vector3(transform.position.x + 0.18f, transform.position.y + 0.95f, transform.position.z + 0.70f);
+            return new Vector3(transform.position.x + 0.22f, transform.position.y + 0.77f, transform.position.z + 0.74f);
         }
 
         private void ShootBullet()
         {
+            if (bulletPrefab == null)
+            {
+                bulletPrefab = Resources.Load<GameObject>("Prefabs/Bullet_9mm") ?? Resources.Load<GameObject>("Prefabs/bullet");
+#if UNITY_EDITOR
+                if (bulletPrefab == null)
+                {
+                    bulletPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Bullet_9mm.prefab");
+                }
+#endif
+            }
             if (bulletPrefab == null) return;
 
             Vector3 spawnPos = GetMuzzlePosition();
@@ -485,7 +503,13 @@ namespace MobControl.Combat
                 bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
             }
 
-            if (equippedWeaponInstance != null)
+            // Trigger visual controller recoil and muzzle flash
+            PlayerMobVisualController visualCtrl = GetComponentInChildren<PlayerMobVisualController>();
+            if (visualCtrl != null)
+            {
+                visualCtrl.TriggerWeaponFire();
+            }
+            else if (equippedWeaponInstance != null)
             {
                 StartCoroutine(WeaponRecoilPunch(equippedWeaponInstance.transform));
             }
@@ -563,14 +587,37 @@ namespace MobControl.Combat
 
         public void EnsureEquippedWeapon()
         {
-            // Purge and destroy any Gun_M41D instance under this character
+            // Purge and destroy any legacy Gun_M41D or primitive placeholder guns
             foreach (var t in GetComponentsInChildren<Transform>(true))
             {
-                if (t != null && t.name.Contains("Gun_M41D"))
+                if (t != null && (t.name.Contains("Gun_M41D") || t.name == "AssaultRifle_Stylized"))
                 {
                     if (Application.isPlaying) Destroy(t.gameObject);
                     else DestroyImmediate(t.gameObject);
                 }
+            }
+
+            // Check if Meshy Assault Rifle already exists
+            Transform meshyGun = null;
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t != null && t.name == "AssaultRifle_Meshy")
+                {
+                    meshyGun = t;
+                    break;
+                }
+            }
+
+            if (meshyGun != null)
+            {
+                equippedWeaponInstance = meshyGun.gameObject;
+                Transform mp = meshyGun.Find("MuzzleFirePoint");
+                if (mp != null)
+                {
+                    muzzleFirePoint = mp;
+                    firePoint = mp;
+                }
+                return;
             }
 
             equippedWeaponInstance = null;
@@ -586,7 +633,7 @@ namespace MobControl.Combat
                     mpObj.transform.SetParent(rightHand != null ? rightHand : transform, false);
                     mpObj.transform.localPosition = rightHand != null 
                         ? new Vector3(0.05f, 0.05f, 0.2f) 
-                        : new Vector3(0.18f, 0.95f, 0.70f);
+                        : new Vector3(0.22f, 0.77f, 0.74f);
                     mpObj.transform.localRotation = Quaternion.identity;
                     mp = mpObj.transform;
                 }

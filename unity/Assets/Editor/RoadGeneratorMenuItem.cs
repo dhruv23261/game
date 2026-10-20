@@ -36,8 +36,15 @@ namespace MobControl.EditorTools
             // 2. Remove any Gun_M41D objects
             RemoveGunM41DFromScene();
 
-            // 3. Setup clean Camera and Atmosphere matching reference image exactly
-            NewRoadBuilder.SetupCameraAndAtmosphere();
+            // 3. Setup clean Camera
+            Camera mainCam = Camera.main;
+            if (mainCam != null)
+            {
+                mainCam.farClipPlane = 300.0f;
+                mainCam.backgroundColor = new Color(0.42f, 0.65f, 0.88f, 1f);
+                mainCam.clearFlags = CameraClearFlags.SolidColor;
+                EditorUtility.SetDirty(mainCam);
+            }
 
             var activeScene = EditorSceneManager.GetActiveScene();
             EditorSceneManager.MarkSceneDirty(activeScene);
