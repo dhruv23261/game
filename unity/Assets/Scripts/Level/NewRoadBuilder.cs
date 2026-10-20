@@ -7,6 +7,7 @@ namespace MobControl.Level
     /// - 7.0m wide asphalt road with crisp white dashed center line & solid yellow shoulder lines.
     /// - Light concrete curbs.
     /// - Sleek dark steel dual-rail highway guardrails with amber reflector posts.
+    /// - Meshy 3D stylized Pine Trees & Cliff Rocks lining both sides.
     /// - Sloping lush green grass banks.
     /// - Distant mountain horizon backdrop.
     /// - Camera framing matching the reference angle.
@@ -51,6 +52,8 @@ namespace MobControl.Level
             Material steelMat = Resources.Load<Material>("Materials/M_GuardrailSteel");
             Material grassMat = Resources.Load<Material>("Materials/M_GrassVerge");
             Material amberMat = Resources.Load<Material>("Materials/M_GunOrange");
+            Material treeMat = Resources.Load<Material>("Materials/M_StylizedPineTree");
+            Material rockMat = Resources.Load<Material>("Materials/M_StylizedCliffRock");
 
             // 1. Build Road Surface Mesh
             BuildRoadSurface(root.transform, roadMat);
@@ -61,13 +64,16 @@ namespace MobControl.Level
             // 3. Build Sloping Grass Banks
             BuildGrassBanks(root.transform, grassMat);
 
-            // 4. Build Distant Mountain Backdrop Ridge
+            // 4. Build Nature Decorations (Meshy 3D Pine Trees & Cliff Rocks)
+            BuildNatureDecorations(root.transform, treeMat, rockMat);
+
+            // 5. Build Distant Mountain Backdrop Ridge
             BuildDistantHorizon(root.transform, grassMat);
 
-            // 5. Setup Camera & Atmosphere
+            // 6. Setup Camera & Atmosphere
             SetupCameraAndAtmosphere();
 
-            Debug.Log("[NewRoadBuilder] Level 1 reference stylized road successfully assembled!");
+            Debug.Log("[NewRoadBuilder] Level 1 reference stylized road successfully assembled with Meshy 3D assets!");
         }
 
         private void BuildRoadSurface(Transform parent, Material roadMat)
@@ -209,6 +215,72 @@ namespace MobControl.Level
 
             Collider cBase = groundBase.GetComponent<Collider>();
             SafeDestroy(cBase);
+        }
+
+        private void BuildNatureDecorations(Transform parent, Material treeMat, Material rockMat)
+        {
+            GameObject natureRoot = new GameObject("Nature_Trees_And_Rocks");
+            natureRoot.transform.SetParent(parent, false);
+
+            GameObject treePrefab = Resources.Load<GameObject>("Nature/Stylized_Pine_Tree");
+            GameObject rockPrefab = Resources.Load<GameObject>("Nature/Stylized_Cliff_Rock");
+
+            float halfRoad = roadWidth * 0.5f;
+
+            for (float z = startZ + 4f; z <= endZ - 8f; z += 6.5f)
+            {
+                // Left Side Rocks (Stacked along the bank)
+                if (rockPrefab != null)
+                {
+                    float xRockL = -(halfRoad + 2.0f + Random.Range(0.2f, 1.4f));
+                    GameObject rockL = Instantiate(rockPrefab, new Vector3(xRockL, 0.2f, z + Random.Range(-1.0f, 1.0f)), Quaternion.Euler(0, Random.Range(0f, 360f), 0), natureRoot.transform);
+                    rockL.transform.localScale = Vector3.one * Random.Range(2.2f, 3.2f);
+                    foreach (var c in rockL.GetComponentsInChildren<Collider>()) SafeDestroy(c);
+                    if (rockMat != null)
+                    {
+                        foreach (var mr in rockL.GetComponentsInChildren<MeshRenderer>()) mr.sharedMaterial = rockMat;
+                    }
+                }
+
+                // Right Side Rocks
+                if (rockPrefab != null)
+                {
+                    float xRockR = (halfRoad + 2.0f + Random.Range(0.2f, 1.4f));
+                    GameObject rockR = Instantiate(rockPrefab, new Vector3(xRockR, 0.2f, z + Random.Range(-1.0f, 1.0f)), Quaternion.Euler(0, Random.Range(0f, 360f), 0), natureRoot.transform);
+                    rockR.transform.localScale = Vector3.one * Random.Range(2.2f, 3.2f);
+                    foreach (var c in rockR.GetComponentsInChildren<Collider>()) SafeDestroy(c);
+                    if (rockMat != null)
+                    {
+                        foreach (var mr in rockR.GetComponentsInChildren<MeshRenderer>()) mr.sharedMaterial = rockMat;
+                    }
+                }
+
+                // Left Side Pine Trees (Planted amongst and behind the rocks)
+                if (treePrefab != null)
+                {
+                    float xTreeL = -(halfRoad + 3.6f + Random.Range(0.5f, 2.5f));
+                    GameObject treeL = Instantiate(treePrefab, new Vector3(xTreeL, 0.4f, z + Random.Range(-1.2f, 1.2f)), Quaternion.Euler(0, Random.Range(0f, 360f), 0), natureRoot.transform);
+                    treeL.transform.localScale = Vector3.one * Random.Range(2.8f, 4.2f);
+                    foreach (var c in treeL.GetComponentsInChildren<Collider>()) SafeDestroy(c);
+                    if (treeMat != null)
+                    {
+                        foreach (var mr in treeL.GetComponentsInChildren<MeshRenderer>()) mr.sharedMaterial = treeMat;
+                    }
+                }
+
+                // Right Side Pine Trees
+                if (treePrefab != null)
+                {
+                    float xTreeR = (halfRoad + 3.6f + Random.Range(0.5f, 2.5f));
+                    GameObject treeR = Instantiate(treePrefab, new Vector3(xTreeR, 0.4f, z + Random.Range(-1.2f, 1.2f)), Quaternion.Euler(0, Random.Range(0f, 360f), 0), natureRoot.transform);
+                    treeR.transform.localScale = Vector3.one * Random.Range(2.8f, 4.2f);
+                    foreach (var c in treeR.GetComponentsInChildren<Collider>()) SafeDestroy(c);
+                    if (treeMat != null)
+                    {
+                        foreach (var mr in treeR.GetComponentsInChildren<MeshRenderer>()) mr.sharedMaterial = treeMat;
+                    }
+                }
+            }
         }
 
         private void BuildDistantHorizon(Transform parent, Material grassMat)
