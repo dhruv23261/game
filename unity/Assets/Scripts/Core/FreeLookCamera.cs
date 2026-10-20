@@ -9,24 +9,24 @@ namespace MobControl.Core
 
 #pragma warning disable 0414
         [Header("Distance & Zoom")]
-        [SerializeField] private float defaultDistance = 5.5f;
-        [SerializeField] private float minDistance = 2.0f;
-        [SerializeField] private float maxDistance = 15.0f;
+        [SerializeField] private float defaultDistance = 9.2f;
+        [SerializeField] private float minDistance = 4.0f;
+        [SerializeField] private float maxDistance = 20.0f;
         [SerializeField] private float zoomSpeed = 4.0f;
 
         [Header("Rotation & Angle")]
-        [SerializeField] private float defaultPitch = 18.0f; // Perfect 3rd-person runner angle
+        [SerializeField] private float defaultPitch = 30.0f; // Elevated 30-deg runner angle gives clear road & squad overview
         [SerializeField] private float mouseSensitivity = 3.0f;
-        [SerializeField] private float smoothTime = 0.06f;
-        [SerializeField] private float minPitch = -10.0f;
+        [SerializeField] private float smoothTime = 0.08f;
+        [SerializeField] private float minPitch = 10.0f;
         [SerializeField] private float maxPitch = 60.0f;
 #pragma warning restore 0414
 
         [Header("Height Offset")]
-        [SerializeField] private float targetHeightOffset = 1.2f;
+        [SerializeField] private float targetHeightOffset = 1.6f;
 
         private float currentYaw = 0.0f;
-        private float currentPitch = 18.0f;
+        private float currentPitch = 30.0f;
         private float currentDistance;
         private Vector3 currentVelocity;
 

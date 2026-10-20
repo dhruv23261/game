@@ -14,8 +14,8 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 1
-  m_FogColor: {r: 0.72, g: 0.84, b: 0.95, a: 1}
+  m_Fog: 0
+  m_FogColor: {r: 0.55, g: 0.75, b: 0.92, a: 1}
   m_FogMode: 1
   m_FogDensity: 0.01
   m_LinearFogStart: 24
@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 1
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 0}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -4878,13 +4878,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 858701567}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.1564345, y: 0, z: 0, w: 0.9876883}
-  m_LocalPosition: {x: 0, y: 2.8, z: -5.2}
+  m_LocalRotation: {x: 0.25881904, y: 0, z: 0, w: 0.9659258}
+  m_LocalPosition: {x: 0, y: 6.2, z: -8.0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 18, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 30, y: 0, z: 0}
 --- !u!114 &858701571
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4898,16 +4898,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MobControl.Core.FreeLookCamera
   target: {fileID: 756671999}
-  defaultDistance: 6
-  minDistance: 2
-  maxDistance: 15
+  defaultDistance: 9.2
+  minDistance: 4
+  maxDistance: 20
   zoomSpeed: 4
-  defaultPitch: 18
+  defaultPitch: 30
   mouseSensitivity: 3
   smoothSpeed: 10
-  minPitch: -20
-  maxPitch: 70
-  targetHeightOffset: 1.5
+  minPitch: 10
+  maxPitch: 60
+  targetHeightOffset: 1.6
 --- !u!1001 &867068517
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10175,46 +10175,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 890489276}
     m_Modifications:
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0.00127
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.00099
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0.00052
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.5016654
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.46886802
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.5293046
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0.49832854
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 183.274
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 90
-      objectReference: {fileID: 0}
-    - target: {fileID: 84050976135997616, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 93.656
-      objectReference: {fileID: 0}
     - target: {fileID: 747961778300531210, guid: aeeded263dc4f4f4b8190d5631b13afb, type: 3}
       propertyPath: m_Name
       value: Gun_M41D

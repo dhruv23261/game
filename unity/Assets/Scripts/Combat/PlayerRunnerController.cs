@@ -601,17 +601,10 @@ namespace MobControl.Combat
                     if (gunMat != null) r.sharedMaterial = gunMat;
                 }
 
-                float rootScale = (existingGun.transform.root != null && existingGun.transform.root.lossyScale.x > 0.001f) 
-                    ? existingGun.transform.root.lossyScale.x 
-                    : 100f;
-                float gunScale = (rootScale > 10f) ? 0.0004f : 0.04f;
-                Vector3 gunPos = (rootScale > 10f) 
-                    ? new Vector3(-0.00127f, 0.00099f, 0.00052f) 
-                    : new Vector3(-0.0127f, 0.0099f, 0.0052f);
-
-                existingGun.localScale = new Vector3(gunScale, gunScale, gunScale);
-                existingGun.localPosition = gunPos;
-                existingGun.localRotation = Quaternion.Euler(183.274f, 90f, 93.656f);
+                // Root transform at zero/identity so the prefab's internal calibrated grip is cleanly held in hand
+                existingGun.localPosition = Vector3.zero;
+                existingGun.localRotation = Quaternion.identity;
+                existingGun.localScale = Vector3.one;
 
                 Transform mp = existingGun.Find("MuzzleFirePoint");
                 if (mp == null)
@@ -646,17 +639,9 @@ namespace MobControl.Combat
                 newGun.name = "Gun_M41D";
                 newGun.SetActive(true);
 
-                float rootScale = (mount.transform.root != null && mount.transform.root.lossyScale.x > 0.001f) 
-                    ? mount.transform.root.lossyScale.x 
-                    : 100f;
-                float gunScale = (rootScale > 10f) ? 0.0004f : 0.04f;
-                Vector3 gunPos = (rootScale > 10f) 
-                    ? new Vector3(-0.00127f, 0.00099f, 0.00052f) 
-                    : new Vector3(-0.0127f, 0.0099f, 0.0052f);
-
-                newGun.transform.localScale = new Vector3(gunScale, gunScale, gunScale);
-                newGun.transform.localPosition = gunPos;
-                newGun.transform.localRotation = Quaternion.Euler(183.274f, 90f, 93.656f);
+                newGun.transform.localPosition = Vector3.zero;
+                newGun.transform.localRotation = Quaternion.identity;
+                newGun.transform.localScale = Vector3.one;
 
                 Transform mp = newGun.transform.Find("MuzzleFirePoint");
                 if (mp == null)

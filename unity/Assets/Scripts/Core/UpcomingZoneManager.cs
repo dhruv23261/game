@@ -80,30 +80,17 @@ namespace MobControl.Core
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
-                mainCam.farClipPlane = 300.0f;
-                // Use skybox or pleasant sky blue so horizon never flickers to solid white
-                if (RenderSettings.skybox != null)
-                {
-                    mainCam.clearFlags = CameraClearFlags.Skybox;
-                }
-                else
-                {
-                    mainCam.clearFlags = CameraClearFlags.SolidColor;
-                    mainCam.backgroundColor = fogColor;
-                }
+                mainCam.farClipPlane = 400.0f;
+                // Always use SolidColor calm sky-blue - never procedural skybox which creates harsh white horizon seams!
+                mainCam.clearFlags = CameraClearFlags.SolidColor;
+                mainCam.backgroundColor = new Color(0.55f, 0.75f, 0.92f, 1f);
                 mainCam.allowHDR = false;
                 mainCam.allowMSAA = false;
             }
 
-            // Keep fog disabled or smooth to prevent distance flickering
-            RenderSettings.fog = enableAtmosphericFog;
-            if (enableAtmosphericFog)
-            {
-                RenderSettings.fogMode = FogMode.Linear;
-                RenderSettings.fogStartDistance = fogStartDistance;
-                RenderSettings.fogEndDistance = fogEndDistance;
-                RenderSettings.fogColor = fogColor;
-            }
+            // Disable skybox and fog to guarantee 0 white polygon edge clipping or flickering
+            RenderSettings.skybox = null;
+            RenderSettings.fog = false;
 
             // Find player
             if (PlayerRunnerController.Instance != null)

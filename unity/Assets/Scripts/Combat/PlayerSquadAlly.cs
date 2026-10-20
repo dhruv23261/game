@@ -67,17 +67,10 @@ namespace MobControl.Combat
             if (existingGun != null)
             {
                 existingGun.gameObject.SetActive(true);
-                float rootScale = (existingGun.transform.root != null && existingGun.transform.root.lossyScale.x > 0.001f) 
-                    ? existingGun.transform.root.lossyScale.x 
-                    : 100f;
-                float gunScale = (rootScale > 10f) ? 0.0004f : 0.04f;
-                Vector3 gunPos = (rootScale > 10f) 
-                    ? new Vector3(-0.00127f, 0.00099f, 0.00052f) 
-                    : new Vector3(-0.0127f, 0.0099f, 0.0052f);
-
-                existingGun.localScale = new Vector3(gunScale, gunScale, gunScale);
-                existingGun.localPosition = gunPos;
-                existingGun.localRotation = Quaternion.Euler(183.274f, 90f, 93.656f);
+                // Reset root transform to identity so the prefab's internal calibrated grip is cleanly held in hand
+                existingGun.localPosition = Vector3.zero;
+                existingGun.localRotation = Quaternion.identity;
+                existingGun.localScale = Vector3.one;
                 equippedWeaponInstance = existingGun.gameObject;
                 muzzleFirePoint = existingGun.Find("MuzzleFirePoint");
             }
