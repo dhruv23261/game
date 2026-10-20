@@ -44,6 +44,23 @@ namespace MobControl.EditorTools
             Debug.Log("[Zombie Squad] Level 1 cleaned successfully! All procedural clutter removed and scene saved.");
         }
 
+        [MenuItem("Zombie Squad/Build Reference Level 1 Road (Image Match)")]
+        public static void BuildReferenceLevel1Road()
+        {
+            CleanLevel1Scene();
+
+            GameObject builderObj = new GameObject("Level1_RoadBuilder_Temp");
+            NewRoadBuilder builder = builderObj.AddComponent<NewRoadBuilder>();
+            builder.BuildRoadScene();
+            Object.DestroyImmediate(builderObj);
+
+            var activeScene = EditorSceneManager.GetActiveScene();
+            EditorSceneManager.MarkSceneDirty(activeScene);
+            EditorSceneManager.SaveScene(activeScene);
+
+            Debug.Log("[Zombie Squad] Level 1 reference road generated and scene saved!");
+        }
+
         public static void RemoveGunM41DFromScene()
         {
             GameObject[] all = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
