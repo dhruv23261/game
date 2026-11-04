@@ -1,0 +1,10 @@
+{
+  "pack": "Zombie Squad Game Over UI Assets",
+  "source_image": "Generated Zombie Squad game-over screen",
+  "source_dimensions": [
+    1086,
+    1448
+  ],
+  "format": "PNG",
+  "note": "Assets are individually cropped from the reference composition. Crops may retain nearby background pixels where elements overlap or are integrated into the artwork."
+}

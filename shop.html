@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>SHOP - Zombie Squad</title>
+  <!-- Google Fonts: Fredoka & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ==========================================================================
+       RESET & ROOT VARIABLES
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --font-game: 'Fredoka', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: 'Outfit', sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: linear-gradient(180deg, #051c48 0%, #031336 40%, #010c24 70%, #1c120a 100%);
+      font-family: var(--font-game);
+      color: #ffffff;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* FULLSCREEN RESPONSIVE CONTAINER WITH SEAMLESS EXTENDED GAME ART BACKGROUND */
+    .viewport-container {
+      width: 100vw;
+      height: 100%;
+      height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #020d24 0%, #031336 40%, #010c24 70%, #170e06 100%);
+    }
+
+    /* TOP SKY EXTENSION OVERLAY (Vibrant deep blue & clouds blending seamlessly) */
+    .viewport-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 25vh;
+      background: linear-gradient(180deg, #020d24 0%, #051d4b 50%, transparent 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* BOTTOM GROUND EXTENSION OVERLAY (Warm combat dirt & road terrain) */
+    .viewport-container::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 22vh;
+      background: linear-gradient(0deg, #170e06 0%, #261608 45%, transparent 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ==========================================================================
+       MAIN SHOP SCREEN
+       - Edge-to-edge 100% viewport fit on all mobile screens (ZERO black bars!)
+       - Sits over the extended watchtowers and terrain on ultra-tall screens
+       ========================================================================== */
+    .shop-frame {
+      position: relative;
+      width: 100vw;
+      max-width: calc(100dvh * (688 / 1024));
+      height: calc(100vw * (1024 / 688));
+      max-height: 100dvh;
+      aspect-ratio: 688 / 1024;
+      background: url('./assets/shop/shop_reference_master.jpg') no-repeat center center / contain;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Ultra-tall phone screens: maintain authentic proportions, never stretch */
+    @media (max-aspect-ratio: 600/1024) {
+      .shop-frame {
+        width: 100vw;
+        max-width: 100%;
+        height: auto;
+        aspect-ratio: 688 / 1024;
+      }
+    }
+
+    /* Tablet/Desktop screens: Centered frame over the rich extended game artwork */
+    @media (min-aspect-ratio: 750/1024) {
+      .shop-frame {
+        width: auto;
+        height: 100dvh;
+        aspect-ratio: 688 / 1024;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(0, 180, 255, 0.35);
+        border-radius: 8px;
+      }
+    }
+
+    /* ==========================================================================
+       HEADER INTERACTIVE OVERLAYS
+       ========================================================================== */
+    /* Back Button: Clickable overlay over the blue beveled back button */
+    .interactive-back-btn {
+      position: absolute;
+      left: 4.5%;
+      top: 13.5%;
+      width: 16.0%;
+      height: 8.5%;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-radius: 12px;
+      z-index: 100;
+      transition: transform 0.12s ease, filter 0.15s ease;
+    }
+    .interactive-back-btn:active {
+      transform: scale(0.92);
+      filter: brightness(1.3);
+    }
+
+    /* Dynamic Coin Balance Display Overlay (Replaces static 5,980 with live balance) */
+    .coin-live-badge {
+      position: absolute;
+      left: 53.5%;
+      top: 16.5%;
+      width: 11.2%;
+      height: 4.2%;
+      background: #031336;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .coin-live-text {
+      font-family: var(--font-game);
+      font-size: clamp(12px, 2.2cqi, 17px);
+      font-weight: 800;
+      color: #fff9c4;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    /* Coin Plus Button Overlay */
+    .interactive-coin-plus {
+      position: absolute;
+      left: 65.2%;
+      top: 16.0%;
+      width: 6.4%;
+      height: 5.2%;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      z-index: 25;
+      border-radius: 6px;
+      transition: transform 0.1s ease;
+    }
+    .interactive-coin-plus:active {
+      transform: scale(0.85);
+    }
+
+    /* Dynamic Diamond Balance Display Overlay (Replaces static 50 with live balance) */
+    .diamond-live-badge {
+      position: absolute;
+      left: 77.2%;
+      top: 16.5%;
+      width: 11.2%;
+      height: 4.2%;
+      background: #031336;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .diamond-live-text {
+      font-family: var(--font-game);
+      font-size: clamp(12px, 2.2cqi, 17px);
+      font-weight: 800;
+      color: #bae6fd;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    /* Diamond Plus Button Overlay */
+    .interactive-diamond-plus {
+      position: absolute;
+      left: 89.0%;
+      top: 16.0%;
+      width: 6.4%;
+      height: 5.2%;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      z-index: 25;
+      border-radius: 6px;
+      transition: transform 0.1s ease;
+    }
+    .interactive-diamond-plus:active {
+      transform: scale(0.85);
+    }
+
+    /* ==========================================================================
+       4 PRODUCT CARDS (Interactive Overlays - ZERO Double Buttons!)
+       ========================================================================== */
+    .shop-card-zone {
+      position: absolute;
+      border-radius: 18px;
+      cursor: pointer;
+      z-index: 15;
+      transition: transform 0.14s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .shop-card-zone:hover {
+      transform: translateY(-2px);
+    }
+    .shop-card-zone:active {
+      transform: scale(0.97);
+    }
+
+    /* Card Positions */
+    .card-zone-1 {
+      left: 7.2%;
+      top: 21.6%;
+      width: 42.0%;
+      height: 32.0%;
+    }
+    .card-zone-2 {
+      left: 50.8%;
+      top: 21.6%;
+      width: 42.0%;
+      height: 32.0%;
+    }
+    .card-zone-3 {
+      left: 7.2%;
+      top: 54.2%;
+      width: 42.0%;
+      height: 32.0%;
+    }
+    .card-zone-4 {
+      left: 50.8%;
+      top: 54.2%;
+      width: 42.0%;
+      height: 32.0%;
+    }
+
+    /* Transparent Clickable Buy Button Overlay (Fits the artwork button with 0 duplicate visual!) */
+    .interactive-buy-btn {
+      position: absolute;
+      bottom: 6.0%;
+      left: 8.8%;
+      width: 82.4%;
+      height: 14.4%;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-radius: 20px;
+      z-index: 20;
+      transition: transform 0.1s ease, background 0.15s ease;
+    }
+    .interactive-buy-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 16px rgba(74, 222, 128, 0.4);
+    }
+    .interactive-buy-btn:active {
+      transform: scale(0.94);
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* Sound Floating Toggle Button in Top Right of Window */
+    .global-sound-btn {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 100;
+      width: 40px;
+      height: 40px;
+      background: rgba(4, 18, 50, 0.85);
+      border: 1.5px solid rgba(0, 210, 255, 0.5);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      transition: transform 0.12s ease;
+    }
+    .global-sound-btn:active {
+      transform: scale(0.9);
+    }
+    .global-sound-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: #ffffff;
+    }
+
+    /* Flying Coins Particle Container */
+    .flying-coins-container {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 200;
+      overflow: hidden;
+    }
+    .flying-coin-particle {
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      background: radial-gradient(circle, #fff59d 20%, #fbc02d 60%, #e65100 100%);
+      border: 2px solid #fff9c4;
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.9);
+      transition: transform 0.65s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.65s ease;
+    }
+
+    /* ==========================================================================
+       CHECKOUT / PAYMENT MODAL
+       ========================================================================== */
+    .payment-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(1, 6, 20, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 300;
+      padding: 16px;
+    }
+    .payment-modal-backdrop.active {
+      display: flex;
+    }
+
+    .checkout-modal-card {
+      width: 100%;
+      max-width: 400px;
+      background: linear-gradient(180deg, #09255a 0%, #031438 100%);
+      border: 2px solid #00d2ff;
+      border-radius: 24px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 210, 255, 0.35);
+      padding: 24px 20px;
+      position: relative;
+      animation: modalPop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes modalPop {
+      0% { transform: scale(0.85); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-close-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 32px;
+      height: 32px;
+      background: rgba(8, 38, 88, 0.9);
+      border: 1.5px solid rgba(0, 210, 255, 0.5);
+      border-radius: 10px;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s ease;
+    }
+    .modal-close-btn:active {
+      transform: scale(0.9);
+    }
+
+    .modal-header-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .modal-badge-icon {
+      width: 42px;
+      height: 42px;
+      background: rgba(0, 210, 255, 0.15);
+      border: 1.5px solid #00d2ff;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .modal-title-text {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #00d2ff;
+      letter-spacing: 0.5px;
+    }
+    .modal-subtitle-text {
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .modal-item-banner {
+      background: rgba(2, 15, 42, 0.85);
+      border: 1.5px solid rgba(0, 210, 255, 0.3);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .modal-item-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #ffea55;
+    }
+    .modal-item-desc {
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .modal-item-price {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #4ade80;
+    }
+
+    .payment-option-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .pay-method-pill {
+      background: rgba(4, 22, 60, 0.7);
+      border: 1.5px solid rgba(0, 210, 255, 0.3);
+      border-radius: 12px;
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      font-weight: 700;
+      transition: all 0.15s ease;
+    }
+    .pay-method-pill.active {
+      background: rgba(0, 210, 255, 0.2);
+      border-color: #00d2ff;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+    }
+
+    .btn-pay-confirm {
+      width: 100%;
+      height: 50px;
+      background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+      border: 2px solid #86efac;
+      border-radius: 14px;
+      color: #ffffff;
+      font-family: var(--font-game);
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(22, 163, 74, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.4);
+      transition: transform 0.1s ease, filter 0.12s ease;
+    }
+    .btn-pay-confirm:active {
+      transform: scale(0.97);
+      filter: brightness(1.15);
+    }
+
+    /* Processing Animation */
+    .processing-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 26px 0;
+      gap: 12px;
+    }
+    .processing-spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(0, 210, 255, 0.2);
+      border-top-color: #00d2ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Toast Notification Banner */
+    .toast-banner {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: linear-gradient(180deg, #064e3b 0%, #065f46 100%);
+      border: 2px solid #34d399;
+      border-radius: 16px;
+      padding: 12px 24px;
+      color: #ffffff;
+      font-size: 1.05rem;
+      font-weight: 800;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7), 0 0 20px rgba(52, 211, 153, 0.5);
+      z-index: 500;
+      transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .toast-banner.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- VIEWPORT CONTAINER -->
+  <div class="viewport-container">
+
+    <!-- Sound Toggle in top right -->
+    <button class="global-sound-btn" id="btnSoundToggle" title="Toggle Sound" onclick="toggleAudio()">
+      <svg id="soundIconOn" viewBox="0 0 24 24">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+      <svg id="soundIconOff" viewBox="0 0 24 24" style="display:none;">
+        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+      </svg>
+    </button>
+
+    <!-- ONLY THIS SHOP SCREEN (Fills 100% of viewport, ZERO black bars, ZERO duplicate pictures) -->
+    <main class="shop-frame" id="shopFrame">
+
+      <!-- 1. BACK BUTTON INTERACTION -->
+      <button class="interactive-back-btn" id="btnBack" title="Back to Game" onclick="handleBackAction()"></button>
+
+      <!-- 2. DYNAMIC COIN BALANCE (Live update over capsule) -->
+      <div class="coin-live-badge">
+        <span class="coin-live-text" id="userCoinsVal">5,980</span>
+      </div>
+      <button class="interactive-coin-plus" title="Refill Coins" onclick="openCheckout('pack_1000')"></button>
+
+      <!-- 3. DYNAMIC DIAMOND BALANCE (Live update over capsule) -->
+      <div class="diamond-live-badge">
+        <span class="diamond-live-text" id="userDiamondsVal">50</span>
+      </div>
+      <button class="interactive-diamond-plus" title="Refill Diamonds" onclick="openCheckout('gem_50')"></button>
+
+      <!-- 4. FOUR CARDS (Transparent click zones over single authentic buttons - NO DOUBLE BUTTONS!) -->
+
+      <!-- Card 1: 1,000 Coins -> ₹80 -->
+      <div class="shop-card-zone card-zone-1" id="card_pack_1000" onclick="openCheckout('pack_1000')">
+        <button class="interactive-buy-btn" onclick="event.stopPropagation(); openCheckout('pack_1000')"></button>
+      </div>
+
+      <!-- Card 2: 5,000 Coins -> ₹200 -->
+      <div class="shop-card-zone card-zone-2" id="card_pack_5000" onclick="openCheckout('pack_5000')">
+        <button class="interactive-buy-btn" onclick="event.stopPropagation(); openCheckout('pack_5000')"></button>
+      </div>
+
+      <!-- Card 3: 20,000 Coins -> ₹1,000 -->
+      <div class="shop-card-zone card-zone-3" id="card_pack_20000" onclick="openCheckout('pack_20000')">
+        <button class="interactive-buy-btn" onclick="event.stopPropagation(); openCheckout('pack_20000')"></button>
+      </div>
+
+      <!-- Card 4: 50,000 Coins -> ₹2,000 -->
+      <div class="shop-card-zone card-zone-4" id="card_pack_50000" onclick="openCheckout('pack_50000')">
+        <button class="interactive-buy-btn" onclick="event.stopPropagation(); openCheckout('pack_50000')"></button>
+      </div>
+
+      <!-- Flying Coins FX Container -->
+      <div class="flying-coins-container" id="flyingCoinsBox"></div>
+    </main>
+  </div>
+
+  <!-- CHECKOUT / PAYMENT MODAL -->
+  <div class="payment-modal-backdrop" id="checkoutModal">
+    <div class="checkout-modal-card">
+      <button class="modal-close-btn" onclick="closeCheckout()">✕</button>
+
+      <div id="checkoutReady">
+        <div class="modal-header-row">
+          <div class="modal-badge-icon">🔒</div>
+          <div>
+            <div class="modal-title-text">SECURE CHECKOUT</div>
+            <div class="modal-subtitle-text">Instant 1-Click Game Credit</div>
+          </div>
+        </div>
+
+        <div class="modal-item-banner">
+          <div>
+            <div class="modal-item-title" id="checkoutItemTitle">1,000 COINS</div>
+            <div class="modal-item-desc" id="checkoutItemDesc">Instant gold rations for squad upgrades</div>
+          </div>
+          <div class="modal-item-price" id="checkoutItemPrice">₹ 80</div>
+        </div>
+
+        <div style="font-size:0.8rem; font-weight:700; color:#94a3b8; margin-bottom:8px; letter-spacing:0.5px;">SELECT PAYMENT METHOD</div>
+        <div class="payment-option-grid">
+          <div class="pay-method-pill active" onclick="setPayMethod(this)">📱 UPI / QR</div>
+          <div class="pay-method-pill" onclick="setPayMethod(this)">💳 Card</div>
+          <div class="pay-method-pill" onclick="setPayMethod(this)">⚡ 1-Click</div>
+        </div>
+
+        <button class="btn-pay-confirm" id="btnPayConfirm" onclick="confirmPayment()">
+          <span>PAY</span>
+          <span id="btnPayLabel">₹ 80</span>
+        </button>
+      </div>
+
+      <div class="processing-overlay" id="checkoutProcessing">
+        <div class="processing-spinner"></div>
+        <div style="font-size:1.15rem; font-weight:800; color:#00d2ff;">PROCESSING PAYMENT...</div>
+        <div style="font-size:0.85rem; color:#94a3b8; font-family:var(--font-body);">Verifying Instant Squad Credit...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Banner -->
+  <div class="toast-banner" id="toastBanner">
+    <span style="font-size:1.3rem;">🎉</span>
+    <span id="toastText">Purchase Successful!</span>
+  </div>
+
+  <!-- ==========================================================================
+       JAVASCRIPT LOGIC
+       ========================================================================== -->
+  <script>
+    const PRODUCTS = {
+      pack_1000: {
+        id: 'pack_1000',
+        title: '1,000 COINS',
+        coins: 1000,
+        gems: 0,
+        priceINR: 80,
+        priceFormatted: '₹ 80',
+        desc: 'Instant gold rations for squad upgrades',
+        cardId: 'card_pack_1000'
+      },
+      pack_5000: {
+        id: 'pack_5000',
+        title: '5,000 COINS',
+        coins: 5000,
+        gems: 0,
+        priceINR: 200,
+        priceFormatted: '₹ 200',
+        desc: 'Heavy weapon upgrades & squad expansion',
+        cardId: 'card_pack_5000'
+      },
+      pack_20000: {
+        id: 'pack_20000',
+        title: '20,000 COINS',
+        coins: 20000,
+        gems: 0,
+        priceINR: 1000,
+        priceFormatted: '₹ 1,000',
+        desc: 'Army stash of sparkling gold crown coins',
+        cardId: 'card_pack_20000'
+      },
+      pack_50000: {
+        id: 'pack_50000',
+        title: '50,000 COINS',
+        coins: 50000,
+        gems: 0,
+        priceINR: 2000,
+        priceFormatted: '₹ 2,000',
+        desc: 'Massive treasure chest for ultimate domination',
+        cardId: 'card_pack_50000'
+      },
+      gem_50: {
+        id: 'gem_50',
+        title: '50 DIAMONDS',
+        coins: 0,
+        gems: 50,
+        priceINR: 40,
+        priceFormatted: '₹ 40',
+        desc: 'Energy crystals for instant research',
+        cardId: 'card_pack_1000'
+      }
+    };
+
+    let userCoins = parseInt(localStorage.getItem('ZombieSquad_Coins') || '5980', 10);
+    let userDiamonds = parseInt(localStorage.getItem('ZombieSquad_Gems') || '50', 10);
+    let isSoundEnabled = (localStorage.getItem('ZombieSquad_Sound') !== 'false');
+    let activePendingProduct = null;
+
+    function renderBalances() {
+      const coinEl = document.getElementById('userCoinsVal');
+      const gemEl = document.getElementById('userDiamondsVal');
+      if (coinEl) coinEl.textContent = userCoins.toLocaleString();
+      if (gemEl) gemEl.textContent = userDiamonds.toLocaleString();
+    }
+    renderBalances();
+
+    // Audio System
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!isSoundEnabled) return;
+      initAudio();
+
+      try {
+        let file = '';
+        if (type === 'tap') file = './assets/audio/sfx_ui_click.wav';
+        else if (type === 'coin') file = './assets/audio/sfx_coin.wav';
+        else if (type === 'success') file = './assets/audio/sfx_upgrade.wav';
+
+        if (file) {
+          const a = new Audio(file);
+          a.volume = 0.6;
+          a.play().catch(() => playSynth(type));
+          return;
+        }
+      } catch (e) {}
+
+      playSynth(type);
+    }
+
+    function playSynth(type) {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      if (type === 'tap') {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.06);
+        g.gain.setValueAtTime(0.2, now);
+        g.gain.linearRampToValueAtTime(0.01, now + 0.06);
+        osc.connect(g);
+        g.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.06);
+      } else if (type === 'coin') {
+        [987, 1318, 1567].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+          g.gain.setValueAtTime(0.25, now + idx * 0.05);
+          g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.14);
+          osc.connect(g);
+          g.connect(audioCtx.destination);
+          osc.start(now + idx * 0.05);
+          osc.stop(now + idx * 0.05 + 0.14);
+        });
+      } else if (type === 'success') {
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+          g.gain.setValueAtTime(0.3, now + idx * 0.07);
+          g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.28);
+          osc.connect(g);
+          g.connect(audioCtx.destination);
+          osc.start(now + idx * 0.07);
+          osc.stop(now + idx * 0.07 + 0.28);
+        });
+      }
+    }
+
+    function toggleAudio() {
+      isSoundEnabled = !isSoundEnabled;
+      localStorage.setItem('ZombieSquad_Sound', isSoundEnabled ? 'true' : 'false');
+      document.getElementById('soundIconOn').style.display = isSoundEnabled ? 'block' : 'none';
+      document.getElementById('soundIconOff').style.display = isSoundEnabled ? 'none' : 'block';
+      if (isSoundEnabled) playSound('tap');
+    }
+
+    function handleBackAction() {
+      try { playSound('tap'); } catch (e) {}
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ action: 'closeShop', type: 'BACK' }, '*');
+      }
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = 'index.html';
+      }
+    }
+
+    function openCheckout(productId) {
+      playSound('tap');
+      const prod = PRODUCTS[productId];
+      if (!prod) return;
+
+      activePendingProduct = prod;
+      document.getElementById('checkoutItemTitle').textContent = prod.title;
+      document.getElementById('checkoutItemDesc').textContent = prod.desc;
+      document.getElementById('checkoutItemPrice').textContent = prod.priceFormatted;
+      document.getElementById('btnPayLabel').textContent = prod.priceFormatted;
+
+      document.getElementById('checkoutReady').style.display = 'block';
+      document.getElementById('checkoutProcessing').style.display = 'none';
+      document.getElementById('checkoutModal').classList.add('active');
+    }
+
+    function closeCheckout() {
+      playSound('tap');
+      document.getElementById('checkoutModal').classList.remove('active');
+      activePendingProduct = null;
+    }
+
+    function setPayMethod(el) {
+      playSound('tap');
+      document.querySelectorAll('.pay-method-pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function confirmPayment() {
+      if (!activePendingProduct) return;
+      playSound('tap');
+
+      document.getElementById('checkoutReady').style.display = 'none';
+      document.getElementById('checkoutProcessing').style.display = 'flex';
+
+      setTimeout(() => {
+        completeSuccessfulPurchase(activePendingProduct);
+      }, 700);
+    }
+
+    function completeSuccessfulPurchase(prod) {
+      document.getElementById('checkoutModal').classList.remove('active');
+      playSound('success');
+
+      const coinsToAdd = prod.coins || 0;
+      const gemsToAdd = prod.gems || 0;
+
+      if (coinsToAdd > 0) {
+        spawnFlyingCoins(prod.cardId, () => {
+          userCoins += coinsToAdd;
+          localStorage.setItem('ZombieSquad_Coins', userCoins.toString());
+          renderBalances();
+        });
+      } else if (gemsToAdd > 0) {
+        userDiamonds += gemsToAdd;
+        localStorage.setItem('ZombieSquad_Gems', userDiamonds.toString());
+        renderBalances();
+      }
+
+      showToast(`🎉 +${(coinsToAdd || gemsToAdd).toLocaleString()} ${coinsToAdd > 0 ? 'COINS' : 'DIAMONDS'} ADDED!`);
+      activePendingProduct = null;
+    }
+
+    function spawnFlyingCoins(sourceId, onFinish) {
+      const box = document.getElementById('flyingCoinsBox');
+      const target = document.querySelector('.coin-live-badge');
+      if (!box || !target) {
+        if (onFinish) onFinish();
+        return;
+      }
+
+      const sourceEl = document.getElementById(sourceId) || box;
+      const srcRect = sourceEl.getBoundingClientRect();
+      const tgtRect = target.getBoundingClientRect();
+      const boxRect = box.getBoundingClientRect();
+
+      const startX = srcRect.left + srcRect.width / 2 - boxRect.left;
+      const startY = srcRect.top + srcRect.height / 2 - boxRect.top;
+      const destX = tgtRect.left + tgtRect.width / 2 - boxRect.left;
+      const destY = tgtRect.top + tgtRect.height / 2 - boxRect.top;
+
+      const count = 10;
+      let completed = 0;
+
+      for (let i = 0; i < count; i++) {
+        const coin = document.createElement('div');
+        coin.className = 'flying-coin-particle';
+        coin.style.left = `${startX - 13}px`;
+        coin.style.top = `${startY - 13}px`;
+        box.appendChild(coin);
+
+        const spreadX = (Math.random() - 0.5) * 100;
+        const spreadY = (Math.random() - 0.5) * 70;
+        const delay = i * 40;
+
+        setTimeout(() => {
+          coin.style.transform = `translate(${spreadX}px, ${spreadY}px) scale(1.15)`;
+
+          setTimeout(() => {
+            const dx = destX - startX;
+            const dy = destY - startY;
+            coin.style.transform = `translate(${dx}px, ${dy}px) scale(0.6)`;
+            coin.style.opacity = '0.3';
+
+            setTimeout(() => {
+              playSound('coin');
+              coin.remove();
+              completed++;
+              if (completed === count && onFinish) {
+                onFinish();
+              }
+            }, 650);
+          }, 180);
+        }, delay);
+      }
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toastBanner');
+      const text = document.getElementById('toastText');
+      if (!toast || !text) return;
+
+      text.textContent = msg;
+      toast.classList.add('show');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2600);
+    }
+  </script>
+</body>
+</html>

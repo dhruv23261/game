@@ -1,21 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 using MobControl.Core;
 using MobControl.UI;
 using MobControl.Crowd;
 using MobControl.Combat;
+using MobControl.Level;
 
 namespace MobControl.Combat
 {
     public class PlayerRunnerController : MonoBehaviour
     {
-        [Header("Movement Settings")]
-        [SerializeField] private float forwardSpeed = 4.0f;
+        [Header("Movement Settings (X-Axis Scroll / Lane Control)")]
+        [SerializeField] private float forwardSpeed = 0.0f;
+        [SerializeField] private bool stationaryMode = true; // Still khada rahega, forward auto-run disabled
+        [SerializeField] private float fixedZ = 0.0f;
         [SerializeField] private float horizontalLimit = 2.5f; // Clamped within road yellow curbs
-        [SerializeField] private float mobileSlideMultiplier = 2.4f; // Swipe sensitivity across road
-        [SerializeField] private float horizontalLerpSpeed = 28.0f; // Instant zero-latency glide
-        [SerializeField] private float horizontalSensitivity = 14.0f;
+        [SerializeField] private float mobileSlideMultiplier = 2.2f; // Smooth, balanced swipe sensitivity
+        [SerializeField] private float scrollWheelSensitivity = 0.55f; // Mouse scroll wheel sensitivity
+        [SerializeField] private float horizontalLerpSpeed = 16.0f; // Calmer, smooth responsive glide
+        [SerializeField] private float horizontalSensitivity = 10.0f;
 
         [Header("Stopping & Combat Barrier")]
         [SerializeField] private float stoppingDistance = 1.35f;
@@ -24,9 +29,21 @@ namespace MobControl.Combat
         [Header("Shooting Settings")]
         [SerializeField] private GameObject bulletPrefab;
         [SerializeField] private Transform firePoint;
-        [SerializeField] private Vector3 muzzleOffset = new Vector3(0.24f, 1.35f, 0.95f); // Rifle muzzle tip (Right: +0.24m, Up: +1.35m, Forward: +0.95m)
-        [SerializeField] private float fireRate = 0.10f; // 10 bullets per second
+        [SerializeField] private Vector3 muzzleOffset = new Vector3(0.18f, 0.70f, 0.65f); // Rifle muzzle tip (Right: +0.18m, Up: +0.70m, Forward: +0.65m)
+        [SerializeField] private float fireRate = 0.16f; // Initial base fire rate (~6.25 bullets/sec - balanced base ability)
         [SerializeField] private bool autoShoot = true;
+
+        [Header("Gun Upgrade & Colorful Bullets (15s Temporary Validity)")]
+        [SerializeField] private bool hasGunUpgrade = false;
+        [SerializeField] private int gunUpgradeLevel = 0;
+        [SerializeField] private float gunUpgradeDuration = 15.0f; // Exactly 15 seconds temporary upgrade
+        [SerializeField] private float gunUpgradeTimer = 0f;
+        private float baseFireRateBeforeUpgrade = 0.16f;
+
+        public bool HasGunUpgrade => hasGunUpgrade;
+        public int GunUpgradeLevel => gunUpgradeLevel;
+        public float GunUpgradeRemainingTime => Mathf.Max(0f, gunUpgradeTimer);
+        public float GunUpgradeDuration => gunUpgradeDuration;
 
         [Header("Equipped Weapon Visuals")]
         [SerializeField] private GameObject equippedWeaponInstance;
@@ -54,17 +71,55 @@ namespace MobControl.Combat
         private const float BLOCKED_CHECK_INTERVAL = 0.066f; // ~15 times/sec instead of 60
         private static readonly Collider[] s_overlapHits = new Collider[16];
 
-        public static PlayerRunnerController Instance { get; private set; }
+        private static PlayerRunnerController s_instance;
+        public static PlayerRunnerController Instance
+        {
+            get
+            {
+                if (s_instance == null)
+                {
+                    foreach (var p in FindObjectsByType<PlayerRunnerController>(FindObjectsSortMode.None))
+                    {
+                        if (p != null && !p.name.Contains("Ally") && !p.name.Contains("Clone"))
+                        {
+                            s_instance = p;
+                            break;
+                        }
+                    }
+                }
+                return s_instance;
+            }
+            private set => s_instance = value;
+        }
         public bool IsDead => isDead;
         public bool IsBlocked => isBlocked;
+        public bool IsStationary => stationaryMode;
         public int Health => currentHealth;
         public int MaxHealth => maxHealth;
+        public float ForwardSpeed => forwardSpeed;
         public float GlobalZombieSpeedMultiplier => globalZombieSpeedMultiplier;
         public GameObject BulletPrefab => bulletPrefab;
         public Vector3 MuzzleOffset => muzzleOffset;
         public float FireRate => fireRate;
         public int SquadAllyCount => squadAllies.Count;
         public int TotalSquadSize => 1 + squadAllies.Count;
+        public System.Collections.Generic.IReadOnlyList<PlayerSquadAlly> SquadAllies => squadAllies;
+
+        private float obstacleInvulnerableUntil = 0f;
+        public bool IsObstacleInvulnerable => Time.time < obstacleInvulnerableUntil;
+        public void SetObstacleInvulnerable(float duration) => obstacleInvulnerableUntil = Time.time + duration;
+
+        public float TargetX { get => targetX; set => targetX = Mathf.Clamp(value, -horizontalLimit, horizontalLimit); }
+        public void SetTargetX(float x) => TargetX = x;
+        private string deathTitle = "";
+        private string deathReason = "";
+        public string DeathTitle => deathTitle;
+        public string DeathReason => deathReason;
+
+        private bool isWaitingToStart = false;
+        public bool IsWaitingToStart => isWaitingToStart;
+        public void SetWaitingToStart(bool waiting) => isWaitingToStart = waiting;
+        public bool IsControllable => isControllable;
 
         private float touchStartX;
         private float playerStartX;
@@ -73,28 +128,22 @@ namespace MobControl.Combat
         private readonly System.Collections.Generic.List<PlayerSquadAlly> squadAllies = new System.Collections.Generic.List<PlayerSquadAlly>();
         private static readonly Vector3[] formationOffsets = new Vector3[]
         {
-            new Vector3(-0.65f, 0f, -0.25f), // Wingman 1 (Left)
-            new Vector3( 0.65f, 0f, -0.25f), // Wingman 2 (Right)
-            new Vector3(-1.20f, 0f, -0.50f), // Outer 1 (Left)
-            new Vector3( 1.20f, 0f, -0.50f), // Outer 2 (Right)
-            new Vector3(-0.40f, 0f, -0.70f), // Rank 2 (Left)
-            new Vector3( 0.40f, 0f, -0.70f), // Rank 2 (Right)
-            new Vector3(-0.95f, 0f, -0.90f), // Rank 2 Outer (Left)
-            new Vector3( 0.95f, 0f, -0.90f), // Rank 2 Outer (Right)
-            new Vector3(-0.60f, 0f, -1.15f), // Rank 3 (Left)
-            new Vector3( 0.60f, 0f, -1.15f), // Rank 3 (Right)
-            new Vector3(-1.15f, 0f, -1.35f), // Rank 3 Outer (Left)
-            new Vector3( 1.15f, 0f, -1.35f)  // Rank 3 Outer (Right)
+            new Vector3(-0.65f, 0f, 0.05f), // Beside Leader (Left)
+            new Vector3( 0.65f, 0f, 0.05f), // Beside Leader (Right)
+            new Vector3(-1.30f, 0f, 0.10f), // Outer 1 (Left)
+            new Vector3( 1.30f, 0f, 0.10f), // Outer 2 (Right)
+            new Vector3(-0.40f, 0f, 0.35f), // Front Row Left
+            new Vector3( 0.40f, 0f, 0.35f), // Front Row Right
+            new Vector3(-0.95f, 0f, 0.40f), // Front Row Outer Left
+            new Vector3( 0.95f, 0f, 0.40f)  // Front Row Outer Right
         };
 
         private Vector3 GetFormationOffset(int index)
         {
             if (index < formationOffsets.Length) return formationOffsets[index];
-            int row = index / 4;
-            int col = index % 4;
-            float x = (col - 1.5f) * 0.60f;
-            float z = -0.3f - (row * 0.45f);
-            return new Vector3(x, 0f, z);
+            int side = (index % 2 == 0) ? -1 : 1;
+            int col = (index / 2) + 1;
+            return new Vector3(side * col * 0.65f, 0f, 0.05f);
         }
 
         public bool HasPassedGate(int gateInstanceId) => passedGateIds.Contains(gateInstanceId);
@@ -141,12 +190,24 @@ namespace MobControl.Combat
                 Destroy(h);
             }
 
+            if (bulletPrefab == null)
+            {
+                bulletPrefab = Resources.Load<GameObject>("Prefabs/Bullet_9mm") ?? Resources.Load<GameObject>("Prefabs/bullet");
+#if UNITY_EDITOR
+                if (bulletPrefab == null)
+                {
+                    bulletPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Bullet_9mm.prefab");
+                }
+#endif
+            }
+
             // Attach Squad Ally AI
             PlayerSquadAlly ally = allyObj.AddComponent<PlayerSquadAlly>();
             ally.Initialize(this, offset, bulletPrefab, muzzleOffset, fireRate);
 
             squadAllies.Add(ally);
-            Debug.Log($"[PlayerRunner] Cloned Squad Ally #{squadAllies.Count} joined the squad!");
+            UpdateSquadCountBadge();
+            Debug.Log($"[PlayerRunner] Cloned Squad Ally #{squadAllies.Count} joined the squad! Total squad: {TotalSquadSize}");
         }
 
         public void RemoveSquadAlly(PlayerSquadAlly ally)
@@ -154,24 +215,211 @@ namespace MobControl.Combat
             if (squadAllies.Contains(ally))
             {
                 squadAllies.Remove(ally);
+                RealignSquadFormation();
+                UpdateSquadCountBadge();
             }
         }
+
+        /// <summary>
+        /// Deducts 1 squad member when colliding with a barricade.
+        /// Returns true if an ally was removed (squad continues), false if no allies left (death triggered).
+        /// </summary>
+        public bool DeductSquadMember(PlayerSquadAlly specificAlly = null)
+        {
+            if (squadAllies.Count > 0)
+            {
+                PlayerSquadAlly allyToRemove = specificAlly;
+                if (allyToRemove == null || !squadAllies.Contains(allyToRemove))
+                {
+                    allyToRemove = squadAllies[squadAllies.Count - 1];
+                }
+
+                squadAllies.Remove(allyToRemove);
+
+                if (allyToRemove != null)
+                {
+                    Vector3 deathPos = allyToRemove.transform.position;
+                    Destroy(allyToRemove.gameObject);
+                    SpawnMemberLostEffect(deathPos);
+                }
+
+                RealignSquadFormation();
+                UpdateSquadCountBadge();
+
+                // Camera shake feedback
+                Camera mainCam = Camera.main;
+                if (mainCam != null)
+                {
+                    var camFollow = mainCam.GetComponent<MobControl.Core.SmoothCameraFollow>();
+                    if (camFollow != null) camFollow.TriggerShake(0.045f);
+                }
+
+                SetObstacleInvulnerable(0.40f);
+
+                Debug.Log($"[PlayerRunner] Deducted 1 squad member! Remaining squad: {TotalSquadSize}");
+                return true;
+            }
+
+            return false;
+        }
+
+        public void RealignSquadFormation()
+        {
+            for (int i = 0; i < squadAllies.Count; i++)
+            {
+                if (squadAllies[i] != null)
+                {
+                    squadAllies[i].SetFormationOffset(GetFormationOffset(i));
+                }
+            }
+        }
+
+        #region Overhead Squad Count Badge & Visuals
+
+        private GameObject squadBadgeObj;
+        private TextMeshPro squadBadgeText;
+        private readonly Vector3 badgeBaseScale = new Vector3(0.55f, 0.55f, 0.55f);
+
+        public void UpdateSquadCountBadge()
+        {
+            RemoveSquadCountBadge();
+        }
+
+        public void RemoveSquadCountBadge()
+        {
+            if (squadBadgeObj != null)
+            {
+                if (Application.isPlaying) Destroy(squadBadgeObj);
+                else DestroyImmediate(squadBadgeObj);
+                squadBadgeObj = null;
+            }
+            Transform existing = transform.Find("SquadCountBadge");
+            if (existing != null)
+            {
+                if (Application.isPlaying) Destroy(existing.gameObject);
+                else DestroyImmediate(existing.gameObject);
+            }
+        }
+
+        private IEnumerator PunchBadgeScale()
+        {
+            if (squadBadgeObj == null) yield break;
+            squadBadgeObj.transform.localScale = badgeBaseScale * 1.35f;
+            yield return new WaitForSeconds(0.08f);
+            if (squadBadgeObj != null)
+            {
+                squadBadgeObj.transform.localScale = badgeBaseScale;
+            }
+        }
+
+        public void SpawnMemberLostEffect(Vector3 pos)
+        {
+            GameObject fx = new GameObject("MemberLost_FX");
+            fx.transform.position = pos + Vector3.up * 0.8f;
+
+            GameObject txtObj = new GameObject("MinusOne_Text");
+            txtObj.transform.SetParent(fx.transform, false);
+            txtObj.transform.localPosition = Vector3.zero;
+
+            TextMeshPro tm = txtObj.AddComponent<TextMeshPro>();
+            tm.text = "-1";
+            tm.fontSize = 6.5f;
+            tm.fontStyle = FontStyles.Bold;
+            tm.color = new Color(1f, 0.25f, 0.20f, 1f);
+            tm.alignment = TextAlignmentOptions.Center;
+
+            StartCoroutine(AnimateFloatingText(fx, tm));
+        }
+
+        private IEnumerator AnimateFloatingText(GameObject root, TextMeshPro tm)
+        {
+            if (root == null || tm == null) yield break;
+            float elapsed = 0f;
+            float duration = 0.85f;
+            Vector3 startPos = root.transform.position;
+            Color baseColor = tm.color;
+
+            while (elapsed < duration && root != null)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+                root.transform.position = startPos + Vector3.up * (t * 1.4f);
+                if (Camera.main != null)
+                {
+                    root.transform.rotation = Camera.main.transform.rotation;
+                }
+                tm.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f - t);
+                yield return null;
+            }
+
+            if (root != null) Destroy(root);
+        }
+
+        private void LateUpdate()
+        {
+            if (squadBadgeObj != null && Camera.main != null)
+            {
+                squadBadgeObj.transform.rotation = Camera.main.transform.rotation;
+            }
+        }
+
+        #endregion
 
         [Header("Character Visuals")]
         [SerializeField] private Material playerMaterial;
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
+            if (gameObject.name.Contains("Clone") || gameObject.name.StartsWith("PlayerAlly"))
+            {
+                return;
+            }
+            Instance = this;
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
 
+            if (bulletPrefab == null)
+            {
+                bulletPrefab = Resources.Load<GameObject>("Prefabs/Bullet_9mm") ?? Resources.Load<GameObject>("Prefabs/bullet");
+#if UNITY_EDITOR
+                if (bulletPrefab == null)
+                {
+                    bulletPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Bullet_9mm.prefab");
+                }
+#endif
+            }
+
             EnsurePlayerMaterial();
             EnsureEquippedWeapon();
+            EnsureVisualController();
+
+            // Ensure solid player collider and ContinuousSpeculative Rigidbody
+            CapsuleCollider col = GetComponent<CapsuleCollider>();
+            if (col != null)
+            {
+                col.isTrigger = false;
+            }
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+                rb.useGravity = false;
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            }
 
             // Automatically ensure UI and Streaming managers exist
             ZombieRunnerUIManager.EnsureInstance();
             UpcomingZoneManager.EnsureInstance();
+
+            // Safety Purge: Remove any stray editor-saved badge pop objects from the world
+            GameObject[] strayBadges = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
+            foreach (var go in strayBadges)
+            {
+                if (go != null && (go.name.StartsWith("BadgePop_") || go.name.Contains("Celebratory3DBanner")))
+                {
+                    Destroy(go);
+                }
+            }
         }
 
         public void EnsurePlayerMaterial()
@@ -187,9 +435,21 @@ namespace MobControl.Combat
             {
                 foreach (var r in GetComponentsInChildren<Renderer>(true))
                 {
-                    if (r.GetComponent<LineRenderer>() == null && !r.name.Contains("Gun") && !r.name.Contains("M4") && !r.name.Contains("Receiver") && !r.name.Contains("Barrel") && !r.name.Contains("Magazine") && !r.name.Contains("Stock") && !r.name.Contains("Sight"))
+                    if (r.GetComponent<LineRenderer>() == null && 
+                        !r.name.Contains("Gun") && 
+                        !r.name.Contains("M4") && 
+                        !r.name.Contains("Receiver") && 
+                        !r.name.Contains("Barrel") && 
+                        !r.name.Contains("Magazine") && 
+                        !r.name.Contains("Stock") && 
+                        !r.name.Contains("Sight") && 
+                        !r.name.Contains("AssaultRifle") &&
+                        !r.name.Contains("Rifle"))
                     {
-                        r.sharedMaterial = mat;
+                        if (r.sharedMaterial == null)
+                        {
+                            r.sharedMaterial = mat;
+                        }
                     }
                 }
             }
@@ -209,10 +469,25 @@ namespace MobControl.Combat
             targetX = transform.position.x;
             isDead = false;
             isBlocked = false;
+            isControllable = true;
             Application.targetFrameRate = 60;
+            Application.runInBackground = true;
+
+            if (bulletPrefab == null)
+            {
+                bulletPrefab = Resources.Load<GameObject>("Prefabs/Bullet_9mm") ?? Resources.Load<GameObject>("Prefabs/bullet");
+#if UNITY_EDITOR
+                if (bulletPrefab == null)
+                {
+                    bulletPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Bullet_9mm.prefab");
+                }
+#endif
+            }
 
             EnsureEquippedWeapon();
+            EnsureVisualController();
             ApplyEquippedHeroStats();
+            baseFireRateBeforeUpgrade = fireRate;
 
             // Spawn any upgraded squad allies if unlocked
             int upgradedAllies = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Count", 0);
@@ -224,27 +499,79 @@ namespace MobControl.Combat
             // Pre-warm the bullet pool immediately so first shots have zero lag
             if (bulletPrefab != null && ObjectPooler.Instance != null)
             {
-                ObjectPooler.Instance.RegisterPool("Bullet", bulletPrefab, 60);
+                ObjectPooler.Instance.RegisterPool("Bullet", bulletPrefab, 80);
             }
+
+            UpdateSquadCountBadge();
+            SetObstacleInvulnerable(3.0f);
+        }
+
+        private float invulnerableUntil = 0f;
+
+        public void SetInvulnerable(float duration)
+        {
+            invulnerableUntil = Time.time + duration;
         }
 
         public void ResetForNewRun(float startZ = 0f)
         {
             isDead = false;
             isBlocked = false;
-            currentHealth = maxHealth;
+            isWaitingToStart = true;
+            ApplyEquippedHeroStats();
+            hasGunUpgrade = false;
+            gunUpgradeLevel = 0;
+            gunUpgradeTimer = 0f;
+            baseFireRateBeforeUpgrade = fireRate;
+            if (ZombieRunnerUIManager.Instance != null)
+            {
+                ZombieRunnerUIManager.Instance.HideGunUpgradeTimer();
+            }
             targetX = 0f;
+            isFallingInPit = false;
+            pitVerticalVelocity = 0f;
+            transform.rotation = Quaternion.identity;
             Vector3 pos = transform.position;
             pos.x = 0f;
+            pos.y = 0f;
             pos.z = startZ;
             transform.position = pos;
+
+            // Rebuild endless road, but keep stationary until first swipe to start
+            if (EndlessRoadManager.Instance != null)
+            {
+                EndlessRoadManager.Instance.BuildInitialEndlessTrack();
+                EndlessRoadManager.Instance.SetRunning(false);
+            }
+
+            // Clear existing squad allies cleanly so every run starts with 1 main soldier
+            for (int i = squadAllies.Count - 1; i >= 0; i--)
+            {
+                if (squadAllies[i] != null)
+                {
+                    Destroy(squadAllies[i].gameObject);
+                }
+            }
+            squadAllies.Clear();
+            passedGateIds.Clear();
+
+            // Also clean up any orphan PlayerAlly objects in scene
+            foreach (var go in FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (go != null && go.name.StartsWith("PlayerAlly_"))
+                {
+                    Destroy(go);
+                }
+            }
             Animator anim = GetComponentInChildren<Animator>();
             if (anim != null)
             {
                 anim.Rebind();
                 anim.Update(0f);
             }
-            Debug.Log($"[PlayerRunnerController] ResetForNewRun: Position reset to (0, {pos.y}, {startZ}), HP reset to {currentHealth}/{maxHealth}");
+
+            UpdateSquadCountBadge();
+            Debug.Log($"[PlayerRunnerController] ResetForNewRun: Position reset to (0, {pos.y}, {startZ}), HP reset to {currentHealth}/{maxHealth}, Squad: {TotalSquadSize}");
         }
 
         public void ApplyEquippedHeroStats()
@@ -253,29 +580,29 @@ namespace MobControl.Combat
             switch (hero)
             {
                 case "Ranger":
-                    forwardSpeed = 10.0f;
+                    forwardSpeed = 5.8f;
                     fireRate = 12.0f; // 12 bullets/sec
-                    maxHealth = 3;
+                    maxHealth = 15;
                     break;
                 case "Heavy":
-                    forwardSpeed = 7.0f;
+                    forwardSpeed = 4.5f;
                     fireRate = 6.5f; // 6.5 bullets/sec
-                    maxHealth = 5;
+                    maxHealth = 30;
                     break;
                 case "Sniper":
-                    forwardSpeed = 8.5f;
+                    forwardSpeed = 5.0f;
                     fireRate = 4.0f; // 4 heavy bullets/sec
-                    maxHealth = 2;
+                    maxHealth = 12;
                     break;
                 case "Medic":
-                    forwardSpeed = 9.0f;
+                    forwardSpeed = 5.2f;
                     fireRate = 8.0f; // 8 bullets/sec
-                    maxHealth = 4;
+                    maxHealth = 20;
                     break;
                 default: // Soldier
-                    forwardSpeed = 8.5f;
+                    forwardSpeed = 5.2f;
                     fireRate = 9.0f; // 9 bullets/sec
-                    maxHealth = 3;
+                    maxHealth = 18;
                     break;
             }
 
@@ -285,7 +612,7 @@ namespace MobControl.Combat
             currentHealth = maxHealth;
             isDead = false;
 
-            float speedBonus = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Speed", 0) * 0.4f;
+            float speedBonus = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Speed", 0) * 0.15f;
             forwardSpeed += speedBonus;
 
             // Apply Equipped Weapon Modifiers
@@ -311,15 +638,74 @@ namespace MobControl.Combat
             {
                 fireRate = 1.0f / fireRate;
             }
+            if (fireRate <= 0.02f || fireRate > 0.5f)
+            {
+                fireRate = 0.11f;
+            }
+
+            if (stationaryMode)
+            {
+                forwardSpeed = 0.0f;
+            }
 
             EnsureEquippedWeapon();
 
-            Debug.Log($"[PlayerRunnerController] Applied stats for {hero} with {weapon}: Speed={forwardSpeed}, FireRate={fireRate}, MaxHP={maxHealth}");
+            Debug.Log($"[PlayerRunnerController] Applied stats for {hero} with {weapon}: Speed={forwardSpeed}, FireRate={fireRate}, MaxHP={maxHealth}, Stationary={stationaryMode}");
         }
 
         private void Update()
         {
-            if (!isControllable || isDead) return;
+            // Completely hide gameplay runner model while on HomeScreen
+            if (ZombieRunnerUIManager.Instance != null && ZombieRunnerUIManager.Instance.CurrentState == ZombieRunnerUIManager.ScreenState.HomeScreen)
+            {
+                foreach (var r in GetComponentsInChildren<Renderer>(true))
+                {
+                    r.enabled = false;
+                }
+                return;
+            }
+
+            // Pause movement only when modal menu is open
+            if (ZombieRunnerUIManager.Instance != null && ZombieRunnerUIManager.Instance.IsModalOpen)
+            {
+                return;
+            }
+
+            // Gun Upgrade 15-Second Temporary Validity Countdown
+            if (hasGunUpgrade)
+            {
+                gunUpgradeTimer -= Time.deltaTime;
+                if (ZombieRunnerUIManager.Instance != null)
+                {
+                    ZombieRunnerUIManager.Instance.UpdateGunUpgradeTimer(gunUpgradeTimer);
+                }
+                if (gunUpgradeTimer <= 0f)
+                {
+                    RevertGunUpgrade();
+                }
+            }
+
+            // Waiting for player's initial swipe to start the level
+            if (isWaitingToStart)
+            {
+                if (HasSwipeStartInput())
+                {
+                    if (ZombieRunnerUIManager.Instance != null)
+                    {
+                        ZombieRunnerUIManager.Instance.StartGameplayFromWaiting();
+                    }
+                    else
+                    {
+                        isWaitingToStart = false;
+                    }
+                }
+                else
+                {
+                    return; // Hold still until player swipes/drags!
+                }
+            }
+
+            isControllable = true;
 
             HandleHorizontalInput();
             ApplyMovement();
@@ -328,10 +714,72 @@ namespace MobControl.Combat
             {
                 HandleShooting();
             }
+
+#if UNITY_EDITOR
+            if (Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.Plus) || Input.GetKeyDown(KeyCode.KeypadPlus))
+            {
+                SpawnSquadAlly();
+            }
+#endif
+        }
+
+        public bool HasSwipeStartInput()
+        {
+            // 1. On-Screen Joystick steering input
+            if (OnScreenJoystick.Instance != null && OnScreenJoystick.Instance.IsActive)
+            {
+                if (Mathf.Abs(OnScreenJoystick.Instance.HorizontalAxis) > 0.04f || OnScreenJoystick.Instance.IsDragging)
+                {
+                    return true;
+                }
+            }
+
+            // 2. Mobile Touch Screen Swipe
+            if (Input.touchCount > 0)
+            {
+                Touch touch = Input.GetTouch(0);
+                if (touch.phase == TouchPhase.Began || touch.phase == TouchPhase.Moved || Mathf.Abs(touch.deltaPosition.x) > 2f)
+                {
+                    return true;
+                }
+            }
+
+            // 3. Mouse Drag (Unity Editor / PC Play Mode)
+            if (Input.GetMouseButtonDown(0) || (Input.GetMouseButton(0) && Mathf.Abs(Input.GetAxis("Mouse X")) > 0.04f))
+            {
+                return true;
+            }
+
+            // 4. Keyboard Controls (A / D, Left / Right Arrow, Space, Return)
+            if (Mathf.Abs(Input.GetAxisRaw("Horizontal")) > 0.04f ||
+                Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.D) ||
+                Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow) ||
+                Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public void ForceLaneDeflection(float offset)
+        {
+            targetX = Mathf.Clamp(transform.position.x + offset, -horizontalLimit, horizontalLimit);
         }
 
         private void HandleHorizontalInput()
         {
+            // 0. On-Screen Left-Right Joystick (Steering Dodge Control)
+            if (OnScreenJoystick.Instance != null && OnScreenJoystick.Instance.IsActive)
+            {
+                float joy = OnScreenJoystick.Instance.HorizontalAxis;
+                if (Mathf.Abs(joy) > 0.02f)
+                {
+                    targetX = Mathf.Clamp(targetX + joy * 20.0f * Time.deltaTime, -horizontalLimit, horizontalLimit);
+                    return;
+                }
+            }
+
             // 1. Mobile Touch Screen Swipe (Direct relative drag from touch-down)
             if (Input.touchCount > 0)
             {
@@ -345,9 +793,9 @@ namespace MobControl.Combat
                 else if (isDraggingInput && (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary))
                 {
                     float screenDeltaX = touch.position.x - touchStartX;
-                    // Full road sweep: dragging across ~35% of screen width covers full road width
-                    float worldDelta = (screenDeltaX / (float)Screen.width) * (horizontalLimit * 2.4f);
-                    targetX = Mathf.Clamp(playerStartX + worldDelta, -horizontalLimit, horizontalLimit);
+                    // Balanced road sweep: smooth comfortable swipe
+                    float worldDeltaX = (screenDeltaX / (float)Screen.width) * (horizontalLimit * 2.6f);
+                    targetX = Mathf.Clamp(playerStartX + worldDeltaX, -horizontalLimit, horizontalLimit);
                 }
                 else if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
                 {
@@ -361,22 +809,42 @@ namespace MobControl.Combat
                 playerStartX = targetX;
                 isDraggingInput = true;
             }
-            else if (Input.GetMouseButton(0) && isDraggingInput)
+            else if (Input.GetMouseButton(0))
             {
+                if (!isDraggingInput)
+                {
+                    touchStartX = Input.mousePosition.x;
+                    playerStartX = targetX;
+                    isDraggingInput = true;
+                }
                 float screenDeltaX = Input.mousePosition.x - touchStartX;
-                float worldDelta = (screenDeltaX / (float)Screen.width) * (horizontalLimit * mobileSlideMultiplier);
-                targetX = Mathf.Clamp(playerStartX + worldDelta, -horizontalLimit, horizontalLimit);
+                float worldDeltaX = (screenDeltaX / (float)Screen.width) * (horizontalLimit * 2.6f);
+                targetX = Mathf.Clamp(playerStartX + worldDeltaX, -horizontalLimit, horizontalLimit);
             }
             else if (Input.GetMouseButtonUp(0))
             {
                 isDraggingInput = false;
             }
 
-            // 3. Keyboard A/D or Left/Right Arrow Keys
+            // 3. Mouse Scroll Wheel / Trackpad Scroll (Directly scroll along X-axis between -X and +X)
+            float mouseScroll = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(mouseScroll) > 0.001f)
+            {
+                targetX += mouseScroll * scrollWheelSensitivity;
+                targetX = Mathf.Clamp(targetX, -horizontalLimit, horizontalLimit);
+            }
+            float horizontalScroll = Input.mouseScrollDelta.x;
+            if (Mathf.Abs(horizontalScroll) > 0.001f)
+            {
+                targetX += horizontalScroll * scrollWheelSensitivity;
+                targetX = Mathf.Clamp(targetX, -horizontalLimit, horizontalLimit);
+            }
+
+            // 4. Keyboard A/D or Left/Right Arrow Keys
             float horizontalInput = Input.GetAxisRaw("Horizontal");
             if (Mathf.Abs(horizontalInput) > 0.01f)
             {
-                targetX += horizontalInput * horizontalSensitivity * Time.deltaTime;
+                targetX += horizontalInput * 10.0f * Time.deltaTime;
                 targetX = Mathf.Clamp(targetX, -horizontalLimit, horizontalLimit);
             }
         }
@@ -385,23 +853,211 @@ namespace MobControl.Combat
         {
             Vector3 pos = transform.position;
 
-            // Throttle the expensive OverlapBox check to ~15x/sec
-            blockedCheckTimer += Time.deltaTime;
-            if (blockedCheckTimer >= BLOCKED_CHECK_INTERVAL)
+            if (stationaryMode)
             {
-                blockedCheckTimer = 0f;
-                isBlocked_cached = CheckBlockedAhead();
-                isBlocked = isBlocked_cached;
+                // Pure stationary mode: fixed at Z=0, sliding smoothly along X-axis
+                pos.z = fixedZ;
+            }
+            else
+            {
+                // Runner mode: advance forward down track
+                blockedCheckTimer += Time.deltaTime;
+                if (blockedCheckTimer >= BLOCKED_CHECK_INTERVAL)
+                {
+                    blockedCheckTimer = 0f;
+                    isBlocked_cached = CheckBlockedAhead();
+                    isBlocked = isBlocked_cached;
+                }
+
+                if (!isBlocked)
+                {
+                    pos.z += forwardSpeed * Time.deltaTime;
+                }
             }
 
-            if (!isBlocked)
+            float prevX = pos.x;
+            // High responsiveness, smooth frame-rate independent interpolation across lanes
+            float desiredX = Mathf.Lerp(pos.x, targetX, 1f - Mathf.Exp(-horizontalLerpSpeed * Time.deltaTime));
+
+            // Solid Obstacle Lateral Collision Prevention:
+            // Check if moving laterally towards desiredX collides with any solid obstacle (Barricades or Containers)
+            float lateralDelta = desiredX - pos.x;
+            if (Mathf.Abs(lateralDelta) > 0.0005f)
             {
-                pos.z += forwardSpeed * Time.deltaTime;
+                float moveDist = Mathf.Abs(lateralDelta);
+                Vector3 moveDir = new Vector3(Mathf.Sign(lateralDelta), 0f, 0f);
+                Vector3 p1 = pos + Vector3.up * 0.35f;
+                Vector3 p2 = pos + Vector3.up * 1.10f;
+                float playerRadius = 0.30f;
+
+                if (Physics.CapsuleCast(p1, p2, playerRadius, moveDir, out RaycastHit hit, moveDist + 0.05f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (hit.collider != null && !hit.collider.transform.IsChildOf(transform) && hit.collider.gameObject != gameObject)
+                    {
+                        if (hit.collider.GetComponentInParent<MobControl.Level.RoadObstacle>() != null ||
+                            hit.collider.name.Contains("Obstacle") ||
+                            hit.collider.name.Contains("Container") ||
+                            hit.collider.name.Contains("Barricade"))
+                        {
+                            // Block player cleanly at the solid obstacle boundary:
+                            // Allowed distance is up to the hit distance, never pushing the player backward
+                            float allowedDist = Mathf.Max(0f, hit.distance - 0.02f);
+                            desiredX = pos.x + moveDir.x * allowedDist;
+                            targetX = desiredX;
+                        }
+                    }
+                }
             }
 
-            // High responsiveness, smooth frame-rate independent interpolation
-            pos.x = Mathf.Lerp(pos.x, targetX, 1f - Mathf.Exp(-horizontalLerpSpeed * Time.deltaTime));
+            if (isFallingInPit)
+            {
+                pitVerticalVelocity -= 22f * Time.deltaTime;
+                pos.y += pitVerticalVelocity * Time.deltaTime;
+                pos.x = Mathf.MoveTowards(pos.x, pitTargetX, 1.8f * Time.deltaTime);
+                transform.position = pos;
+                transform.Rotate(Vector3.forward, 240f * Time.deltaTime);
+
+                if (pos.y <= -0.95f)
+                {
+                    if (EndlessRoadManager.Instance != null)
+                    {
+                        EndlessRoadManager.Instance.SetRunning(false);
+                    }
+                    Die("INCINERATED!", "You fell into a boiling molten lava pit!");
+                }
+                return;
+            }
+
+            pos.x = desiredX;
+
+            // Check if player fell behind active gameplay area:
+            if (stationaryMode && pos.z < fixedZ - 1.2f)
+            {
+                if (EndlessRoadManager.Instance != null)
+                {
+                    EndlessRoadManager.Instance.SetRunning(false);
+                }
+                Die("OVERRUN!", "You fell behind the active gameplay area.");
+                return;
+            }
+
             transform.position = pos;
+
+            // Smooth dynamic arcade bank/lean when dodging left/right
+            float deltaX = pos.x - prevX;
+            float targetTilt = -deltaX * 320.0f;
+            targetTilt = Mathf.Clamp(targetTilt, -12.0f, 12.0f);
+            Transform vis = transform.Find("Visual_Mob");
+            if (vis != null)
+            {
+                vis.localRotation = Quaternion.Euler(0f, 0f, targetTilt);
+            }
+        }
+
+        #region Lava Pit Mechanics
+        private bool isFallingInPit = false;
+        private float pitVerticalVelocity = 0f;
+        private float pitTargetX = 0f;
+
+        public bool IsFallingInPit => isFallingInPit;
+
+        public void TriggerFallIntoPit(Vector3 pitCenter)
+        {
+            if (isFallingInPit || isDead) return;
+
+            // If we have squad allies, the outermost ally falls into the pit
+            if (squadAllies != null && squadAllies.Count > 0)
+            {
+                var sacrificialAlly = squadAllies[squadAllies.Count - 1];
+                if (sacrificialAlly != null)
+                {
+                    sacrificialAlly.TriggerFallIntoPit(pitCenter);
+                    return;
+                }
+            }
+
+            isFallingInPit = true;
+            pitVerticalVelocity = -2.5f;
+            pitTargetX = pitCenter.x;
+        }
+        #endregion
+
+        /// <summary>
+        /// Doubles gun speed (cuts shot delay in half) and applies to all active squad allies.
+        /// </summary>
+        public void ApplyGunSpeedMultiplier(float multiplier)
+        {
+            if (multiplier <= 0.01f) return;
+            fireRate = Mathf.Max(0.045f, fireRate / multiplier);
+            Debug.Log($"[PlayerRunnerController] ×{multiplier} Gun Speed Upgrade applied! New fireRate delay: {fireRate:F3}s");
+            foreach (var ally in squadAllies)
+            {
+                if (ally != null) ally.SetFireRate(fireRate);
+            }
+        }
+
+        /// <summary>
+        /// Dedicated Gun Upgrade Container Reward:
+        /// Significantly boosts firing rate, activates high-velocity COLOURFUL GOLI (multi-color laser bullets),
+        /// and applies the rapid-fire upgrade to all current and future squad allies!
+        /// </summary>
+        public void UpgradeGunAbility(float speedMultiplier = 2.2f, bool enableColorfulBullets = true)
+        {
+            if (!hasGunUpgrade || gunUpgradeTimer <= 0f)
+            {
+                baseFireRateBeforeUpgrade = fireRate;
+            }
+
+            hasGunUpgrade = true;
+            gunUpgradeLevel++;
+            gunUpgradeTimer = gunUpgradeDuration; // Exactly 15.0s temporary validity
+
+            float oldRate = fireRate;
+            fireRate = Mathf.Max(0.045f, baseFireRateBeforeUpgrade / speedMultiplier);
+            Debug.Log($"[PlayerRunnerController] ⚡ GUN UPGRADE #{gunUpgradeLevel} APPLIED FOR {gunUpgradeDuration:F0}s! FireRate: {oldRate:F3}s -> {fireRate:F3}s (~{1f / fireRate:F1} bullets/sec), Colorful Bullets={enableColorfulBullets}");
+
+            foreach (var ally in squadAllies)
+            {
+                if (ally != null) ally.SetFireRate(fireRate);
+            }
+
+            // Screen punch shake on powerup
+            if (Camera.main != null)
+            {
+                var camFollow = Camera.main.GetComponent<MobControl.Core.SmoothCameraFollow>();
+                if (camFollow != null) camFollow.TriggerShake(0.08f);
+            }
+
+            if (ZombieRunnerUIManager.Instance != null)
+            {
+                ZombieRunnerUIManager.Instance.ShowGunUpgradeTimer(gunUpgradeDuration);
+            }
+        }
+
+        /// <summary>
+        /// Automatically downgrades/reverts the gun ability back to baseline after the 15-second duration expires.
+        /// </summary>
+        public void RevertGunUpgrade()
+        {
+            if (!hasGunUpgrade && gunUpgradeTimer <= 0f) return;
+
+            hasGunUpgrade = false;
+            gunUpgradeLevel = 0;
+            gunUpgradeTimer = 0f;
+            fireRate = (baseFireRateBeforeUpgrade > 0.02f) ? baseFireRateBeforeUpgrade : 0.16f;
+
+            foreach (var ally in squadAllies)
+            {
+                if (ally != null) ally.SetFireRate(fireRate);
+            }
+
+            Debug.Log($"[PlayerRunnerController] ⏳ Gun upgrade expired (15s duration completed)! FireRate reverted to base: {fireRate:F3}s");
+
+            if (ZombieRunnerUIManager.Instance != null)
+            {
+                ZombieRunnerUIManager.Instance.HideGunUpgradeTimer();
+                ZombieRunnerUIManager.Instance.ShowMultiplierPop("<color=#FFCC00>⚡ BOOST EXPIRED</color>");
+            }
         }
 
         private bool CheckBlockedAhead()
@@ -422,7 +1078,20 @@ namespace MobControl.Combat
                 // Ignore player's own colliders
                 if (col.transform.IsChildOf(transform) || col.gameObject == gameObject) continue;
 
-                // 1. Blocked by living enemy zombie directly in front on the same lane
+                // 1. Blocked by solid road obstacle (Barricades & Containers)
+                if (col.GetComponentInParent<MobControl.Level.RoadObstacle>() != null ||
+                    col.name.Contains("Obstacle") ||
+                    col.name.Contains("Container") ||
+                    col.name.Contains("Barricade"))
+                {
+                    float dz = col.transform.position.z - playerPos.z;
+                    if (dz > -0.5f && dz <= stoppingDistance + 0.8f)
+                    {
+                        return true;
+                    }
+                }
+
+                // 2. Blocked by living enemy zombie directly in front on the same lane
                 MobUnit mob = col.GetComponentInParent<MobUnit>();
                 if (mob != null && mob.Team == MobTeam.Enemy && mob.Health > 0 && !mob.IsDead)
                 {
@@ -434,7 +1103,7 @@ namespace MobControl.Combat
                     }
                 }
 
-                // 2. Blocked by unbroken destructible iron gate
+                // 3. Blocked by unbroken destructible iron gate
                 DestructibleGate gate = col.GetComponentInParent<DestructibleGate>();
                 if (gate != null && !gate.IsBroken)
                 {
@@ -471,8 +1140,12 @@ namespace MobControl.Combat
             {
                 return firePoint.position;
             }
+            if (equippedWeaponInstance != null)
+            {
+                return equippedWeaponInstance.transform.position + equippedWeaponInstance.transform.forward * 0.52f + equippedWeaponInstance.transform.up * 0.08f;
+            }
             // Consistent forward aiming down the player's track at torso/chest height
-            return new Vector3(transform.position.x + 0.22f, transform.position.y + 0.77f, transform.position.z + 0.74f);
+            return new Vector3(transform.position.x + 0.20f, transform.position.y + 0.95f, transform.position.z + 0.90f);
         }
 
         private void ShootBullet()
@@ -495,15 +1168,15 @@ namespace MobControl.Combat
             // Use object pool for bullets to eliminate GC spikes
             if (ObjectPooler.Instance != null)
             {
-                bullet = ObjectPooler.Instance.SpawnFromPool("Bullet", spawnPos, Quaternion.identity);
+                bullet = ObjectPooler.Instance.SpawnFromPool("Bullet", spawnPos, Quaternion.LookRotation(Vector3.forward, Vector3.up));
             }
 
             if (bullet == null)
             {
-                bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
+                bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.LookRotation(Vector3.forward, Vector3.up));
             }
 
-            // Trigger visual controller recoil and muzzle flash
+            // 1. Trigger visual controller recoil and muzzle flash
             PlayerMobVisualController visualCtrl = GetComponentInChildren<PlayerMobVisualController>();
             if (visualCtrl != null)
             {
@@ -513,6 +1186,24 @@ namespace MobControl.Combat
             {
                 StartCoroutine(WeaponRecoilPunch(equippedWeaponInstance.transform));
             }
+
+            // Play gunshot sound effect
+            if (MobControl.Audio.ZombieSoundManager.Instance != null)
+            {
+                MobControl.Audio.ZombieSoundManager.Instance.PlayGunfire(hasGunUpgrade);
+            }
+
+            // 2. Fire bullets for all active squad allies in parallel (2 players = 2 bullets, etc.)
+            for (int i = squadAllies.Count - 1; i >= 0; i--)
+            {
+                if (squadAllies[i] == null)
+                {
+                    squadAllies.RemoveAt(i);
+                    continue;
+                }
+                squadAllies[i].ShootBullet();
+            }
+
         }
 
         private IEnumerator WeaponRecoilPunch(Transform gunTr)
@@ -538,7 +1229,7 @@ namespace MobControl.Combat
 
         public void TakeDamage(int damage)
         {
-            if (isDead) return;
+            if (isDead || Time.time < invulnerableUntil) return;
 
             currentHealth -= damage;
             Debug.Log($"[PlayerRunner] Player took {damage} damage! HP: {currentHealth}/{maxHealth}");
@@ -559,13 +1250,44 @@ namespace MobControl.Combat
             transform.localScale = origScale;
         }
 
-        private void Die()
+        public void Die(string title = "MISSION FAILED!", string reason = "The zombie horde infected your squad.")
         {
             if (isDead) return;
             isDead = true;
             isControllable = false;
+            deathTitle = title;
+            deathReason = reason;
+            hasGunUpgrade = false;
+            gunUpgradeTimer = 0f;
+            if (ZombieRunnerUIManager.Instance != null)
+            {
+                ZombieRunnerUIManager.Instance.HideGunUpgradeTimer();
+            }
 
-            Debug.Log("[PlayerRunner] Player defeated by zombies! Triggering Game Over.");
+            Debug.Log($"[PlayerRunner] Player died! {title} - {reason}");
+
+            // Haptic vibration and heavy camera shake on player death
+            try
+            {
+                if (ZombieRunnerUIManager.Instance == null || ZombieRunnerUIManager.Instance.IsVibrationEnabled)
+                {
+#if UNITY_ANDROID || UNITY_IOS
+                    if (!Application.isEditor) Handheld.Vibrate();
+#endif
+                }
+            }
+            catch {}
+
+            if (Camera.main != null)
+            {
+                Camera.main.GetComponent<MobControl.Core.SmoothCameraFollow>()?.TriggerShake(0.35f);
+            }
+
+            // Immediately stop endless road scrolling
+            if (EndlessRoadManager.Instance != null)
+            {
+                EndlessRoadManager.Instance.SetRunning(false);
+            }
 
             ZombieRunnerUIManager ui = ZombieRunnerUIManager.Instance != null 
                 ? ZombieRunnerUIManager.Instance 
@@ -573,7 +1295,7 @@ namespace MobControl.Combat
 
             if (ui != null)
             {
-                ui.TriggerDefeatWithReason("YOU WERE OVERWHELMED!", "The zombie horde infected your squad.");
+                ui.TriggerDefeatWithReason(title, reason);
             }
             else if (GameManager.Instance != null)
             {
@@ -608,38 +1330,146 @@ namespace MobControl.Combat
                 }
             }
 
-            if (meshyGun != null)
+            if (meshyGun == null)
             {
-                equippedWeaponInstance = meshyGun.gameObject;
-                Transform mp = meshyGun.Find("MuzzleFirePoint");
-                if (mp != null)
+                GameObject gunObj = new GameObject("AssaultRifle_Meshy");
+                gunObj.transform.SetParent(transform, false);
+                gunObj.transform.localPosition = new Vector3(0.16f, 0.62f, 0.18f);
+                gunObj.transform.localRotation = Quaternion.identity;
+                gunObj.transform.localScale = Vector3.one * 0.92f;
+
+                Mesh rifleMesh = null;
+                GameObject riflePrefab = Resources.Load<GameObject>("Models/AssaultRifle_GameReady") ?? Resources.Load<GameObject>("Prefabs/Gun_M41D");
+                if (riflePrefab != null) rifleMesh = riflePrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (rifleMesh == null)
                 {
-                    muzzleFirePoint = mp;
-                    firePoint = mp;
+                    riflePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                    if (riflePrefab != null) rifleMesh = riflePrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
                 }
-                return;
+                if (rifleMesh == null) rifleMesh = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>("Assets/Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                if (rifleMesh == null)
+                {
+                    rifleMesh = MobControl.Level.NewRoadBuilder.LoadObjMeshDirectPublic(System.IO.Path.Combine(Application.dataPath, "Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj"));
+                }
+#endif
+
+                if (rifleMesh != null)
+                {
+                    MeshFilter mf = gunObj.AddComponent<MeshFilter>();
+                    mf.sharedMesh = rifleMesh;
+
+                    MeshRenderer mr = gunObj.AddComponent<MeshRenderer>();
+                    Material rifleMat = Resources.Load<Material>("Materials/M_MeshyAssaultRifle");
+#if UNITY_EDITOR && !UNITY_ANDROID
+                    if (rifleMat == null)
+                    {
+                        rifleMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Models/Generated/AssaultRifle/Materials/M_MeshyAssaultRifle.mat");
+                    }
+#endif
+                    if (rifleMat == null)
+                    {
+                        rifleMat = MobControl.Level.NewRoadBuilder.LoadTextureMaterialPublic("Textures/Gun/AssaultRifle_base_color.png", "M_MeshyAssaultRifle");
+                    }
+                    if (rifleMat != null) mr.sharedMaterial = rifleMat;
+                }
+
+                GameObject mpObj = new GameObject("MuzzleFirePoint");
+                mpObj.transform.SetParent(gunObj.transform, false);
+                mpObj.transform.localPosition = new Vector3(0f, 0.08f, 0.52f);
+                mpObj.transform.localRotation = Quaternion.identity;
+
+                meshyGun = gunObj.transform;
             }
 
-            equippedWeaponInstance = null;
-
-            // Setup clean Muzzle Fire Point at forward chest/hand height
-            if (firePoint == null || muzzleFirePoint == null)
+            if (meshyGun != null)
             {
-                Transform rightHand = FindRightHandBone(transform);
-                Transform mp = transform.Find("MuzzleFirePoint");
+                // Ensure gun is attached directly to hero root, perfectly positioned and forward-facing
+                if (meshyGun.parent != transform)
+                {
+                    meshyGun.SetParent(transform, false);
+                }
+                meshyGun.localPosition = new Vector3(0.16f, 0.62f, 0.18f);
+                meshyGun.localRotation = Quaternion.identity;
+                meshyGun.localScale = Vector3.one * 0.92f;
+
+                MeshFilter mf = meshyGun.GetComponent<MeshFilter>();
+                if (mf == null) mf = meshyGun.gameObject.AddComponent<MeshFilter>();
+                if (mf.sharedMesh == null)
+                {
+                    Mesh rm = null;
+                    GameObject rp = Resources.Load<GameObject>("Models/AssaultRifle_GameReady") ?? Resources.Load<GameObject>("Prefabs/Gun_M41D");
+                    if (rp != null) rm = rp.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+#if UNITY_EDITOR && !UNITY_ANDROID
+                    if (rm == null)
+                    {
+                        rp = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                        if (rp != null) rm = rp.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+                    }
+                    if (rm == null) rm = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>("Assets/Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                    if (rm == null) rm = MobControl.Level.NewRoadBuilder.LoadObjMeshDirectPublic(System.IO.Path.Combine(Application.dataPath, "Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj"));
+#endif
+                    mf.sharedMesh = rm;
+                }
+
+                MeshRenderer mr = meshyGun.GetComponent<MeshRenderer>();
+                if (mr == null) mr = meshyGun.gameObject.AddComponent<MeshRenderer>();
+                if (mr.sharedMaterial == null)
+                {
+                    Material rmat = Resources.Load<Material>("Materials/M_MeshyAssaultRifle");
+#if UNITY_EDITOR && !UNITY_ANDROID
+                    if (rmat == null)
+                    {
+                        rmat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Models/Generated/AssaultRifle/Materials/M_MeshyAssaultRifle.mat");
+                    }
+#endif
+                    if (rmat == null) rmat = MobControl.Level.NewRoadBuilder.LoadTextureMaterialPublic("Textures/Gun/AssaultRifle_base_color.png", "M_MeshyAssaultRifle");
+                    mr.sharedMaterial = rmat;
+                }
+
+                equippedWeaponInstance = meshyGun.gameObject;
+                Transform mp = meshyGun.Find("MuzzleFirePoint");
                 if (mp == null)
                 {
                     GameObject mpObj = new GameObject("MuzzleFirePoint");
-                    mpObj.transform.SetParent(rightHand != null ? rightHand : transform, false);
-                    mpObj.transform.localPosition = rightHand != null 
-                        ? new Vector3(0.05f, 0.05f, 0.2f) 
-                        : new Vector3(0.22f, 0.77f, 0.74f);
+                    mpObj.transform.SetParent(meshyGun, false);
+                    mpObj.transform.localPosition = new Vector3(0f, 0.08f, 0.52f);
                     mpObj.transform.localRotation = Quaternion.identity;
                     mp = mpObj.transform;
                 }
                 muzzleFirePoint = mp;
                 firePoint = mp;
             }
+        }
+
+        public void EnsureVisualController()
+        {
+            PlayerMobVisualController visualCtrl = GetComponentInChildren<PlayerMobVisualController>();
+            if (visualCtrl == null)
+            {
+                // Find character model child (e.g. Visual_Player, or object with Animator or SkinnedMeshRenderer)
+                Transform visualTarget = null;
+                var anim = GetComponentInChildren<Animator>();
+                if (anim != null) visualTarget = anim.transform;
+                else
+                {
+                    var smr = GetComponentInChildren<SkinnedMeshRenderer>();
+                    if (smr != null) visualTarget = smr.transform;
+                }
+
+                if (visualTarget == null) visualTarget = transform;
+
+                visualCtrl = visualTarget.gameObject.AddComponent<PlayerMobVisualController>();
+            }
+
+            Transform visMob = transform.Find("Visual_Mob");
+            if (visMob != null)
+            {
+                visMob.localScale = Vector3.one * 68.0f;
+            }
+
+            Transform muzzle = muzzleFirePoint != null ? muzzleFirePoint : (equippedWeaponInstance != null ? equippedWeaponInstance.transform.Find("MuzzleFirePoint") : null);
+            visualCtrl.Initialize(this, equippedWeaponInstance != null ? equippedWeaponInstance.transform : null, muzzle);
         }
 
         public static GameObject BuildStylizedAssaultRifle(Transform attachTarget, out Transform muzzlePoint, bool isAttachedToBone = true)

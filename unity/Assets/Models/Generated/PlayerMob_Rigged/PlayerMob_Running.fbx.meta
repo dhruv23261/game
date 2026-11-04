@@ -10,6 +10,23 @@ ModelImporter:
     materialSearch: 1
     materialLocation: 1
     searchTexturesGlobally: 0
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
+    importAnimation: 1
+    clipAnimations:
+    - serializedVersion: 16
+      name: Armature|Armature|running|baselayer
+      takeName: Armature|Armature|running|baselayer
+      firstFrame: 0
+      lastFrame: 19
+      wrapMode: 0
+      loopTime: 1
+      loop: 1
+  animationType: 2
   meshes:
     globalScale: 1
     useFileScale: 1

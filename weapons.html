@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>WEAPONS ARMORY - Zombie Squad</title>
+  <!-- Google Fonts: Fredoka & Outfit for AAA sci-fi game typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ==========================================================================
+       RESET & ROOT DESIGN SYSTEM
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-dark: #000c28;
+      --bg-gradient-top: #001f5c;
+      --bg-gradient-mid: #001238;
+      --bg-gradient-bot: #000818;
+      
+      --cyan-bright: #00d2ff;
+      --cyan-glow: rgba(0, 210, 255, 0.6);
+      --cyan-border: #00b4f0;
+
+      --gold-bright: #ffea55;
+      --gold-primary: #ffc400;
+      --gold-glow: rgba(255, 196, 0, 0.6);
+
+      --green-top: #52ec80;
+      --green-mid: #22c55e;
+      --green-bot: #15803d;
+
+      --font-game: 'Fredoka', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: 'Outfit', sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: #000511;
+      font-family: var(--font-game);
+      color: #ffffff;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Outer Fullscreen Responsive Container */
+    .viewport-container {
+      width: 100vw;
+      height: 100%;
+      height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(180deg, #020d24 0%, #031336 40%, #010c24 70%, #170e06 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient Tech Decor */
+    .desktop-bg-decor {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.45;
+      background: 
+        radial-gradient(circle at 15% 25%, rgba(0, 210, 255, 0.18) 0%, transparent 40%),
+        radial-gradient(circle at 85% 75%, rgba(0, 120, 255, 0.22) 0%, transparent 45%),
+        linear-gradient(45deg, transparent 48%, rgba(0, 210, 255, 0.06) 50%, transparent 52%);
+      background-size: 100% 100%, 100% 100%, 60px 60px;
+    }
+
+    /* ==========================================================================
+       MAIN MOBILE CANVAS (Edge-to-Edge Responsive, Zero Black Bars!)
+       ========================================================================== */
+    .weapons-frame {
+      width: 100vw;
+      max-width: calc(100dvh * (576 / 1024));
+      height: calc(100vw * (1024 / 576));
+      max-height: 100dvh;
+      aspect-ratio: 576 / 1024;
+      background: #031336 url('./assets/weapons-bg.jpg') no-repeat center center / contain;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+    }
+
+    @media (min-aspect-ratio: 700/1024) {
+      .weapons-frame {
+        width: auto;
+        height: 100dvh;
+        aspect-ratio: 576 / 1024;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(0, 180, 255, 0.35);
+        border-radius: 14px;
+        border: 2px solid rgba(0, 210, 255, 0.5);
+      }
+    }
+
+    /* ==========================================================================
+       1. TOP HEADER HUD
+       ========================================================================== */
+    .weapons-header {
+      position: relative;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 12px 6px 12px;
+      gap: 8px;
+    }
+
+    .btn-back {
+      width: 44px;
+      height: 42px;
+      background: linear-gradient(180deg, #1251b3 0%, #082963 100%);
+      border: 2px solid var(--cyan-border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      transition: transform 0.1s ease, filter 0.15s ease;
+      flex-shrink: 0;
+    }
+    .btn-back:active {
+      transform: scale(0.92);
+      filter: brightness(1.2);
+    }
+    .btn-back svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
+    }
+
+    .weapons-title {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 
+        0 0 10px rgba(0, 210, 255, 0.9),
+        0 3px 0 #00438c,
+        0 4px 8px rgba(0, 0, 0, 0.9);
+      margin-left: 2px;
+      margin-right: auto;
+    }
+
+    /* Currencies Container */
+    .currency-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .currency-capsule {
+      height: 32px;
+      background: linear-gradient(180deg, #021a44 0%, #000c28 100%);
+      border: 1.5px solid #0099e6;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      padding: 2px 3px 2px 4px;
+      gap: 4px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .currency-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .currency-icon svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    }
+
+    .currency-amount {
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #ffffff;
+      min-width: 44px;
+      text-align: right;
+      padding-right: 2px;
+      letter-spacing: 0.3px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    }
+
+    .btn-add-currency {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(180deg, #38d667 0%, #15803d 100%);
+      border: 1px solid #86efac;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 900;
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      transition: transform 0.1s ease, filter 0.15s ease;
+    }
+    .btn-add-currency:active {
+      transform: scale(0.9);
+      filter: brightness(1.2);
+    }
+
+    /* ==========================================================================
+       2. TOP WEAPON CHAMBER & 3D SHOWCASE
+       ========================================================================== */
+    .showcase-chamber {
+      position: relative;
+      width: 100%;
+      height: 38%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+    }
+
+    /* Spotlight Cone Beam Effect */
+    .spotlight-cone {
+      position: absolute;
+      top: -30px;
+      width: 180px;
+      height: 280px;
+      background: radial-gradient(ellipse at top, rgba(0, 220, 255, 0.45) 0%, rgba(0, 160, 255, 0.15) 45%, transparent 75%);
+      pointer-events: none;
+      filter: blur(10px);
+      z-index: 2;
+      animation: pulseSpotlight 4s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulseSpotlight {
+      0% { opacity: 0.7; transform: scaleX(0.95); }
+      100% { opacity: 1; transform: scaleX(1.08); }
+    }
+
+    /* Carousel Nav Arrows */
+    .nav-arrow-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 52px;
+      background: linear-gradient(180deg, #104ba6 0%, #082457 100%);
+      border: 2px solid var(--cyan-bright);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 15;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7), 0 0 12px var(--cyan-glow), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+    .nav-arrow-btn:active {
+      transform: translateY(-50%) scale(0.92);
+      filter: brightness(1.3);
+    }
+    .nav-arrow-btn.prev { left: 10px; }
+    .nav-arrow-btn.next { right: 10px; }
+    .nav-arrow-btn svg {
+      width: 24px;
+      height: 24px;
+      fill: #ffffff;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+    }
+
+    /* Floating Weapon Display */
+    .weapon-stage {
+      position: relative;
+      width: 280px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .weapon-stage-disc {
+      position: absolute;
+      bottom: 6px;
+      width: 220px;
+      height: 48px;
+      background: radial-gradient(ellipse at center, rgba(0, 210, 255, 0.5) 0%, rgba(0, 140, 255, 0.2) 50%, transparent 75%);
+      border-radius: 50%;
+      filter: blur(4px);
+      pointer-events: none;
+      animation: discGlow 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes discGlow {
+      0% { transform: scale(0.95); opacity: 0.6; }
+      100% { transform: scale(1.08); opacity: 0.95; }
+    }
+
+    .weapon-model-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+
+    .floating-weapon-img {
+      max-width: 90%;
+      max-height: 85%;
+      object-fit: contain;
+      filter: drop-shadow(0 15px 12px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 15px rgba(0, 200, 255, 0.4));
+      animation: weaponFloat 3.2s ease-in-out infinite;
+      transition: filter 0.2s ease;
+    }
+
+    @keyframes weaponFloat {
+      0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+      }
+      50% {
+        transform: translateY(-9px) rotate(-1.5deg);
+      }
+    }
+
+    /* Test-Fire FX on Stage */
+    .test-fire-badge {
+      position: absolute;
+      top: 6px;
+      padding: 4px 10px;
+      background: rgba(0, 20, 50, 0.75);
+      border: 1px solid var(--cyan-bright);
+      border-radius: 12px;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      font-weight: 800;
+      color: var(--cyan-bright);
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: opacity 0.2s ease;
+    }
+    .test-fire-badge span.pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ff4d4d;
+      box-shadow: 0 0 6px #ff4d4d;
+      animation: blinkRed 1s infinite;
+    }
+    @keyframes blinkRed {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .muzzle-flash {
+      position: absolute;
+      width: 70px;
+      height: 70px;
+      background: radial-gradient(circle, #ffffff 10%, #ffea00 40%, #ff5500 75%, transparent 100%);
+      border-radius: 50%;
+      filter: blur(2px);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .muzzle-flash.active {
+      animation: flashPop 0.12s ease-out;
+    }
+    @keyframes flashPop {
+      0% { opacity: 1; transform: scale(0.6) rotate(0deg); }
+      50% { opacity: 1; transform: scale(1.4) rotate(45deg); }
+      100% { opacity: 0; transform: scale(1.8) rotate(90deg); }
+    }
+
+    /* Bullet tracer */
+    .bullet-tracer {
+      position: absolute;
+      height: 4px;
+      background: linear-gradient(90deg, #ffea00, #ff4400, transparent);
+      box-shadow: 0 0 10px #ffaa00;
+      border-radius: 2px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 18;
+    }
+    .bullet-tracer.fired {
+      animation: bulletFly 0.15s linear;
+    }
+    @keyframes bulletFly {
+      0% { opacity: 1; width: 30px; transform: translateX(0); }
+      100% { opacity: 0; width: 120px; transform: translateX(250px); }
+    }
+
+    /* ==========================================================================
+       3. MIDDLE STATS & UPGRADE PANEL
+       ========================================================================== */
+    .stats-card-container {
+      position: relative;
+      margin: 0 10px;
+      background: linear-gradient(180deg, rgba(6, 32, 85, 0.95) 0%, rgba(2, 18, 54, 0.98) 100%);
+      border: 2px solid var(--cyan-border);
+      border-radius: 18px;
+      padding: 10px 14px 10px 14px;
+      box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.8),
+        inset 0 0 25px rgba(0, 160, 255, 0.25),
+        0 0 15px rgba(0, 180, 255, 0.2);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    /* Header Title inside Container */
+    .stat-header-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 4px;
+      border-bottom: 1.5px solid rgba(0, 210, 255, 0.3);
+    }
+
+    .weapon-title-block {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .weapon-display-name {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+      text-transform: capitalize;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      line-height: 1.1;
+    }
+
+    .weapon-display-subtitle {
+      font-family: var(--font-body);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #00d2ff;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .weapon-level-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .weapon-level-badge .lv-label {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      line-height: 1;
+    }
+    .weapon-level-badge .lv-val {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--gold-bright);
+      text-shadow: 0 0 8px var(--gold-glow);
+    }
+
+    /* 4 Stat Rows */
+    .stat-rows-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stat-row-item {
+      display: grid;
+      grid-template-columns: 34px 1fr 86px;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Stat Icon */
+    .stat-icon-wrapper {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+    }
+    .stat-icon-wrapper svg {
+      width: 30px;
+      height: 30px;
+    }
+
+    /* Stat Bar Center Section */
+    .stat-center-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .stat-labels-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0 2px;
+    }
+
+    .stat-name-label {
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.3px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .stat-detail-val {
+      font-family: var(--font-body);
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #a5f3fc;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Stat Progress Track */
+    .stat-progress-track {
+      position: relative;
+      width: 100%;
+      height: 13px;
+      background: #001230;
+      border: 1.5px solid #005a9e;
+      border-radius: 7px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9);
+    }
+
+    .stat-progress-fill {
+      height: 100%;
+      width: 20%;
+      background: linear-gradient(90deg, #10b981 0%, #34d399 70%, #6ee7b7 100%);
+      box-shadow: 0 0 10px rgba(52, 211, 153, 0.8);
+      border-radius: 5px;
+      transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+    .stat-progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+      animation: shimmerFill 2.5s infinite;
+    }
+    @keyframes shimmerFill {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+
+    /* 3D Green Upgrade Button (Matches Unity Art perfectly) */
+    .btn-upgrade-stat {
+      position: relative;
+      height: 38px;
+      background: linear-gradient(180deg, #4ade80 0%, #22c55e 50%, #15803d 100%);
+      border: 2px solid #86efac;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 
+        0 4px 8px rgba(0, 0, 0, 0.6),
+        0 0 10px rgba(34, 197, 94, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.15s ease;
+      padding: 2px 4px;
+    }
+    .btn-upgrade-stat:active {
+      transform: scale(0.92);
+      filter: brightness(1.2);
+    }
+    .btn-upgrade-stat.maxed {
+      background: linear-gradient(180deg, #64748b 0%, #475569 50%, #334155 100%);
+      border-color: #94a3b8;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .btn-upgrade-arrow {
+      font-size: 14px;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+    }
+
+    .btn-upgrade-cost {
+      font-family: var(--font-body);
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Equip/Unlock Action Row */
+    .equip-action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+      padding-top: 5px;
+      border-top: 1px solid rgba(0, 210, 255, 0.2);
+    }
+
+    .btn-main-action {
+      flex: 1;
+      height: 38px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
+      transition: transform 0.1s ease, filter 0.15s ease;
+      border: 2px solid;
+    }
+    .btn-main-action:active {
+      transform: scale(0.96);
+      filter: brightness(1.2);
+    }
+
+    .btn-main-action.equipped {
+      background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+      border-color: #6ee7b7;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+      cursor: default;
+    }
+    .btn-main-action.equip-ready {
+      background: linear-gradient(180deg, #00d2ff 0%, #0077b6 100%);
+      border-color: #90e0ef;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(0, 210, 255, 0.6);
+      animation: pulseEquip 2s infinite alternate;
+    }
+    @keyframes pulseEquip {
+      0% { filter: brightness(1); }
+      100% { filter: brightness(1.25); }
+    }
+    .btn-main-action.unlock-coins {
+      background: linear-gradient(180deg, #ffc400 0%, #d97706 100%);
+      border-color: #fef08a;
+      color: #000c28;
+      box-shadow: 0 0 15px rgba(255, 196, 0, 0.6);
+    }
+    .btn-main-action.unlock-diamonds {
+      background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+      border-color: #bae6fd;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+    }
+
+    .btn-fire-test {
+      width: 90px;
+      height: 38px;
+      background: linear-gradient(180deg, #ef4444 0%, #991b1b 100%);
+      border: 2px solid #fca5a5;
+      border-radius: 10px;
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7), 0 0 10px rgba(239, 68, 68, 0.4);
+      transition: transform 0.1s ease, filter 0.15s ease;
+    }
+    .btn-fire-test:active {
+      transform: scale(0.92);
+      filter: brightness(1.3);
+    }
+
+    /* ==========================================================================
+       4. BOTTOM 4 WEAPON SELECTION CARDS (Matches Screenshot)
+       ========================================================================== */
+    .bottom-selector-strip {
+      position: relative;
+      margin-top: auto;
+      margin-bottom: 12px;
+      padding: 0 8px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      z-index: 25;
+    }
+
+    .weapon-card {
+      position: relative;
+      background: linear-gradient(180deg, #092c6b 0%, #031438 100%);
+      border: 2px solid #0099e6;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 4px 6px 4px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
+      transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      overflow: hidden;
+    }
+    .weapon-card:active {
+      transform: scale(0.94);
+    }
+
+    /* Selected Weapon Card: Thick Vibrant Gold Border & Glow */
+    .weapon-card.selected {
+      border: 3px solid #ffc400;
+      background: linear-gradient(180deg, #123d8c 0%, #09265f 100%);
+      box-shadow: 
+        0 0 16px rgba(255, 196, 0, 0.75),
+        0 6px 14px rgba(0, 0, 0, 0.8),
+        inset 0 0 12px rgba(255, 196, 0, 0.3);
+      transform: translateY(-2px);
+    }
+
+    /* Card Weapon Image */
+    .card-img-box {
+      width: 100%;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .card-img-box img {
+      max-width: 90%;
+      max-height: 90%;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.85));
+      transition: transform 0.2s ease;
+    }
+    .weapon-card.selected .card-img-box img {
+      transform: scale(1.08);
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 8px rgba(255, 196, 0, 0.5));
+    }
+
+    /* Card Title Label (Yellow pill on selected, blue/white on unselected) */
+    .card-name-pill {
+      width: 100%;
+      margin-top: 3px;
+      padding: 3px 2px;
+      text-align: center;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: #ffffff;
+      border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .weapon-card.selected .card-name-pill {
+      background: linear-gradient(180deg, #ffd700 0%, #f59e0b 100%);
+      color: #000c28;
+      text-shadow: none;
+      font-weight: 900;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Equipped Little Badge */
+    .card-equipped-tag {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: #10b981;
+      color: #ffffff;
+      font-size: 8px;
+      font-weight: 900;
+      padding: 1px 4px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+      display: none;
+    }
+    .weapon-card.equipped .card-equipped-tag {
+      display: block;
+    }
+
+    /* Locked overlay */
+    .card-lock-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #ffd700;
+      font-size: 9px;
+      padding: 1px 3px;
+      border-radius: 4px;
+      display: none;
+    }
+    .weapon-card.locked .card-lock-badge {
+      display: block;
+    }
+
+    /* ==========================================================================
+       FLOATING PARTICLES & TOAST NOTIFICATION
+       ========================================================================== */
+    .toast-notice {
+      position: absolute;
+      bottom: 85px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(0, 16, 45, 0.92);
+      border: 1.5px solid var(--cyan-bright);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 15px var(--cyan-glow);
+      color: #ffffff;
+      font-size: 0.88rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      padding: 8px 18px;
+      border-radius: 20px;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      white-space: nowrap;
+    }
+    .toast-notice.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .level-up-float {
+      position: absolute;
+      color: #34d399;
+      font-size: 1rem;
+      font-weight: 900;
+      text-shadow: 0 0 8px rgba(52, 211, 153, 0.8), 0 2px 4px #000;
+      pointer-events: none;
+      z-index: 120;
+      animation: floatUpFade 0.8s ease-out forwards;
+    }
+    @keyframes floatUpFade {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(0.8); }
+      50% { transform: translate(-50%, -20px) scale(1.2); }
+      100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="viewport-container">
+    <div class="desktop-bg-decor"></div>
+
+    <!-- MAIN MOBILE CANVAS FRAME -->
+    <main class="weapons-frame" id="weaponsApp">
+
+      <!-- 1. TOP HEADER HUD -->
+      <header class="weapons-header">
+        <button class="btn-back" id="btnBack" onclick="goBack()" title="Back to Base">
+          <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+
+        <h1 class="weapons-title">WEAPONS</h1>
+
+        <div class="currency-bar">
+          <!-- Coins Capsule -->
+          <div class="currency-capsule" title="Coins">
+            <div class="currency-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#f59e0b"/><circle cx="12" cy="12" r="8" fill="#fbbf24"/><polygon points="12,6 14,10 18,10.5 15,13.5 16,18 12,15.5 8,18 9,13.5 6,10.5 10,10" fill="#fef08a"/></svg>
+            </div>
+            <span class="currency-amount" id="hudCoins">5,085</span>
+            <button class="btn-add-currency" onclick="quickAddCurrency('coins')" title="Add Coins">+</button>
+          </div>
+
+          <!-- Diamonds Capsule -->
+          <div class="currency-capsule" title="Diamonds">
+            <div class="currency-icon">
+              <svg viewBox="0 0 24 24"><polygon points="12,2 21,9 12,22 3,9" fill="#0284c7"/><polygon points="12,2 17,9 12,20 7,9" fill="#38bdf8"/><polygon points="7,9 12,2 17,9" fill="#7dd3fc"/></svg>
+            </div>
+            <span class="currency-amount" id="hudDiamonds">50</span>
+            <button class="btn-add-currency" onclick="quickAddCurrency('diamonds')" title="Add Diamonds">+</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- 2. TOP WEAPON CHAMBER SHOWCASE -->
+      <section class="showcase-chamber">
+        <div class="spotlight-cone"></div>
+
+        <!-- Carousel navigation arrows -->
+        <button class="nav-arrow-btn prev" onclick="cycleWeapon(-1)" title="Previous Weapon">
+          <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button class="nav-arrow-btn next" onclick="cycleWeapon(1)" title="Next Weapon">
+          <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+
+        <!-- Floating Weapon Stage -->
+        <div class="weapon-stage" id="weaponStage" onclick="fireTestShot()" title="Tap Weapon to Test Fire!">
+          <div class="test-fire-badge">
+            <span class="pulse-dot"></span>
+            <span>TAP TO FIRE</span>
+          </div>
+
+          <div class="weapon-stage-disc"></div>
+
+          <div class="weapon-model-wrapper" id="weaponModelWrapper">
+            <img id="stageWeaponImg" class="floating-weapon-img" src="./assets/ui/isolated_AssaultRifle.png" alt="Selected Weapon" />
+          </div>
+
+          <!-- Muzzle Flash & Tracer -->
+          <div class="muzzle-flash" id="muzzleFlash"></div>
+          <div class="bullet-tracer" id="bulletTracer"></div>
+        </div>
+      </section>
+
+      <!-- 3. MIDDLE STATS & UPGRADE PANEL -->
+      <section class="stats-card-container">
+        <!-- Title & Level Banner -->
+        <div class="stat-header-banner">
+          <div class="weapon-title-block">
+            <span class="weapon-display-name" id="weaponMainName">Assault Rifle</span>
+            <span class="weapon-display-subtitle" id="weaponSubName">ASSAULT RIFLE</span>
+          </div>
+          <div class="weapon-level-badge">
+            <span class="lv-label">LV.</span>
+            <span class="lv-val" id="weaponTotalLevelText">LV. 1</span>
+          </div>
+        </div>
+
+        <!-- 4 Upgradable Stat Rows -->
+        <div class="stat-rows-group">
+
+          <!-- Row 1: Damage -->
+          <div class="stat-row-item" id="row_Damage">
+            <div class="stat-icon-wrapper" title="Damage">
+              <!-- Starburst Explosion SVG -->
+              <svg viewBox="0 0 32 32">
+                <polygon points="16,2 20,11 29,8 24,16 30,23 20,23 18,31 13,24 4,27 8,18 2,13 11,12" fill="#f97316"/>
+                <polygon points="16,6 19,12 25,10 21,16 26,20 19,20 17,26 13,21 7,23 10,17 5,13 12,12" fill="#facc15"/>
+                <circle cx="16" cy="16" r="4" fill="#ffffff"/>
+              </svg>
+            </div>
+            <div class="stat-center-col">
+              <div class="stat-labels-row">
+                <span class="stat-name-label">Damage</span>
+                <span class="stat-detail-val" id="stat_val_Damage">LV. 1 (25 DMG)</span>
+              </div>
+              <div class="stat-progress-track">
+                <div class="stat-progress-fill" id="stat_bar_Damage" style="width: 20%;"></div>
+              </div>
+            </div>
+            <button class="btn-upgrade-stat" id="btn_upg_Damage" onclick="upgradeStat('Damage')">
+              <span class="btn-upgrade-arrow">▲</span>
+              <span class="btn-upgrade-cost" id="cost_Damage">100 🪙</span>
+            </button>
+          </div>
+
+          <!-- Row 2: Fire Rate -->
+          <div class="stat-row-item" id="row_FireRate">
+            <div class="stat-icon-wrapper" title="Fire Rate">
+              <!-- Blade / Bullet SVG -->
+              <svg viewBox="0 0 32 32">
+                <path d="M22 4 L26 8 L14 20 L8 22 L10 16 Z" fill="#38bdf8"/>
+                <path d="M22 4 L26 8 L20 14 L16 10 Z" fill="#e0f2fe"/>
+                <path d="M6 24 L10 20 L12 22 L8 26 Z" fill="#94a3b8"/>
+              </svg>
+            </div>
+            <div class="stat-center-col">
+              <div class="stat-labels-row">
+                <span class="stat-name-label">Fire Rate</span>
+                <span class="stat-detail-val" id="stat_val_FireRate">LV. 1 (10.0 rps)</span>
+              </div>
+              <div class="stat-progress-track">
+                <div class="stat-progress-fill" id="stat_bar_FireRate" style="width: 20%;"></div>
+              </div>
+            </div>
+            <button class="btn-upgrade-stat" id="btn_upg_FireRate" onclick="upgradeStat('FireRate')">
+              <span class="btn-upgrade-arrow">▲</span>
+              <span class="btn-upgrade-cost" id="cost_FireRate">100 🪙</span>
+            </button>
+          </div>
+
+          <!-- Row 3: Range -->
+          <div class="stat-row-item" id="row_Range">
+            <div class="stat-icon-wrapper" title="Range">
+              <!-- Crosshair Reticle SVG -->
+              <svg viewBox="0 0 32 32">
+                <circle cx="16" cy="16" r="11" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+                <circle cx="16" cy="16" r="5" fill="none" stroke="#ffffff" stroke-width="2"/>
+                <circle cx="16" cy="16" r="1.5" fill="#ffffff"/>
+                <line x1="16" y1="2" x2="16" y2="7" stroke="#38bdf8" stroke-width="2.5"/>
+                <line x1="16" y1="25" x2="16" y2="30" stroke="#38bdf8" stroke-width="2.5"/>
+                <line x1="2" y1="16" x2="7" y2="16" stroke="#38bdf8" stroke-width="2.5"/>
+                <line x1="25" y1="16" x2="30" y2="16" stroke="#38bdf8" stroke-width="2.5"/>
+              </svg>
+            </div>
+            <div class="stat-center-col">
+              <div class="stat-labels-row">
+                <span class="stat-name-label">Range</span>
+                <span class="stat-detail-val" id="stat_val_Range">LV. 1 (50 m)</span>
+              </div>
+              <div class="stat-progress-track">
+                <div class="stat-progress-fill" id="stat_bar_Range" style="width: 20%;"></div>
+              </div>
+            </div>
+            <button class="btn-upgrade-stat" id="btn_upg_Range" onclick="upgradeStat('Range')">
+              <span class="btn-upgrade-arrow">▲</span>
+              <span class="btn-upgrade-cost" id="cost_Range">100 🪙</span>
+            </button>
+          </div>
+
+          <!-- Row 4: Magazine -->
+          <div class="stat-row-item" id="row_Magazine">
+            <div class="stat-icon-wrapper" title="Magazine">
+              <!-- Ammo Clip SVG -->
+              <svg viewBox="0 0 32 32">
+                <rect x="7" y="6" width="18" height="20" rx="3" fill="#cbd5e1"/>
+                <line x1="11" y1="6" x2="11" y2="26" stroke="#475569" stroke-width="2"/>
+                <line x1="16" y1="6" x2="16" y2="26" stroke="#475569" stroke-width="2"/>
+                <line x1="21" y1="6" x2="21" y2="26" stroke="#475569" stroke-width="2"/>
+                <polygon points="11,6 11,2 14,2 14,6" fill="#f59e0b"/>
+                <polygon points="16,6 16,2 19,2 19,6" fill="#f59e0b"/>
+              </svg>
+            </div>
+            <div class="stat-center-col">
+              <div class="stat-labels-row">
+                <span class="stat-name-label">Magazine</span>
+                <span class="stat-detail-val" id="stat_val_Magazine">LV. 1 (30 RND)</span>
+              </div>
+              <div class="stat-progress-track">
+                <div class="stat-progress-fill" id="stat_bar_Magazine" style="width: 20%;"></div>
+              </div>
+            </div>
+            <button class="btn-upgrade-stat" id="btn_upg_Magazine" onclick="upgradeStat('Magazine')">
+              <span class="btn-upgrade-arrow">▲</span>
+              <span class="btn-upgrade-cost" id="cost_Magazine">100 🪙</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Equip / Unlock & Test-Fire Action Bar -->
+        <div class="equip-action-row">
+          <button class="btn-main-action equipped" id="btnMainAction" onclick="onMainActionClick()">
+            <span id="mainActionIcon">✓</span>
+            <span id="mainActionText">EQUIPPED</span>
+          </button>
+          <button class="btn-fire-test" onclick="fireTestShot()" title="Test Fire">
+            <span>🔥</span>
+            <span>FIRE!</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- 4. BOTTOM WEAPON SELECTOR STRIP (4 Cards) -->
+      <nav class="bottom-selector-strip" id="bottomWeaponStrip">
+
+        <!-- Card 1: Assault Rifle -->
+        <div class="weapon-card selected" id="card_AssaultRifle" onclick="selectWeapon('AssaultRifle')">
+          <span class="card-equipped-tag">EQUIPPED</span>
+          <div class="card-img-box">
+            <img src="./assets/ui/isolated_AssaultRifle.png" alt="Assault Rifle" />
+          </div>
+          <div class="card-name-pill">Assault Rifle</div>
+        </div>
+
+        <!-- Card 2: Shotgun -->
+        <div class="weapon-card" id="card_Shotgun" onclick="selectWeapon('Shotgun')">
+          <span class="card-equipped-tag">EQUIPPED</span>
+          <span class="card-lock-badge" id="lock_Shotgun">🪙 1,500</span>
+          <div class="card-img-box">
+            <img src="./assets/ui/isolated_Shotgun.png" alt="Shotgun" />
+          </div>
+          <div class="card-name-pill">Shotgun</div>
+        </div>
+
+        <!-- Card 3: Sniper -->
+        <div class="weapon-card" id="card_Sniper" onclick="selectWeapon('Sniper')">
+          <span class="card-equipped-tag">EQUIPPED</span>
+          <span class="card-lock-badge" id="lock_Sniper">🪙 3,500</span>
+          <div class="card-img-box">
+            <img src="./assets/ui/isolated_Sniper.png" alt="Sniper" />
+          </div>
+          <div class="card-name-pill">Sniper</div>
+        </div>
+
+        <!-- Card 4: Minigun -->
+        <div class="weapon-card" id="card_Minigun" onclick="selectWeapon('Minigun')">
+          <span class="card-equipped-tag">EQUIPPED</span>
+          <span class="card-lock-badge" id="lock_Minigun">💎 35</span>
+          <div class="card-img-box">
+            <img src="./assets/ui/isolated_Minigun.png" alt="Minigun" />
+          </div>
+          <div class="card-name-pill">Minigun</div>
+        </div>
+
+      </nav>
+
+      <!-- Toast Feedback -->
+      <div class="toast-notice" id="toastNotice">UPGRADE COMPLETED!</div>
+
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       SOUND SYNTHESIZER & GAME LOGIC
+       ========================================================================== -->
+  <script>
+    /* ==========================================================================
+       1. DATA DEFINITIONS
+       ========================================================================== */
+    const WEAPON_KEYS = ['AssaultRifle', 'Shotgun', 'Sniper', 'Minigun'];
+
+    const WEAPONS = {
+      AssaultRifle: {
+        key: 'AssaultRifle',
+        name: 'Assault Rifle',
+        subName: 'ASSAULT RIFLE',
+        image: './assets/ui/isolated_AssaultRifle.png',
+        muzzleX: 180,
+        muzzleY: 85,
+        priceType: 'free',
+        priceVal: 0,
+        stats: {
+          Damage:   { base: 25,  inc: 5,   unit: 'DMG' },
+          FireRate: { base: 10,  inc: 1,   unit: 'rps' },
+          Range:    { base: 50,  inc: 5,   unit: 'm' },
+          Magazine: { base: 30,  inc: 3,   unit: 'RND' }
+        }
+      },
+      Shotgun: {
+        key: 'Shotgun',
+        name: 'Shotgun',
+        subName: 'HEAVY SHOTGUN',
+        image: './assets/ui/isolated_Shotgun.png',
+        muzzleX: 175,
+        muzzleY: 80,
+        priceType: 'coins',
+        priceVal: 1500,
+        stats: {
+          Damage:   { base: 60,  inc: 10,  unit: 'DMG' },
+          FireRate: { base: 3.0, inc: 0.4, unit: 'rps' },
+          Range:    { base: 25,  inc: 2.5, unit: 'm' },
+          Magazine: { base: 8,   inc: 1,   unit: 'RND' }
+        }
+      },
+      Sniper: {
+        key: 'Sniper',
+        name: 'Sniper',
+        subName: 'PRECISION SNIPER',
+        image: './assets/ui/isolated_Sniper.png',
+        muzzleX: 195,
+        muzzleY: 75,
+        priceType: 'coins',
+        priceVal: 3500,
+        stats: {
+          Damage:   { base: 120, inc: 20,  unit: 'DMG' },
+          FireRate: { base: 1.5, inc: 0.2, unit: 'rps' },
+          Range:    { base: 100, inc: 10,  unit: 'm' },
+          Magazine: { base: 5,   inc: 1,   unit: 'RND' }
+        }
+      },
+      Minigun: {
+        key: 'Minigun',
+        name: 'Minigun',
+        subName: 'HEAVY ROTARY MINIGUN',
+        image: './assets/ui/isolated_Minigun.png',
+        muzzleX: 190,
+        muzzleY: 90,
+        priceType: 'diamonds',
+        priceVal: 35,
+        stats: {
+          Damage:   { base: 35,  inc: 6,   unit: 'DMG' },
+          FireRate: { base: 22,  inc: 2,   unit: 'rps' },
+          Range:    { base: 45,  inc: 3,   unit: 'm' },
+          Magazine: { base: 100, inc: 15,  unit: 'RND' }
+        }
+      }
+    };
+
+    const STAT_NAMES = ['Damage', 'FireRate', 'Range', 'Magazine'];
+    const MAX_STAT_LEVEL = 10;
+
+    /* State */
+    let playerCoins = 5085;
+    let playerDiamonds = 50;
+    let selectedWeaponKey = 'AssaultRifle';
+    let equippedWeaponKey = 'AssaultRifle';
+    let unlockedWeapons = { AssaultRifle: true };
+
+    /* ==========================================================================
+       2. WEB AUDIO SYNTHESIZER (ZERO ASSET DEPENDENCIES)
+       ========================================================================== */
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        if (type === 'click') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.05);
+
+        } else if (type === 'switch') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(350, now);
+          osc.frequency.exponentialRampToValueAtTime(650, now + 0.08);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.08);
+
+        } else if (type === 'upgrade') {
+          // Ascending 4-chord triumphant chime
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.06);
+            gain.gain.setValueAtTime(0.25, now + i * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.06 + 0.22);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + i * 0.06);
+            osc.stop(now + i * 0.06 + 0.22);
+          });
+
+        } else if (type === 'equip') {
+          // Heavy cyber tech lock-in
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.linearRampToValueAtTime(450, now + 0.12);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.2);
+
+        } else if (type === 'unlock') {
+          // Fanfare
+          [440, 554, 659, 880].forEach((f, idx) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(f, now + idx * 0.09);
+            g.gain.setValueAtTime(0.3, now + idx * 0.09);
+            g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.09 + 0.35);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(now + idx * 0.09);
+            o.stop(now + idx * 0.09 + 0.35);
+          });
+
+        } else if (type === 'error') {
+          // Double buzzer
+          [160, 130].forEach((f, idx) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(f, now + idx * 0.1);
+            g.gain.setValueAtTime(0.25, now + idx * 0.1);
+            g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.08);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(now + idx * 0.1);
+            o.stop(now + idx * 0.1 + 0.08);
+          });
+
+        } else if (type === 'gunshot') {
+          // Weapon-specific blast sound
+          const bufferSize = ctx.sampleRate * 0.18;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+
+          const gain = ctx.createGain();
+
+          if (selectedWeaponKey === 'Shotgun') {
+            filter.frequency.setValueAtTime(700, now);
+            gain.gain.setValueAtTime(0.65, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+          } else if (selectedWeaponKey === 'Sniper') {
+            filter.frequency.setValueAtTime(1400, now);
+            filter.frequency.exponentialRampToValueAtTime(200, now + 0.25);
+            gain.gain.setValueAtTime(0.7, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+          } else if (selectedWeaponKey === 'Minigun') {
+            filter.frequency.setValueAtTime(1100, now);
+            gain.gain.setValueAtTime(0.5, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+          } else {
+            // Assault rifle
+            filter.frequency.setValueAtTime(950, now);
+            gain.gain.setValueAtTime(0.55, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          }
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          noise.start(now);
+        }
+      } catch (e) {
+        // AudioContext fallback
+      }
+    }
+
+    /* ==========================================================================
+       3. NAVIGATION & CAROUSEL
+       ========================================================================== */
+    function cycleWeapon(direction) {
+      playSound('switch');
+      let idx = WEAPON_KEYS.indexOf(selectedWeaponKey);
+      if (idx < 0) idx = 0;
+      idx = (idx + direction + WEAPON_KEYS.length) % WEAPON_KEYS.length;
+      selectWeapon(WEAPON_KEYS[idx]);
+    }
+
+    function selectWeapon(key) {
+      if (!WEAPONS[key]) return;
+      selectedWeaponKey = key;
+      localStorage.setItem('ZombieSquad_SelectedWeapon', selectedWeaponKey);
+
+      // Slide & bounce weapon stage animation
+      const wrapper = document.getElementById('weaponModelWrapper');
+      wrapper.style.transform = 'scale(0.85) rotate(-4deg)';
+      setTimeout(() => {
+        const stageImg = document.getElementById('stageWeaponImg');
+        stageImg.src = WEAPONS[key].image;
+        stageImg.alt = WEAPONS[key].name;
+        wrapper.style.transform = 'scale(1) rotate(0deg)';
+      }, 120);
+
+      updateWeaponVisuals();
+    }
+
+    /* ==========================================================================
+       4. TEST FIRE MECHANIC
+       ========================================================================== */
+    let isFiring = false;
+    function fireTestShot() {
+      if (isFiring) return;
+      isFiring = true;
+      playSound('gunshot');
+
+      // Stage kickback animation
+      const wrapper = document.getElementById('weaponModelWrapper');
+      wrapper.style.transform = 'translateX(-12px) rotate(4deg)';
+
+      // Muzzle Flash
+      const flash = document.getElementById('muzzleFlash');
+      flash.classList.remove('active');
+      void flash.offsetWidth;
+      flash.classList.add('active');
+
+      // Bullet Tracer
+      const tracer = document.getElementById('bulletTracer');
+      tracer.classList.remove('fired');
+      void tracer.offsetWidth;
+      tracer.classList.add('fired');
+
+      setTimeout(() => {
+        wrapper.style.transform = 'translateX(0) rotate(0deg)';
+        isFiring = false;
+      }, 140);
+    }
+
+    /* ==========================================================================
+       5. UPGRADE STAT LOGIC
+       ========================================================================== */
+    function getStatLevel(weaponKey, statName) {
+      const prefKey = `ZombieSquad_Wep_${weaponKey}_${statName}`;
+      return parseInt(localStorage.getItem(prefKey) || '1', 10);
+    }
+
+    function setStatLevel(weaponKey, statName, level) {
+      const prefKey = `ZombieSquad_Wep_${weaponKey}_${statName}`;
+      localStorage.setItem(prefKey, level.toString());
+    }
+
+    function upgradeStat(statName) {
+      const currentLevel = getStatLevel(selectedWeaponKey, statName);
+      if (currentLevel >= MAX_STAT_LEVEL) {
+        showToast('MAX LEVEL REACHED!');
+        return;
+      }
+
+      const cost = 100 * currentLevel;
+      if (playerCoins >= cost) {
+        playerCoins -= cost;
+        saveCurrencies();
+
+        const newLevel = currentLevel + 1;
+        setStatLevel(selectedWeaponKey, statName, newLevel);
+
+        playSound('upgrade');
+        showFloatingLevelUp(statName);
+        showToast(`${statName.toUpperCase()} UPGRADED TO LV. ${newLevel}!`);
+        updateWeaponVisuals();
+      } else {
+        playSound('error');
+        showToast(`NEED ${(cost - playerCoins).toLocaleString()} MORE COINS!`);
+      }
+    }
+
+    function showFloatingLevelUp(statName) {
+      const row = document.getElementById(`row_${statName}`);
+      if (!row) return;
+      const floatEl = document.createElement('div');
+      floatEl.className = 'level-up-float';
+      floatEl.textContent = '+1 LEVEL!';
+      floatEl.style.left = '50%';
+      floatEl.style.top = '0';
+      row.appendChild(floatEl);
+      setTimeout(() => floatEl.remove(), 900);
+    }
+
+    /* ==========================================================================
+       6. EQUIP & UNLOCK ACTIONS
+       ========================================================================== */
+    function onMainActionClick() {
+      const weapon = WEAPONS[selectedWeaponKey];
+      const isUnlocked = unlockedWeapons[selectedWeaponKey] || weapon.priceType === 'free';
+
+      if (!isUnlocked) {
+        // Attempt Unlock
+        if (weapon.priceType === 'coins') {
+          if (playerCoins >= weapon.priceVal) {
+            playerCoins -= weapon.priceVal;
+            saveCurrencies();
+            unlockedWeapons[selectedWeaponKey] = true;
+            saveUnlockedWeapons();
+            playSound('unlock');
+            showToast(`${weapon.name} UNLOCKED!`);
+            updateWeaponVisuals();
+          } else {
+            playSound('error');
+            showToast(`NEED ${(weapon.priceVal - playerCoins).toLocaleString()} MORE COINS!`);
+          }
+        } else if (weapon.priceType === 'diamonds') {
+          if (playerDiamonds >= weapon.priceVal) {
+            playerDiamonds -= weapon.priceVal;
+            saveCurrencies();
+            unlockedWeapons[selectedWeaponKey] = true;
+            saveUnlockedWeapons();
+            playSound('unlock');
+            showToast(`${weapon.name} UNLOCKED!`);
+            updateWeaponVisuals();
+          } else {
+            playSound('error');
+            showToast(`NEED ${weapon.priceVal - playerDiamonds} MORE DIAMONDS!`);
+          }
+        }
+        return;
+      }
+
+      // Equip Weapon
+      if (selectedWeaponKey === equippedWeaponKey) {
+        playSound('click');
+        return;
+      }
+
+      equippedWeaponKey = selectedWeaponKey;
+      localStorage.setItem('ZombieSquad_EquippedWeapon', equippedWeaponKey);
+      localStorage.setItem('ZombieSquad_SelectedWeapon', equippedWeaponKey);
+      playSound('equip');
+      showToast(`${weapon.name} EQUIPPED!`);
+      updateWeaponVisuals();
+    }
+
+    /* ==========================================================================
+       7. UI VISUAL SYNCHRONIZATION
+       ========================================================================== */
+    function updateWeaponVisuals() {
+      const weapon = WEAPONS[selectedWeaponKey];
+      if (!weapon) return;
+
+      // Header Banner
+      document.getElementById('weaponMainName').textContent = weapon.name;
+      document.getElementById('weaponSubName').textContent = weapon.subName;
+
+      // Stats and Total Level
+      let totalLevel = 1;
+      STAT_NAMES.forEach(statName => {
+        const lvl = getStatLevel(selectedWeaponKey, statName);
+        totalLevel += (lvl - 1);
+
+        const statConfig = weapon.stats[statName];
+        const currentVal = (statConfig.base + (lvl - 1) * statConfig.inc).toFixed(statConfig.inc % 1 !== 0 ? 1 : 0);
+
+        // Value text
+        const valText = document.getElementById(`stat_val_${statName}`);
+        if (valText) valText.textContent = `LV. ${lvl} (${currentVal} ${statConfig.unit})`;
+
+        // Progress bar (min 15% for visibility, max 100%)
+        const progressPct = Math.min(100, Math.max(15, (lvl / MAX_STAT_LEVEL) * 100));
+        const barFill = document.getElementById(`stat_bar_${statName}`);
+        if (barFill) barFill.style.width = `${progressPct}%`;
+
+        // Upgrade button cost and state
+        const upgBtn = document.getElementById(`btn_upg_${statName}`);
+        const costText = document.getElementById(`cost_${statName}`);
+        if (upgBtn && costText) {
+          if (lvl >= MAX_STAT_LEVEL) {
+            upgBtn.classList.add('maxed');
+            costText.textContent = 'MAX';
+          } else {
+            upgBtn.classList.remove('maxed');
+            const cost = 100 * lvl;
+            costText.textContent = `${cost} 🪙`;
+          }
+        }
+      });
+
+      // Overall Weapon Level text
+      document.getElementById('weaponTotalLevelText').textContent = `LV. ${totalLevel}`;
+
+      // Main Action Button (Equip / Unlock)
+      const mainBtn = document.getElementById('btnMainAction');
+      const actionIcon = document.getElementById('mainActionIcon');
+      const actionText = document.getElementById('mainActionText');
+      const isUnlocked = unlockedWeapons[selectedWeaponKey] || weapon.priceType === 'free';
+
+      if (!isUnlocked) {
+        if (weapon.priceType === 'coins') {
+          mainBtn.className = 'btn-main-action unlock-coins';
+          actionIcon.textContent = '🪙';
+          actionText.textContent = `UNLOCK (${weapon.priceVal.toLocaleString()})`;
+        } else {
+          mainBtn.className = 'btn-main-action unlock-diamonds';
+          actionIcon.textContent = '💎';
+          actionText.textContent = `UNLOCK (${weapon.priceVal})`;
+        }
+      } else if (selectedWeaponKey === equippedWeaponKey) {
+        mainBtn.className = 'btn-main-action equipped';
+        actionIcon.textContent = '✓';
+        actionText.textContent = 'EQUIPPED';
+      } else {
+        mainBtn.className = 'btn-main-action equip-ready';
+        actionIcon.textContent = '⚡';
+        actionText.textContent = 'EQUIP WEAPON';
+      }
+
+      // Update Bottom 4 Cards
+      WEAPON_KEYS.forEach(key => {
+        const card = document.getElementById(`card_${key}`);
+        if (!card) return;
+
+        card.classList.toggle('selected', key === selectedWeaponKey);
+        card.classList.toggle('equipped', key === equippedWeaponKey);
+
+        const isWepUnlocked = unlockedWeapons[key] || WEAPONS[key].priceType === 'free';
+        card.classList.toggle('locked', !isWepUnlocked);
+
+        const lockBadge = document.getElementById(`lock_${key}`);
+        if (lockBadge) {
+          lockBadge.style.display = isWepUnlocked ? 'none' : 'block';
+        }
+      });
+    }
+
+    /* ==========================================================================
+       8. PERSISTENCE & CURRENCIES
+       ========================================================================== */
+    function loadCurrencies() {
+      playerCoins = parseInt(localStorage.getItem('ZombieSquad_Coins_Raw') || '5085', 10);
+      playerDiamonds = parseInt(localStorage.getItem('ZombieSquad_Diamonds_Raw') || '50', 10);
+      document.getElementById('hudCoins').textContent = playerCoins.toLocaleString();
+      document.getElementById('hudDiamonds').textContent = playerDiamonds.toLocaleString();
+    }
+
+    function saveCurrencies() {
+      localStorage.setItem('ZombieSquad_Coins_Raw', playerCoins);
+      localStorage.setItem('ZombieSquad_Diamonds_Raw', playerDiamonds);
+      localStorage.setItem('ZombieSquad_Coins', playerCoins.toLocaleString());
+      localStorage.setItem('ZombieSquad_Diamonds', playerDiamonds.toLocaleString());
+      document.getElementById('hudCoins').textContent = playerCoins.toLocaleString();
+      document.getElementById('hudDiamonds').textContent = playerDiamonds.toLocaleString();
+    }
+
+    function quickAddCurrency(type) {
+      playSound('click');
+      if (type === 'coins') {
+        playerCoins += 2500;
+        saveCurrencies();
+        showToast('+2,500 COINS ADDED!');
+      } else {
+        playerDiamonds += 50;
+        saveCurrencies();
+        showToast('+50 DIAMONDS ADDED!');
+      }
+      updateWeaponVisuals();
+    }
+
+    function loadUnlockedWeapons() {
+      try {
+        const saved = localStorage.getItem('ZombieSquad_UnlockedWeapons');
+        if (saved) unlockedWeapons = JSON.parse(saved);
+      } catch (e) {}
+      unlockedWeapons.AssaultRifle = true;
+    }
+
+    function saveUnlockedWeapons() {
+      localStorage.setItem('ZombieSquad_UnlockedWeapons', JSON.stringify(unlockedWeapons));
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastNotice');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    function goBack() {
+      try { playSound('click'); } catch (e) {}
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ action: 'closeWeapons', type: 'BACK' }, '*');
+      }
+      setTimeout(() => {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = 'index.html';
+        }
+      }, 80);
+    }
+
+    /* ==========================================================================
+       9. INIT ON DOM READY
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadCurrencies();
+      loadUnlockedWeapons();
+
+      const savedEquipped = localStorage.getItem('ZombieSquad_EquippedWeapon') || localStorage.getItem('ZombieSquad_SelectedWeapon');
+      if (savedEquipped && WEAPONS[savedEquipped]) {
+        equippedWeaponKey = savedEquipped;
+      }
+      selectedWeaponKey = equippedWeaponKey;
+
+      selectWeapon(selectedWeaponKey);
+    });
+  </script>
+</body>
+</html>

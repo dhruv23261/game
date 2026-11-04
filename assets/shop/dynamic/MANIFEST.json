@@ -1,0 +1,47 @@
+{
+  "pack": "Zombie Squad Dynamic Shop UI",
+  "png_assets": [
+    "01_zombie_squad_logo.png",
+    "02_soldier_character.png",
+    "03_base_background_strip.png",
+    "04_empty_currency_bar.png",
+    "05_coin_currency_icon.png",
+    "06_diamond_currency_icon.png",
+    "07_plus_button_icon.png",
+    "08_back_button_icon.png",
+    "09_empty_shop_card.png",
+    "10_coin_stack_product_art.png",
+    "11_treasure_chest_product_art.png",
+    "12_large_treasure_chest_product_art.png",
+    "13_green_purchase_button_blank.png",
+    "14_blue_action_button_blank.png",
+    "15_grey_action_button_blank.png",
+    "16_cyan_outline_button_blank.png",
+    "17_coin_stack_small.png",
+    "18_single_coin_icon.png",
+    "19_treasure_chest_small.png",
+    "20_open_treasure_chest_small.png",
+    "21_loose_coin_pile.png",
+    "22_crown_icon.png",
+    "23_diamond_gem_icon.png",
+    "24_blue_glow_effect.png",
+    "25_star_sparkles.png",
+    "26_bottom_metal_trim.png",
+    "27_left_rock_grass_decoration.png",
+    "28_right_rock_grass_decoration.png"
+  ],
+  "editable_svg_assets": [
+    "29_shop_card_frame.svg",
+    "30_currency_bar.svg",
+    "31_green_purchase_button.svg",
+    "32_blue_button.svg",
+    "33_shop_header_panel.svg"
+  ],
+  "dynamic_text_not_baked_in": [
+    "coin balance",
+    "diamond balance",
+    "product amount",
+    "rupee price",
+    "button labels"
+  ]
+}

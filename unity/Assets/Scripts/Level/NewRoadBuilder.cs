@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using TMPro;
+using MobControl.Combat;
 
 namespace MobControl.Level
 {
@@ -58,6 +59,17 @@ namespace MobControl.Level
                 builder.BuildRoadScene();
                 SafeDestroy(builderObj);
             }
+            else
+            {
+                GameObject hero = GameObject.Find("Player_Hero");
+                if (hero == null)
+                {
+                    GameObject builderObj = new GameObject("Level1_RoadBuilder_Temp");
+                    NewRoadBuilder builder = builderObj.AddComponent<NewRoadBuilder>();
+                    builder.BuildPlayerCharacter(existingRoot.transform);
+                    SafeDestroy(builderObj);
+                }
+            }
         }
 
         private void Start()
@@ -84,28 +96,25 @@ namespace MobControl.Level
             // Load Meshy 3D Assets (Pine Tree & Cliff Rock)
             LoadMeshyAssets();
 
-            // 1. Build Grand Asphalt Highway Mesh
-            BuildRoadSurface(root.transform, roadMat);
+            // 1. Build & Attach Endless Road Manager (Smoothly rushes road towards player with Barricades and Containers only)
+            GameObject endlessObj = new GameObject("EndlessRoadManager");
+            endlessObj.transform.SetParent(root.transform, false);
+            EndlessRoadManager endlessManager = endlessObj.AddComponent<EndlessRoadManager>();
+            endlessManager.BuildInitialEndlessTrack();
 
-            // 2. Build Dual-Rail Steel Guardrails with Amber Reflectors
-            BuildGuardrails(root.transform, steelMat, amberMat);
-
-            // 3. Build Sloping Grass Landscape Verge
-            BuildGrassBanks(root.transform, grassMat);
-
-            // 4. Build Towering Cliff Canyon Walls & Pine Forest (1:1 Reference Match)
-            BuildHighDetailNatureEnvironment(root.transform, grassMat);
-
-            // 5. Build Sweeping Distant Mountain Horizon Ridge
+            // 2. Build Sweeping Distant Mountain Horizon Ridge
             BuildMountainHorizon(root.transform, grassMat);
 
-            // 6. Setup Exact Camera & Atmospheric Horizon Fog
+            // 3. Setup Exact Camera & Atmospheric Horizon Fog
             SetupCameraAndAtmosphere();
 
-            // 7. Spawn Player Mob & Assault Rifle (Meshy AI 1:1 Reference Match)
+            // 4. Spawn Player Mob & Assault Rifle (Meshy AI 1:1 Reference Match)
             BuildPlayerCharacter(root.transform);
 
-            Debug.Log("[NewRoadBuilder] Level 1 reference stylized road successfully assembled with High-Definition Meshy 3D nature assets, Player Mob and Assault Rifle!");
+            // 5. Attach ZombieRoadWaveSpawner (Small, Moderate, and Boss Zombies marching down the road)
+            BuildZombieRoadSpawner(root.transform);
+
+            Debug.Log("[NewRoadBuilder] Endless Stylized Highway assembled with EndlessRoadManager, Barricades & Containers with gaps, and Left-Right Joystick controls!");
         }
 
         private void PurgeSceneClutter()
@@ -124,9 +133,19 @@ namespace MobControl.Level
             GameObject[] allGos = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
             foreach (var go in allGos)
             {
-                if (go != null && (go.name.Contains("Gun_M41D") || go.name.Contains("MultiplierGate") || go.name.Contains("DestructibleGate") || go.name.Contains("PlayerMob") || (go.name == "Player" && go.GetComponent<MobControl.Combat.PlayerRunnerController>() == null)))
+                if (go != null && (go.name.Contains("Gun_M41D") || go.name.Contains("MultiplierGate") || go.name.Contains("DestructibleGate") || go.name.Contains("PlayerMob") || go.name.StartsWith("Preview_Zombie_") || go.name.StartsWith("Zombie_") || go.name.StartsWith("BadgePop_") || go.name.Contains("Celebratory") || (go.name == "Player" && go.GetComponent<MobControl.Combat.PlayerRunnerController>() == null)))
                 {
                     SafeDestroy(go);
+                }
+            }
+
+            // Also purge any stray enemy mob units in the scene
+            MobControl.Crowd.MobUnit[] mobs = Object.FindObjectsByType<MobControl.Crowd.MobUnit>(FindObjectsInactive.Include);
+            foreach (var mob in mobs)
+            {
+                if (mob != null && mob.Team == MobControl.Crowd.MobTeam.Enemy)
+                {
+                    SafeDestroy(mob.gameObject);
                 }
             }
         }
@@ -136,55 +155,116 @@ namespace MobControl.Level
             // 1. Load Pine Tree Mesh & Material
             if (cachedTreeMesh == null)
             {
-                string treeObjPath = Path.Combine(Application.dataPath, "Models/Nature/PineTree_V2.obj");
-                cachedTreeMesh = LoadObjMeshDirect(treeObjPath);
+                GameObject treePrefab = Resources.Load<GameObject>("Nature/PineTree_V2");
+                if (treePrefab != null) cachedTreeMesh = treePrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (cachedTreeMesh == null)
+                {
+                    string treeObjPath = Path.Combine(Application.dataPath, "Models/Nature/PineTree_V2.obj");
+                    cachedTreeMesh = LoadObjMeshDirect(treeObjPath);
+                }
+#endif
             }
             if (cachedTreeMat == null)
             {
-                cachedTreeMat = LoadTextureMaterial("Models/Nature/PineTree_V2_textures/base_color.png", "M_MeshyPineTree_V2");
+                cachedTreeMat = Resources.Load<Material>("Materials/M_MeshyPineTree_V2");
+                if (cachedTreeMat == null)
+                {
+                    cachedTreeMat = LoadTextureMaterial("Nature/PineTree_V2_textures/base_color.png", "M_MeshyPineTree_V2");
+                }
             }
 
             // 2. Load Cliff Rock Mesh & Material
             if (cachedRockMesh == null)
             {
-                string rockObjPath = Path.Combine(Application.dataPath, "Models/Nature/CliffRock_V2.obj");
-                cachedRockMesh = LoadObjMeshDirect(rockObjPath);
+                GameObject rockPrefab = Resources.Load<GameObject>("Nature/CliffRock_V2");
+                if (rockPrefab != null) cachedRockMesh = rockPrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (cachedRockMesh == null)
+                {
+                    string rockObjPath = Path.Combine(Application.dataPath, "Models/Nature/CliffRock_V2.obj");
+                    cachedRockMesh = LoadObjMeshDirect(rockObjPath);
+                }
+#endif
             }
             if (cachedRockMat == null)
             {
-                cachedRockMat = LoadTextureMaterial("Models/Nature/CliffRock_V2_textures/base_color.png", "M_MeshyCliffRock_V2");
+                cachedRockMat = Resources.Load<Material>("Materials/M_MeshyCliffRock_V2");
+                if (cachedRockMat == null)
+                {
+                    cachedRockMat = LoadTextureMaterial("Nature/CliffRock_V2_textures/base_color.png", "M_MeshyCliffRock_V2");
+                }
             }
 
             // 3. Load Meshy Player Mob Soldier Mesh & Material
             if (cachedPlayerMesh == null)
             {
-                string playerObjPath = Path.Combine(Application.dataPath, "Models/Generated/PlayerMob_Rigged/PlayerMob_GameReady.obj");
-                cachedPlayerMesh = LoadObjMeshDirect(playerObjPath);
+                GameObject playerPrefab = Resources.Load<GameObject>("Characters/Player_FiringRifle") ?? Resources.Load<GameObject>("Characters/PlayerMob");
+                if (playerPrefab != null)
+                {
+                    cachedPlayerMesh = playerPrefab.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh ?? playerPrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+                }
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (cachedPlayerMesh == null)
+                {
+                    string playerObjPath = Path.Combine(Application.dataPath, "Models/Generated/PlayerMob_Rigged/PlayerMob_GameReady.obj");
+                    cachedPlayerMesh = LoadObjMeshDirect(playerObjPath);
+                }
+#endif
             }
             if (cachedPlayerMat == null)
             {
-                cachedPlayerMat = LoadTextureMaterial("Models/Generated/PlayerMob_Rigged/PlayerMob_25k_textures/base_color.png", "M_MeshyPlayerMob");
+                cachedPlayerMat = Resources.Load<Material>("Materials/PlayerMaterial");
             }
 
             // 4. Load Meshy Assault Rifle Mesh & Material
             if (cachedRifleMesh == null)
             {
-                string rifleObjPath = Path.Combine(Application.dataPath, "Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
-                cachedRifleMesh = LoadObjMeshDirect(rifleObjPath);
+                GameObject riflePrefab = Resources.Load<GameObject>("Models/AssaultRifle_GameReady") ?? Resources.Load<GameObject>("Prefabs/Gun_M41D");
+                if (riflePrefab != null) cachedRifleMesh = riflePrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (cachedRifleMesh == null)
+                {
+                    string rifleObjPath = Path.Combine(Application.dataPath, "Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                    cachedRifleMesh = LoadObjMeshDirect(rifleObjPath);
+                }
+#endif
             }
             if (cachedRifleMat == null)
             {
-                cachedRifleMat = LoadTextureMaterial("Models/Generated/AssaultRifle/AssaultRifle_15k_textures/base_color.png", "M_MeshyAssaultRifle");
+                cachedRifleMat = Resources.Load<Material>("Materials/M_MeshyAssaultRifle");
+                if (cachedRifleMat == null)
+                {
+                    cachedRifleMat = LoadTextureMaterial("Textures/Gun/AssaultRifle_base_color.png", "M_MeshyAssaultRifle");
+                }
             }
         }
 
-        private static Mesh LoadObjMeshDirect(string filePath)
+        public static Mesh LoadObjMeshDirect(string filePath)
         {
-            if (!File.Exists(filePath))
+            try
             {
-                Debug.LogWarning($"[NewRoadBuilder] OBJ file not found: {filePath}");
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (!File.Exists(filePath))
+                {
+                    return null;
+                }
+                return LoadObjMeshDirectInternal(filePath);
+#else
+                return null;
+#endif
+            }
+            catch
+            {
                 return null;
             }
+        }
+
+        public static Mesh LoadObjMeshDirectPublic(string filePath) => LoadObjMeshDirect(filePath);
+        public static Material LoadTextureMaterialPublic(string texRelativePath, string matName) => LoadTextureMaterial(texRelativePath, matName);
+
+        private static Mesh LoadObjMeshDirectInternal(string filePath)
+        {
 
             List<Vector3> tempPositions = new List<Vector3>();
             List<Vector2> tempUVs = new List<Vector2>();
@@ -292,28 +372,42 @@ namespace MobControl.Level
 
         private static Material LoadTextureMaterial(string texRelativePath, string matName)
         {
-            string fullPath = Path.Combine(Application.dataPath, texRelativePath);
-            if (!File.Exists(fullPath))
+            Texture2D tex = null;
+            try
             {
-                Debug.LogWarning($"[NewRoadBuilder] Texture not found at {fullPath}");
-                return null;
-            }
+                string resPath = texRelativePath;
+                if (resPath.StartsWith("Resources/")) resPath = resPath.Substring("Resources/".Length);
+                if (resPath.EndsWith(".png") || resPath.EndsWith(".jpg"))
+                    resPath = resPath.Substring(0, resPath.LastIndexOf('.'));
 
-            byte[] bytes = File.ReadAllBytes(fullPath);
-            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, true);
-            if (tex.LoadImage(bytes))
+                tex = Resources.Load<Texture2D>(resPath);
+
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (tex == null)
+                {
+                    string fullPath = Path.Combine(Application.dataPath, texRelativePath);
+                    if (File.Exists(fullPath))
+                    {
+                        byte[] bytes = File.ReadAllBytes(fullPath);
+                        tex = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+                        tex.LoadImage(bytes);
+                    }
+                }
+#endif
+            }
+            catch { }
+
+            Shader shader = Shader.Find("Mobile/Diffuse") ?? Shader.Find("Standard") ?? Shader.Find("Unlit/Texture");
+            Material mat = new Material(shader) { name = matName };
+            if (tex != null)
             {
                 tex.name = matName + "_Tex";
                 tex.wrapMode = TextureWrapMode.Repeat;
                 tex.filterMode = FilterMode.Bilinear;
                 tex.anisoLevel = 4;
-
-                Shader shader = Shader.Find("Mobile/Diffuse") ?? Shader.Find("Standard") ?? Shader.Find("Unlit/Texture");
-                Material mat = new Material(shader) { name = matName };
                 mat.mainTexture = tex;
-                return mat;
             }
-            return null;
+            return mat;
         }
 
         private void BuildRoadSurface(Transform parent, Material roadMat)
@@ -621,9 +715,9 @@ namespace MobControl.Level
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
-                mainCam.transform.position = new Vector3(0f, 1.8f, -3.6f);
-                mainCam.transform.rotation = Quaternion.Euler(8.0f, 0f, 0f);
-                mainCam.fieldOfView = 62.0f;
+                mainCam.transform.position = new Vector3(0f, 2.10f, -4.60f);
+                mainCam.transform.rotation = Quaternion.Euler(11.0f, 0f, 0f);
+                mainCam.fieldOfView = 58.0f;
                 mainCam.farClipPlane = 450.0f;
                 mainCam.backgroundColor = skyBlue;
                 mainCam.clearFlags = CameraClearFlags.SolidColor;
@@ -639,6 +733,8 @@ namespace MobControl.Level
 
         private void BuildPlayerCharacter(Transform parent)
         {
+            LoadMeshyAssets();
+
             // Destroy any previous player object to avoid duplicates
             GameObject[] oldPlayers = GameObject.FindGameObjectsWithTag("Player");
             foreach (var p in oldPlayers)
@@ -661,27 +757,115 @@ namespace MobControl.Level
             Rigidbody rb = playerRoot.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
-            // 3. Visual Mob Mesh (Meshy Player Mob Soldier)
-            GameObject visualObj = new GameObject("Visual_Mob");
-            visualObj.transform.SetParent(playerRoot.transform, false);
-            visualObj.transform.localPosition = Vector3.zero;
-            visualObj.transform.localRotation = Quaternion.identity;
-
-            if (cachedPlayerMesh != null)
+            // 3. Rigged Visual Mob Soldier with stationary Firing Rifle animation
+            GameObject playerPrefab = null;
+#if UNITY_EDITOR
+            playerPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Characters/Player_FiringRifle.fbx");
+#endif
+            if (playerPrefab == null)
             {
-                MeshFilter mf = visualObj.AddComponent<MeshFilter>();
-                mf.sharedMesh = cachedPlayerMesh;
-
-                MeshRenderer mr = visualObj.AddComponent<MeshRenderer>();
-                if (cachedPlayerMat != null) mr.sharedMaterial = cachedPlayerMat;
+                playerPrefab = Resources.Load<GameObject>("Characters/Player_FiringRifle");
+            }
+            if (playerPrefab == null)
+            {
+                playerPrefab = Resources.Load<GameObject>("Characters/PlayerMob");
             }
 
-            // 4. Meshy Assault Rifle Weapon
+            GameObject visualObj = null;
+            if (playerPrefab != null)
+            {
+                visualObj = Object.Instantiate(playerPrefab, playerRoot.transform);
+                visualObj.name = "Visual_Mob";
+                visualObj.transform.localPosition = Vector3.zero;
+                visualObj.transform.localRotation = Quaternion.identity;
+                // Base mesh bounds are ~0.02m tall, scale 68x for clean proportional character height
+                visualObj.transform.localScale = Vector3.one * 68.0f;
+            }
+            else
+            {
+                visualObj = new GameObject("Visual_Mob");
+                visualObj.transform.SetParent(playerRoot.transform, false);
+                visualObj.transform.localScale = Vector3.one * 68.0f;
+            }
+
+            // 4. Assign crisp HD PlayerMaterial to SkinnedMeshRenderer
+            Material playerMat = null;
+#if UNITY_EDITOR
+            playerMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Models/Characters/Materials/PlayerMaterial.mat");
+#endif
+            if (playerMat == null)
+            {
+                playerMat = Resources.Load<Material>("Materials/PlayerMaterial");
+            }
+            if (playerMat == null && cachedPlayerMat != null)
+            {
+                playerMat = cachedPlayerMat;
+            }
+
+            var smr = visualObj.GetComponentInChildren<SkinnedMeshRenderer>();
+            if (smr != null && playerMat != null)
+            {
+                smr.sharedMaterial = playerMat;
+            }
+
+            // 5. Setup Animator for looping stationary firing rifle animation
+            Animator anim = visualObj.GetComponent<Animator>();
+            if (anim == null) anim = visualObj.AddComponent<Animator>();
+            RuntimeAnimatorController animCtrl = Resources.Load<RuntimeAnimatorController>("Animations/MobAnimator");
+#if UNITY_EDITOR
+            if (animCtrl == null)
+            {
+                animCtrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Animations/MobAnimator.controller");
+            }
+#endif
+            if (anim != null && animCtrl != null)
+            {
+                anim.runtimeAnimatorController = animCtrl;
+                anim.applyRootMotion = false;
+                anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            }
+
+            // 6. Attach Meshy AI Assault Rifle firmly into hands on right side
             GameObject weaponObj = new GameObject("AssaultRifle_Meshy");
-            weaponObj.transform.SetParent(visualObj.transform, false);
-            weaponObj.transform.localPosition = new Vector3(0.18f, 0.70f, 0.24f);
-            weaponObj.transform.localRotation = Quaternion.Euler(0f, -6f, 0f);
+            weaponObj.transform.SetParent(playerRoot.transform, false);
+            weaponObj.transform.localPosition = new Vector3(0.16f, 0.62f, 0.18f);
+            weaponObj.transform.localRotation = Quaternion.identity;
+            weaponObj.transform.localScale = Vector3.one * 0.92f;
+
+            if (cachedRifleMesh == null)
+            {
+                GameObject riflePrefab = Resources.Load<GameObject>("Models/AssaultRifle_GameReady") ?? Resources.Load<GameObject>("Prefabs/Gun_M41D");
+                if (riflePrefab != null) cachedRifleMesh = riflePrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (cachedRifleMesh == null)
+                {
+                    riflePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                    if (riflePrefab != null) cachedRifleMesh = riflePrefab.GetComponentInChildren<MeshFilter>()?.sharedMesh;
+                }
+                if (cachedRifleMesh == null) cachedRifleMesh = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>("Assets/Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                if (cachedRifleMesh == null)
+                {
+                    string rifleObjPath = Path.Combine(Application.dataPath, "Models/Generated/AssaultRifle/AssaultRifle_GameReady.obj");
+                    cachedRifleMesh = LoadObjMeshDirect(rifleObjPath);
+                }
+#endif
+            }
+            if (cachedRifleMat == null)
+            {
+                cachedRifleMat = Resources.Load<Material>("Materials/M_MeshyAssaultRifle");
+#if UNITY_EDITOR && !UNITY_ANDROID
+                if (cachedRifleMat == null)
+                {
+                    cachedRifleMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Models/Generated/AssaultRifle/Materials/M_MeshyAssaultRifle.mat");
+                }
+#endif
+                if (cachedRifleMat == null)
+                {
+                    cachedRifleMat = LoadTextureMaterial("Textures/Gun/AssaultRifle_base_color.png", "M_MeshyAssaultRifle");
+                }
+            }
 
             if (cachedRifleMesh != null)
             {
@@ -692,29 +876,228 @@ namespace MobControl.Level
                 if (cachedRifleMat != null) wmr.sharedMaterial = cachedRifleMat;
             }
 
-            // 5. Muzzle Fire Point at barrel tip
+            // 7. Muzzle Fire Point at barrel tip
             GameObject muzzleObj = new GameObject("MuzzleFirePoint");
             muzzleObj.transform.SetParent(weaponObj.transform, false);
-            muzzleObj.transform.localPosition = new Vector3(0f, 0.05f, 0.48f);
+            muzzleObj.transform.localPosition = new Vector3(0f, 0.08f, 0.52f);
             muzzleObj.transform.localRotation = Quaternion.identity;
 
-            // 6. Attach & configure PlayerRunnerController
+            // 8. Attach & configure PlayerRunnerController
             MobControl.Combat.PlayerRunnerController runner = playerRoot.AddComponent<MobControl.Combat.PlayerRunnerController>();
+            runner.EnsurePlayerMaterial();
+            runner.EnsureEquippedWeapon();
 
-            // 7. Attach PlayerMobVisualController for gait, sway & rifle recoil
+            // 9. Attach PlayerMobVisualController for weapon recoil & muzzle burst
             MobControl.Combat.PlayerMobVisualController visualCtrl = visualObj.AddComponent<MobControl.Combat.PlayerMobVisualController>();
             visualCtrl.Initialize(runner, weaponObj.transform, muzzleObj.transform);
 
-            // 8. Connect Camera
+            // 10. Connect Camera
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
                 MobControl.Core.SmoothCameraFollow camFollow = mainCam.GetComponent<MobControl.Core.SmoothCameraFollow>();
                 if (camFollow == null) camFollow = mainCam.gameObject.AddComponent<MobControl.Core.SmoothCameraFollow>();
                 camFollow.SetTarget(playerRoot.transform);
+                camFollow.SetCameraParameters(new Vector3(0f, 5.80f, -6.80f), new Vector3(29.0f, 0f, 0f));
             }
 
-            Debug.Log("[NewRoadBuilder] Meshy AI Player Mob & Assault Rifle spawned on road with full visuals and controls!");
+            Debug.Log("[NewRoadBuilder] Stationary Player Mob (Firing Rifle animation) & Assault Rifle spawned with X-axis lane control!");
+        }
+
+        private void BuildZombieRoadSpawner(Transform parent)
+        {
+            GameObject spawnerObj = new GameObject("ZombieRoadWaveSpawner");
+            spawnerObj.transform.SetParent(parent, false);
+            spawnerObj.transform.position = new Vector3(0f, 0f, 0f);
+
+            var spawner = spawnerObj.AddComponent<MobControl.Crowd.ZombieRoadWaveSpawner>();
+            if (Application.isPlaying)
+            {
+                spawner.LoadPrefabsIfMissing();
+                spawner.RegisterZombiePools();
+            }
+
+            Debug.Log("[NewRoadBuilder] ZombieRoadWaveSpawner attached with 3 Meshy 3D Zombie types (Small, Moderate, Boss)!");
+        }
+
+        private void BuildShippingContainersAndObstacles(Transform parent)
+        {
+            // 1. Primary Destructible Shipping Container Gate (Image 1 & 2 Match: Z = 26m, 30 bullets to destroy, multiplier = x2)
+            BuildShippingContainerGate(parent, 26.0f, 2, 30, new Color(0.85f, 0.16f, 0.14f), "Textures/tex_shipping_container_red.png");
+
+            // Secondary container gates omitted for Level 1 matching Image 2 sketch (open road to bridge gate)
+
+            // 3. Road Barricades, barrels and crates (Image 1 match)
+            BuildRoadProps(parent);
+        }
+
+        private GameObject BuildShippingContainerGate(Transform parent, float zPos, int multiplier, int maxHp, Color bodyColor, string texPath)
+        {
+            GameObject gateRoot = new GameObject($"DestructibleGate_Container_x{multiplier}");
+            gateRoot.transform.SetParent(parent, false);
+            gateRoot.transform.position = new Vector3(0f, 1.10f, zPos);
+
+            // 1. BoxCollider for bullet hit detection & zombie blocking
+            BoxCollider boxCol = gateRoot.AddComponent<BoxCollider>();
+            boxCol.isTrigger = true;
+            boxCol.size = new Vector3(5.2f, 2.2f, 1.4f);
+            boxCol.center = Vector3.zero;
+
+            // 2. DestructibleGate component
+            DestructibleGate dGate = gateRoot.AddComponent<DestructibleGate>();
+            dGate.SetGateStats(maxHp, multiplier, MobControl.Gates.GateOperation.Multiply, 5.2f);
+
+            // 3. Container Body Mesh (Corrugated Industrial Red Steel)
+            GameObject bodyObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bodyObj.name = "ContainerBody";
+            bodyObj.transform.SetParent(gateRoot.transform, false);
+            bodyObj.transform.localPosition = Vector3.zero;
+            bodyObj.transform.localScale = new Vector3(4.8f, 2.05f, 1.3f);
+            SafeDestroy(bodyObj.GetComponent<Collider>());
+
+            Material containerMat = LoadTextureMaterial(texPath, $"M_Container_x{multiplier}");
+            if (containerMat != null)
+            {
+                containerMat.color = bodyColor;
+                bodyObj.GetComponent<MeshRenderer>().sharedMaterial = containerMat;
+            }
+
+            // 4. Hazard Striped Side Posts (Left & Right)
+            Material hazardMat = LoadTextureMaterial("Textures/tex_hazard_stripes.png", "M_HazardStripes");
+            for (int side = -1; side <= 1; side += 2)
+            {
+                GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                post.name = side < 0 ? "HazardPost_L" : "HazardPost_R";
+                post.transform.SetParent(gateRoot.transform, false);
+                post.transform.localPosition = new Vector3(side * 2.55f, 0f, 0f);
+                post.transform.localScale = new Vector3(0.35f, 2.2f, 1.38f);
+                SafeDestroy(post.GetComponent<Collider>());
+                if (hazardMat != null) post.GetComponent<MeshRenderer>().sharedMaterial = hazardMat;
+
+                // Hazard Beacon Light on top of each post
+                GameObject beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                beacon.name = "BeaconLight";
+                beacon.transform.SetParent(post.transform, false);
+                beacon.transform.localPosition = new Vector3(0f, 0.58f, 0f);
+                beacon.transform.localScale = new Vector3(0.55f, 0.16f, 0.55f);
+                SafeDestroy(beacon.GetComponent<Collider>());
+                Material beaconMat = new Material(Shader.Find("Standard"));
+                beaconMat.color = new Color(1f, 0.2f, 0.05f, 1f);
+                beaconMat.EnableKeyword("_EMISSION");
+                beaconMat.SetColor("_EmissionColor", new Color(2.5f, 0.3f, 0.1f));
+                beacon.GetComponent<MeshRenderer>().sharedMaterial = beaconMat;
+            }
+
+            // 5. Electric Cyan Multiplier Badge on front face
+            GameObject badgeObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            badgeObj.name = "MultiplierBadge";
+            badgeObj.transform.SetParent(gateRoot.transform, false);
+            badgeObj.transform.localPosition = new Vector3(0f, 0.05f, -0.68f);
+            badgeObj.transform.localScale = new Vector3(2.4f, 1.25f, 1f);
+            SafeDestroy(badgeObj.GetComponent<Collider>());
+
+            Material badgeMat = LoadTextureMaterial("Textures/tex_blue_multiplier_badge.png", "M_BlueMultiplierBadge");
+            if (badgeMat != null)
+            {
+                badgeObj.GetComponent<MeshRenderer>().sharedMaterial = badgeMat;
+            }
+
+            // 3D Text: "x2" inside badge
+            GameObject textObj = new GameObject("MultiplierText");
+            textObj.transform.SetParent(gateRoot.transform, false);
+            textObj.transform.localPosition = new Vector3(0f, 0.05f, -0.72f);
+            TextMeshPro tmp = textObj.AddComponent<TextMeshPro>();
+            tmp.text = $"x{multiplier}";
+            tmp.fontSize = 8.5f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.color = Color.white;
+
+            // 6. Overhead Hits / Health Text
+            GameObject hpObj = new GameObject("HealthText");
+            hpObj.transform.SetParent(gateRoot.transform, false);
+            hpObj.transform.localPosition = new Vector3(0f, 1.45f, 0f);
+            TextMeshPro hpTmp = hpObj.AddComponent<TextMeshPro>();
+            hpTmp.text = $"<color=#FFE600><b>{maxHp}</b></color> <size=75%>/ {maxHp}</size>";
+            hpTmp.fontSize = 4.8f;
+            hpTmp.alignment = TextAlignmentOptions.Center;
+            hpTmp.fontStyle = FontStyles.Bold;
+
+            return gateRoot;
+        }
+
+        private void BuildRoadProps(Transform parent)
+        {
+            GameObject propsRoot = new GameObject("RoadProps_Level1");
+            propsRoot.transform.SetParent(parent, false);
+
+            Material redBarrelMat = new Material(Shader.Find("Standard"));
+            redBarrelMat.color = new Color(0.85f, 0.18f, 0.12f);
+
+            Material woodMat = new Material(Shader.Find("Standard"));
+            woodMat.color = new Color(0.65f, 0.45f, 0.28f);
+
+            Material stripeMat = LoadTextureMaterial("Textures/tex_hazard_stripes.png", "M_HazardBarricade");
+
+            // Red Oil/Explosive Barrels
+            SpawnBarrel(propsRoot.transform, new Vector3(0.8f, 0.65f, 18.0f), redBarrelMat);
+            SpawnBarrel(propsRoot.transform, new Vector3(0.95f, 0.65f, 19.1f), redBarrelMat);
+            SpawnBarrel(propsRoot.transform, new Vector3(-0.6f, 0.65f, 35.0f), redBarrelMat);
+
+            // Barricades (Red & White striped wooden barricade boards)
+            SpawnBarricade(propsRoot.transform, new Vector3(-1.4f, 0.55f, 20.5f), stripeMat);
+            SpawnBarricade(propsRoot.transform, new Vector3(1.4f, 0.55f, 37.0f), stripeMat);
+
+            // Wooden Crates stacked by the guardrails
+            SpawnCrate(propsRoot.transform, new Vector3(-2.45f, 0.45f, 11.0f), woodMat);
+            SpawnCrate(propsRoot.transform, new Vector3(-2.45f, 1.25f, 11.0f), woodMat);
+            SpawnCrate(propsRoot.transform, new Vector3(2.45f, 0.45f, 22.0f), woodMat);
+            SpawnCrate(propsRoot.transform, new Vector3(2.45f, 0.45f, 33.0f), woodMat);
+        }
+
+        private void SpawnBarrel(Transform parent, Vector3 pos, Material mat)
+        {
+            GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            barrel.name = "Barrel_Red";
+            barrel.transform.SetParent(parent, false);
+            barrel.transform.position = pos;
+            barrel.transform.localScale = new Vector3(0.65f, 0.65f, 0.65f);
+            SafeDestroy(barrel.GetComponent<Collider>());
+            if (mat != null) barrel.GetComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+
+        private void SpawnBarricade(Transform parent, Vector3 pos, Material mat)
+        {
+            GameObject barricade = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            barricade.name = "Barricade_Hazard";
+            barricade.transform.SetParent(parent, false);
+            barricade.transform.position = pos;
+            barricade.transform.localScale = new Vector3(1.6f, 0.70f, 0.15f);
+            SafeDestroy(barricade.GetComponent<Collider>());
+            if (mat != null) barricade.GetComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+
+        private void SpawnCrate(Transform parent, Vector3 pos, Material mat)
+        {
+            GameObject crate = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            crate.name = "SupplyCrate";
+            crate.transform.SetParent(parent, false);
+            crate.transform.position = pos;
+            crate.transform.localScale = new Vector3(0.85f, 0.85f, 0.85f);
+            SafeDestroy(crate.GetComponent<Collider>());
+            if (mat != null) crate.GetComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+
+        public static Transform FindBoneRecursive(Transform parent, string boneName)
+        {
+            if (parent.name.IndexOf(boneName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return parent;
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Transform found = FindBoneRecursive(parent.GetChild(i), boneName);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         [ContextMenu("Clear Road")]

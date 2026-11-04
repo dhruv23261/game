@@ -1,0 +1,58 @@
+{
+  "pack": "Zombie Squad Characters Screen",
+  "reference_dimensions": [
+    1024,
+    1536
+  ],
+  "png_assets": [
+    "00_full_reference.png",
+    "01_logo.png",
+    "02_header_soldier.png",
+    "03_battlefield_header.png",
+    "04_characters_header.png",
+    "05_back_button.png",
+    "06_coin_icon.png",
+    "07_diamond_icon.png",
+    "08_plus_coin.png",
+    "09_plus_diamond.png",
+    "10_coin_bar.png",
+    "11_diamond_bar.png",
+    "12_main_showcase_panel.png",
+    "13_centered_main_soldier.png",
+    "14_glow_platform.png",
+    "15_left_arrow.png",
+    "16_right_arrow.png",
+    "17_equipped_character_card.png",
+    "18_red_character_card.png",
+    "19_yellow_character_card.png",
+    "20_purple_character_card.png",
+    "21_pink_medic_card.png",
+    "22_green_soldier_portrait.png",
+    "23_red_soldier_portrait.png",
+    "24_yellow_soldier_portrait.png",
+    "25_purple_soldier_portrait.png",
+    "26_pink_medic_portrait.png",
+    "27_equipped_button.png",
+    "28_coin_button_blank_base.png",
+    "29_gem_button_blank_base.png",
+    "30_bottom_metal_trim.png",
+    "31_left_rock_grass.png",
+    "32_right_rock_grass.png"
+  ],
+  "editable_svg_assets": [
+    "33_character_card_frame.svg",
+    "34_showcase_frame.svg",
+    "35_equipped_button.svg",
+    "36_coin_price_button.svg",
+    "37_gem_price_button.svg"
+  ],
+  "dynamic_fields": [
+    "coin balance",
+    "diamond balance",
+    "character name",
+    "character class",
+    "coin price",
+    "gem price",
+    "button label"
+  ]
+}

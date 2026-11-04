@@ -5,6 +5,7 @@ using MobControl.Core;
 using MobControl.Base;
 using MobControl.UI;
 using MobControl.Combat;
+using MobControl.Level;
 
 namespace MobControl.Crowd
 {
@@ -18,6 +19,7 @@ namespace MobControl.Crowd
     {
         [Header("Unit Settings")]
         [SerializeField] private MobTeam team = MobTeam.Player;
+        [SerializeField] private string customPoolTag = "";
         [SerializeField] private float moveSpeed = 3.5f;
         [SerializeField] private float activationSightDistance = 48.0f; // Only moves when visible on mobile screen (within 48m)
         [SerializeField] private float homingTriggerDistance = 8.0f; // Starts gradual steering only within close distance (8m)
@@ -44,9 +46,14 @@ namespace MobControl.Crowd
         private Simple3DHealthBar cached3DBar;
         private ThomasDev.HealthSystem.HealthBarUI cachedUiBar;
         private PlayerRunnerController runnerController;
+        private ChibiZombieAnimator chibiAnimator;
+        private Vector3 initialBaseScale = Vector3.one;
+        private bool hasCachedBaseScale = false;
         private static readonly WaitForSeconds s_hitFlashWait = new WaitForSeconds(0.08f);
 
-        public MobTeam Team => team;
+        public MobTeam Team { get => team; set => team = value; }
+        public void SetTeam(MobTeam newTeam) => team = newTeam;
+        public string PoolTag { get => !string.IsNullOrEmpty(customPoolTag) ? customPoolTag : (team == MobTeam.Player ? "PlayerMob" : "EnemyMob"); set => customPoolTag = value; }
         public int Health => currentHealth;
         public int MaxHealth => maxHealth;
         public bool IsDead => isDead;
@@ -59,6 +66,13 @@ namespace MobControl.Crowd
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+                rb.useGravity = false;
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            }
+
             animator = GetComponent<Animator>();
             if (animator != null)
             {
@@ -66,10 +80,11 @@ namespace MobControl.Crowd
             }
             runnerController = GetComponent<PlayerRunnerController>();
 
-            // Auto-ensure collider bounds cover the zombie's full body from feet to head
+            // Auto-ensure collider bounds cover the zombie's full body from feet to head and is solid non-trigger
             BoxCollider col = GetComponent<BoxCollider>();
             if (col != null)
             {
+                col.isTrigger = false;
                 if (col.center.y < col.size.y * 0.3f)
                 {
                     col.center = new Vector3(0, col.size.y * 0.5f, 0);
@@ -82,10 +97,20 @@ namespace MobControl.Crowd
             cachedUiBar = GetComponentInChildren<ThomasDev.HealthSystem.HealthBarUI>(true);
 
             if (activationSightDistance < 45.0f) activationSightDistance = 48.0f;
+            if (!hasCachedBaseScale)
+            {
+                initialBaseScale = transform.localScale;
+                hasCachedBaseScale = true;
+            }
+            chibiAnimator = GetComponent<ChibiZombieAnimator>();
         }
 
         private void OnEnable()
         {
+            if (hasCachedBaseScale)
+            {
+                transform.localScale = initialBaseScale;
+            }
             isDead = false;
             isAttacking = false;
             hasBeenAlerted = false;
@@ -173,7 +198,7 @@ namespace MobControl.Crowd
                 }
             }
 
-            // Zombie AI (Sight Detection, Gate Barrier & Lane Homing)
+            // Zombie AI (Sight Detection, Gate Barrier & Direct Player Tracking)
             if (team == MobTeam.Enemy)
             {
                 if (ZombieRunnerUIManager.Instance != null && !ZombieRunnerUIManager.Instance.IsGameActive)
@@ -187,50 +212,124 @@ namespace MobControl.Crowd
                     Vector3 playerPos = PlayerRunnerController.Instance.transform.position;
                     float dz = transform.position.z - playerPos.z;
 
-                // If the player runner has safely run past this zombie, stop the zombie
-                if (dz < -2.0f)
-                {
-                    if (animator != null) animator.SetBool("isMoving", false);
+                    // If the zombie has been left behind the player (player ran past), despawn if too far back.
+                    // Otherwise, the zombie should turn around and chase the player forward (+Z).
+                    if (dz <= 0.0f)
+                    {
+                        // Clean up zombies that are far behind the player — they will never catch up
+                        if (dz < -18.0f)
+                        {
+                            if (ObjectPooler.Instance != null && ObjectPooler.Instance.HasPool(PoolTag))
+                            {
+                                ObjectPooler.Instance.ReturnToPool(PoolTag, gameObject);
+                            }
+                            else
+                            {
+                                Destroy(gameObject);
+                            }
+                            return;
+                        }
+
+                        // Zombie is slightly behind — chase the player forward (+Z) instead of going backward
+                        float chaseSpeed = moveSpeed;
+                        if (PlayerRunnerController.Instance != null)
+                        {
+                            chaseSpeed *= PlayerRunnerController.Instance.GlobalZombieSpeedMultiplier;
+                        }
+                        if (EndlessRoadManager.Instance != null && EndlessRoadManager.Instance.IsMoving)
+                        {
+                            chaseSpeed += EndlessRoadManager.Instance.RoadSpeed;
+                        }
+
+                        Vector3 toPlayerDir = (playerPos - transform.position);
+                        toPlayerDir.y = 0f;
+                        if (toPlayerDir == Vector3.zero) toPlayerDir = Vector3.forward;
+                        toPlayerDir = toPlayerDir.normalized;
+
+                        Quaternion chaseRot = Quaternion.LookRotation(toPlayerDir, Vector3.up);
+                        transform.rotation = Quaternion.Slerp(transform.rotation, chaseRot, Time.deltaTime * 10.0f);
+                        transform.position += toPlayerDir * (chaseSpeed * Time.deltaTime);
+                        if (animator != null) animator.SetBool("isMoving", true);
+                        return;
+                    }
+
+                    // 1. Melee Bite Range
+                    float distToPlayer = Vector3.Distance(transform.position, playerPos);
+                    if (distToPlayer <= attackRange)
+                    {
+                        StartAttackingPlayer(PlayerRunnerController.Instance);
+                        return;
+                    }
+
+                    // 2. Direct Movement Towards Player (Face directly towards approaching player)
+                    Vector3 toPlayer = playerPos - transform.position;
+                    toPlayer.y = 0f; // Fix Y-axis level so zombies never tilt or flip vertically
+
+                    // Enforce that zombies always advance towards the approaching player along -Z
+                    if (toPlayer.z >= -0.1f) toPlayer.z = -0.5f;
+
+                    Vector3 moveDir = toPlayer.normalized;
+
+                    float currentSpeed = moveSpeed;
+                    if (PlayerRunnerController.Instance != null)
+                    {
+                        currentSpeed *= PlayerRunnerController.Instance.GlobalZombieSpeedMultiplier;
+                    }
+
+                    // Add road rushing speed so the zombie advances firmly forward on the road surface towards player
+                    if (EndlessRoadManager.Instance != null && EndlessRoadManager.Instance.IsMoving)
+                    {
+                        currentSpeed += EndlessRoadManager.Instance.RoadSpeed;
+                    }
+
+                    // Dynamic Obstacle Steer: if an obstacle/container is directly in front, steer around it along X
+                    float stepDist = currentSpeed * Time.deltaTime;
+                    Vector3 checkOrigin = transform.position + Vector3.up * 0.5f;
+                    if (Physics.SphereCast(checkOrigin, 0.28f, moveDir, out RaycastHit obsHit, stepDist + 0.35f, ~0, QueryTriggerInteraction.Ignore))
+                    {
+                        if (obsHit.collider != null && !obsHit.collider.transform.IsChildOf(transform) && obsHit.collider.gameObject != gameObject)
+                        {
+                            if (obsHit.collider.GetComponentInParent<MobControl.Level.RoadObstacle>() != null ||
+                                obsHit.collider.name.Contains("Obstacle") ||
+                                obsHit.collider.name.Contains("Container") ||
+                                obsHit.collider.name.Contains("Barricade"))
+                            {
+                                // Steer left or right towards open road corridor, never freezing
+                                float dodgeSign = (transform.position.x >= obsHit.collider.bounds.center.x) ? 1.0f : -1.0f;
+                                if (Mathf.Abs(transform.position.x) > 2.5f) dodgeSign = -Mathf.Sign(transform.position.x); // Keep inside road
+                                moveDir = new Vector3(dodgeSign * 0.7f, 0f, -0.7f).normalized;
+                            }
+                        }
+                    }
+
+                    // Enforce strictly negative Z movement direction (towards player)
+                    if (moveDir.z >= 0f) moveDir.z = -0.1f;
+                    moveDir = moveDir.normalized;
+
+                    // Smooth rotation towards movement direction (always facing forward towards player)
+                    Quaternion targetRot = Quaternion.LookRotation(moveDir, Vector3.up);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 14.0f);
+
+                    transform.position += moveDir * (currentSpeed * Time.deltaTime);
+                    if (animator != null) animator.SetBool("isMoving", true);
                     return;
                 }
-
-                // 1. Sight Activation: Don't move until player comes within visible mobile screen range (or alerted by bullet)
-                if (!hasBeenAlerted && dz > activationSightDistance)
+                else
                 {
-                    if (animator != null) animator.SetBool("isMoving", false);
-                    return;
-                }
-
-                // 2. Gate Barrier: Stop behind unbroken Destructible Gates
-                if (CheckBlockedByGate())
-                {
-                    if (animator != null) animator.SetBool("isMoving", false);
-                    return;
-                }
-
-                if (animator != null) animator.SetBool("isMoving", true);
-
-                // 3. Close Range Homing: Smoothly steer X towards player's lane when within 8m
-                if (dz > -0.5f && dz <= homingTriggerDistance)
-                {
-                    float proximityWeight = Mathf.Clamp01(1.0f - (dz / homingTriggerDistance));
-                    float currentSteerRate = Mathf.Lerp(0.8f, steerSpeed, proximityWeight);
-
-                    Vector3 pos = transform.position;
-                    pos.x = Mathf.MoveTowards(pos.x, playerPos.x, currentSteerRate * Time.deltaTime);
-                    transform.position = pos;
-                }
-
-                // 4. Melee Bite Range
-                float distToPlayer = Vector3.Distance(transform.position, playerPos);
-                if (distToPlayer <= attackRange)
-                {
-                    StartAttackingPlayer(PlayerRunnerController.Instance);
+                    // Fallback when player is dead or not yet instantiated: move along -Z
+                    float fallbackSpeed = moveSpeed;
+                    if (EndlessRoadManager.Instance != null && EndlessRoadManager.Instance.IsMoving)
+                    {
+                        fallbackSpeed += EndlessRoadManager.Instance.RoadSpeed;
+                    }
+                    Quaternion targetRot = Quaternion.LookRotation(Vector3.back, Vector3.up);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 10.0f);
+                    transform.position += Vector3.back * (fallbackSpeed * Time.deltaTime);
+                    if (animator != null) animator.SetBool("isMoving", true);
                     return;
                 }
             }
-        }
-        else if (team == MobTeam.Player)
+            else if (team == MobTeam.Player)
             {
                 if (CheckBlockedByGate())
                 {
@@ -239,16 +338,8 @@ namespace MobControl.Crowd
                 }
 
                 if (animator != null) animator.SetBool("isMoving", true);
+                transform.Translate(Vector3.forward * moveSpeed * Time.deltaTime, Space.World);
             }
-
-            // Normal forward movement along track
-            Vector3 direction = team == MobTeam.Player ? Vector3.forward : Vector3.back;
-            float currentSpeed = moveSpeed;
-            if (team == MobTeam.Enemy && PlayerRunnerController.Instance != null)
-            {
-                currentSpeed *= PlayerRunnerController.Instance.GlobalZombieSpeedMultiplier;
-            }
-            transform.Translate(direction * currentSpeed * Time.deltaTime, Space.World);
         }
 
         private void StartAttackingPlayer(PlayerRunnerController player)
@@ -263,6 +354,11 @@ namespace MobControl.Crowd
             {
                 animator.SetBool("isAttacking", true);
                 animator.SetTrigger("attackTrigger");
+            }
+
+            if (team == MobTeam.Enemy && MobControl.Audio.ZombieSoundManager.Instance != null)
+            {
+                MobControl.Audio.ZombieSoundManager.Instance.PlayZombieGroan();
             }
         }
 
@@ -309,7 +405,8 @@ namespace MobControl.Crowd
 
                 Vector3 gatePos = gate.transform.position;
                 float dx = Mathf.Abs(mobPos.x - gatePos.x);
-                if (dx > 1.35f) continue; // In another lane, not blocked by this gate
+                float halfW = (gate.GateWidth > 0f ? gate.GateWidth : 2.3f) * 0.5f + 0.25f;
+                if (dx > halfW) continue; // Not blocked if outside the gate width bounds
 
                 if (team == MobTeam.Enemy)
                 {
@@ -370,6 +467,7 @@ namespace MobControl.Crowd
         }
 
         public event System.Action<int, int> OnMobHealthChanged;
+        public event System.Action<MobUnit> OnMobDied;
 
         public void TakeDamage(int damage)
         {
@@ -402,8 +500,17 @@ namespace MobControl.Crowd
                 }
             }
 
-            // Small hit punch scale effect
-            StartCoroutine(HitFlashEffect());
+            // Lock scale to original base scale so enemies NEVER grow or balloon when shot
+            if (hasCachedBaseScale)
+            {
+                transform.localScale = initialBaseScale;
+            }
+
+            // Material color hit flash (no scale changes!)
+            if (chibiAnimator != null)
+            {
+                chibiAnimator.PlayHitFlash();
+            }
 
             if (currentHealth <= 0)
             {
@@ -411,25 +518,25 @@ namespace MobControl.Crowd
             }
         }
 
-        private IEnumerator HitFlashEffect()
-        {
-            Vector3 origScale = transform.localScale;
-            transform.localScale = origScale * 1.15f;
-            yield return s_hitFlashWait;
-            transform.localScale = origScale;
-        }
-
         private void Die()
         {
             if (isDead) return;
             isDead = true;
 
+            OnMobDied?.Invoke(this);
+
+            if (team == MobTeam.Enemy && MobControl.Audio.ZombieSoundManager.Instance != null)
+            {
+                bool isBoss = maxHealth >= 30 || gameObject.name.Contains("Boss");
+                MobControl.Audio.ZombieSoundManager.Instance.PlayZombieDie(isBoss);
+            }
+
             // Hide floating health bar
             if (cachedUiBar != null) cachedUiBar.Hide();
             if (cached3DBar != null) cached3DBar.gameObject.SetActive(false);
 
-            string poolTag = team == MobTeam.Player ? "PlayerMob" : "EnemyMob";
-            if (ObjectPooler.Instance != null)
+            string poolTag = PoolTag;
+            if (ObjectPooler.Instance != null && ObjectPooler.Instance.HasPool(poolTag))
             {
                 ObjectPooler.Instance.ReturnToPool(poolTag, gameObject);
             }

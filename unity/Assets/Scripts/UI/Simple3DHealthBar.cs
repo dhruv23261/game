@@ -42,9 +42,7 @@ namespace MobControl.UI
 
             if (s_unlitShader == null)
             {
-                s_unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
-                if (s_unlitShader == null)
-                    s_unlitShader = Shader.Find("Unlit/Color");
+                s_unlitShader = Shader.Find("Unlit/Color") ?? Shader.Find("Sprites/Default") ?? Shader.Find("Standard");
             }
 
             if (s_sharedBgMat == null && s_unlitShader != null)
@@ -58,6 +56,9 @@ namespace MobControl.UI
             if (s_sharedFillMat == null && s_unlitShader != null)
             {
                 s_sharedFillMat = new Material(s_unlitShader);
+                s_sharedFillMat.color = fullColor;
+                if (s_sharedFillMat.HasProperty("_BaseColor"))
+                    s_sharedFillMat.SetColor("_BaseColor", fullColor);
             }
 
             if (s_propBlock == null)
@@ -149,6 +150,7 @@ namespace MobControl.UI
 
             if (fillRend != null)
             {
+                if (s_propBlock == null) s_propBlock = new MaterialPropertyBlock();
                 Color barColor = Color.Lerp(lowColor, fullColor, ratio);
                 s_propBlock.SetColor("_BaseColor", barColor);
                 s_propBlock.SetColor("_Color", barColor);

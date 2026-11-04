@@ -3,6 +3,7 @@ using TMPro;
 using MobControl.Core;
 using MobControl.Crowd;
 using MobControl.Combat;
+using MobControl.UI;
 
 namespace MobControl.Gates
 {
@@ -108,14 +109,22 @@ namespace MobControl.Gates
             }
         }
 
+        private bool isTriggered = false;
+
         private void OnTriggerEnter(Collider other)
         {
-            // 1. Check Player Runner (spawns squad allies)
+            if (isTriggered) return;
+
+            // 1. Check Player Runner (spawns squad allies & applies gun speed upgrade)
             PlayerRunnerController runner = other.GetComponentInParent<PlayerRunnerController>();
             if (runner != null && runner == PlayerRunnerController.Instance)
             {
-                if (runner.HasPassedGate(gateInstanceId)) return;
+                isTriggered = true;
                 runner.MarkGatePassed(gateInstanceId);
+
+                // Gun speed upgrade
+                float gunMult = (operation == GateOperation.Multiply) ? Mathf.Max(2f, (float)value) : 2f;
+                runner.ApplyGunSpeedMultiplier(gunMult);
 
                 int currentSquad = runner.TotalSquadSize;
                 int targetSquad = (operation == GateOperation.Multiply)
@@ -123,6 +132,21 @@ namespace MobControl.Gates
                     : (currentSquad + value);
                 int alliesToSpawn = Mathf.Max(0, targetSquad - currentSquad);
                 runner.SpawnSquadAllies(alliesToSpawn);
+
+                if (ZombieRunnerUIManager.Instance != null)
+                {
+                    string symbol = operation == GateOperation.Multiply ? "×" : "+";
+                    ZombieRunnerUIManager.Instance.ShowMultiplierPop($"{symbol}{value}");
+                }
+
+                if (MobControl.Audio.ZombieSoundManager.Instance != null)
+                {
+                    MobControl.Audio.ZombieSoundManager.Instance.PlayGatePass();
+                }
+
+                // Immediately disable and remove this gate from the scene
+                gameObject.SetActive(false);
+                Destroy(gameObject);
                 return;
             }
 

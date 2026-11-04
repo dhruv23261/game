@@ -10,7 +10,7 @@ namespace MobControl.Combat
     public class BulletProjectile : MonoBehaviour
     {
         [Header("Bullet Settings")]
-        [SerializeField] private float speed = 75.0f;
+        [SerializeField] private float speed = 48.0f;
         [SerializeField] private int damage = 3;
         [SerializeField] private float maxDistance = 75.0f;
         [SerializeField] private float lifeTime = 2.0f;
@@ -25,28 +25,105 @@ namespace MobControl.Combat
         private HashSet<int> passedGateIds = new HashSet<int>();
         private bool isAlive = false;
 
+        private static Material s_cachedTracerMat;
+
+        private void Awake()
+        {
+            EnsureTracerMaterial();
+            EnsureVisualOrientation();
+        }
+
+        private void EnsureVisualOrientation()
+        {
+            Transform vChild = transform.Find("Visual_9mmBullet");
+            if (vChild != null)
+            {
+                vChild.localRotation = Quaternion.identity;
+                vChild.localPosition = new Vector3(0f, 0f, 0.11f);
+            }
+        }
+
+        private void EnsureTracerMaterial()
+        {
+            TrailRenderer tr = GetComponent<TrailRenderer>();
+            if (tr == null) return;
+
+            if (tr.sharedMaterial == null || tr.sharedMaterial.shader == null || tr.sharedMaterial.shader.name == "Hidden/InternalErrorShader")
+            {
+                if (s_cachedTracerMat == null)
+                {
+                    Shader s = Shader.Find("ZombieSquad/BulletTracerTrail")
+                        ?? Shader.Find("Universal Render Pipeline/Unlit")
+                        ?? Shader.Find("Mobile/Particles/Additive")
+                        ?? Shader.Find("Unlit/Color");
+
+                    s_cachedTracerMat = new Material(s);
+                    s_cachedTracerMat.name = "Runtime_TracerMat";
+                    s_cachedTracerMat.color = Color.white;
+                    s_cachedTracerMat.SetColor("_TintColor", new Color(1.0f, 0.88f, 0.38f, 1.0f));
+                    s_cachedTracerMat.SetFloat("_Intensity", 2.2f);
+#if UNITY_EDITOR
+                    Texture2D tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/tex_bullet_tracer_strip.png");
+                    if (tex != null) s_cachedTracerMat.mainTexture = tex;
+#endif
+                }
+                tr.sharedMaterial = s_cachedTracerMat;
+            }
+        }
+
+        // Distinctive Bullet Colors:
+        // During Gun Boost: Glowing Cyber Purple (#CD29FF)
+        // Default / Post-Boost: Classic Golden Yellow (#FFE060)
+        private static readonly Color PurpleBoostColor = new Color(0.80f, 0.16f, 1.0f, 1.0f);
+        private static readonly Color DefaultGoldColor = new Color(1.0f, 0.88f, 0.38f, 1.0f);
+
         private void OnEnable()
         {
+            EnsureTracerMaterial();
+            EnsureVisualOrientation();
             spawnPosition = transform.position;
             spawnTime = Time.time;
             distanceTraveled = 0f;
             passedGateIds.Clear();
             isAlive = true;
 
-            int bonusDamage = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Damage", 0);
-            damage = 6 + bonusDamage;
+            // Check if active Gun Boost is running
+            bool isUpgraded = (PlayerRunnerController.Instance != null && PlayerRunnerController.Instance.HasGunUpgrade);
+            Color bulletColor = isUpgraded ? PurpleBoostColor : DefaultGoldColor;
+            speed = isUpgraded ? 58.0f : 48.0f; // Rapid laser velocity for upgraded gun
 
-            string weapon = PlayerPrefs.GetString("ZombieSquad_SelectedWeapon", "AssaultRifle");
-            int wepDmg = PlayerPrefs.GetInt($"ZombieSquad_Wep_{weapon}_Damage", 0);
-            damage += wepDmg;
-            if (weapon == "Sniper") damage += 4;
-            else if (weapon == "Shotgun") damage += 3;
+            TrailRenderer tr = GetComponent<TrailRenderer>();
+            if (tr != null)
+            {
+                tr.Clear();
+                tr.startColor = bulletColor;
+                tr.endColor = new Color(bulletColor.r, bulletColor.g, bulletColor.b, 0.04f);
+                tr.time = isUpgraded ? 0.13f : 0.08f;
+                tr.startWidth = isUpgraded ? 0.22f : 0.15f;
+                tr.endWidth = 0.02f;
+            }
+
+            // Tint the 3D bullet mesh itself with glowing neon emission
+            Renderer bulletRend = GetComponentInChildren<Renderer>();
+            if (bulletRend != null)
+            {
+                MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+                bulletRend.GetPropertyBlock(mpb);
+                mpb.SetColor("_Color", bulletColor);
+                mpb.SetColor("_BaseColor", bulletColor);
+                mpb.SetColor("_EmissionColor", bulletColor * (isUpgraded ? 2.5f : 1.2f));
+                bulletRend.SetPropertyBlock(mpb);
+            }
+
+            // Base bullet damage = 1 so exact bullet counts match design:
+            // Green Zombie = 5 bullets, Red Zombie = 8 bullets, Container = 30 bullets, Boss = 60 bullets
+            damage = 1;
 
             // Standardized reach & speed: guaranteed to reach any visible gate or enemy rapidly
+            string weapon = PlayerPrefs.GetString("ZombieSquad_SelectedWeapon", "M41D");
             float rangeBonus = PlayerPrefs.GetInt($"ZombieSquad_Wep_{weapon}_Range", 0) * 4.0f;
             if (maxDistance < 70.0f) maxDistance = 75.0f;
             maxDistance += rangeBonus;
-            speed = 75.0f;
             if (lifeTime < 1.8f) lifeTime = 2.0f;
 
             if (overrideVisualScale)
@@ -70,15 +147,18 @@ namespace MobControl.Combat
             Vector3 currentPos = transform.position;
             Vector3 moveDir = Vector3.forward;
 
-            // Generous 0.65m radius sweep check (1.3m diameter)
-            // Reliably hits any upcoming zombies directly in the runner's lane
-            int hitCount = Physics.SphereCastNonAlloc(currentPos, 0.65f, moveDir, s_sweepHits, stepDistance, ~0, QueryTriggerInteraction.Collide);
+            // 0.22m radius sweep check (accurate bullet trajectory down active lane)
+            int hitCount = Physics.SphereCastNonAlloc(currentPos, 0.22f, moveDir, s_sweepHits, stepDistance, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < hitCount; i++)
             {
                 RaycastHit hit = s_sweepHits[i];
                 if (hit.collider == null) continue;
+                if (hit.collider.CompareTag("Player") || 
+                    hit.collider.GetComponentInParent<PlayerSquadAlly>() != null || 
+                    (PlayerRunnerController.Instance != null && hit.collider.transform.IsChildOf(PlayerRunnerController.Instance.transform))) 
+                    continue;
 
-                // Hit Enemy Mob
+                // 1. Hit Enemy Mob
                 MobUnit enemyMob = hit.collider.GetComponentInParent<MobUnit>();
                 if (enemyMob != null && enemyMob.Team == MobTeam.Enemy && enemyMob.Health > 0)
                 {
@@ -87,7 +167,7 @@ namespace MobControl.Combat
                     return;
                 }
 
-                // Hit Destructible Gate
+                // 2. Hit Destructible Gate
                 DestructibleGate dGate = hit.collider.GetComponentInParent<DestructibleGate>();
                 if (dGate != null && !dGate.IsBroken)
                 {
@@ -96,7 +176,7 @@ namespace MobControl.Combat
                     return;
                 }
 
-                // Pass through Multiplier Gate
+                // 3. Pass through Multiplier Gate
                 MultiplierGate gate = hit.collider.GetComponentInParent<MultiplierGate>();
                 if (gate != null)
                 {
@@ -107,6 +187,25 @@ namespace MobControl.Combat
                         int count = (gate.Operation == GateOperation.Multiply) ? Mathf.Max(1, gate.Value - 1) : gate.Value;
                         SpawnClonedBullets(gateId, count);
                     }
+                    continue;
+                }
+
+                // 4. Hit Solid Obstacle (Container, Barricade, or non-trigger obstacle) - Stop and Destroy!
+                bool isGroundOrRoad = hit.collider.name.IndexOf("Road", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      hit.collider.name.IndexOf("Ground", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      hit.collider.name.IndexOf("Floor", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      hit.collider.name.IndexOf("Plane", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      hit.collider.name.IndexOf("Terrain", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (!isGroundOrRoad && (
+                    hit.collider.GetComponentInParent<MobControl.Level.RoadObstacle>() != null ||
+                    hit.collider.name.Contains("Barricade") ||
+                    hit.collider.name.Contains("Container") ||
+                    hit.collider.name.Contains("Obstacle") ||
+                    (!hit.collider.isTrigger && hit.collider.GetComponentInParent<MobUnit>() == null)))
+                {
+                    ReturnToPool();
+                    return;
                 }
             }
 
@@ -130,11 +229,25 @@ namespace MobControl.Combat
                 Destroy(gameObject);
         }
 
+        private void OnCollisionEnter(Collision collision)
+        {
+            HandleTriggerOrCollision(collision.collider);
+        }
+
         private void OnTriggerEnter(Collider other)
         {
-            if (!isAlive) return;
+            HandleTriggerOrCollision(other);
+        }
 
-            // Hit Enemy Zombie
+        private void HandleTriggerOrCollision(Collider other)
+        {
+            if (!isAlive || other == null) return;
+            if (other.CompareTag("Player") || 
+                other.GetComponentInParent<PlayerSquadAlly>() != null || 
+                (PlayerRunnerController.Instance != null && other.transform.IsChildOf(PlayerRunnerController.Instance.transform))) 
+                return;
+
+            // 1. Hit Enemy Zombie
             MobUnit enemyMob = other.GetComponentInParent<MobUnit>();
             if (enemyMob != null && enemyMob.Team == MobTeam.Enemy && enemyMob.Health > 0)
             {
@@ -143,7 +256,7 @@ namespace MobControl.Combat
                 return;
             }
 
-            // Hit Destructible Gate
+            // 2. Hit Destructible Gate
             DestructibleGate dGate = other.GetComponentInParent<DestructibleGate>();
             if (dGate != null && !dGate.IsBroken)
             {
@@ -152,9 +265,9 @@ namespace MobControl.Combat
                 return;
             }
 
-            // Pass through Multiplier Gate
-            MultiplierGate gate;
-            if (other.TryGetComponent<MultiplierGate>(out gate))
+            // 3. Pass through Multiplier Gate
+            MultiplierGate gate = other.GetComponentInParent<MultiplierGate>();
+            if (gate != null)
             {
                 int gateId = gate.GateInstanceId;
                 if (!passedGateIds.Contains(gateId))
@@ -163,6 +276,25 @@ namespace MobControl.Combat
                     int count = (gate.Operation == GateOperation.Multiply) ? Mathf.Max(1, gate.Value - 1) : gate.Value;
                     SpawnClonedBullets(gateId, count);
                 }
+                return;
+            }
+
+            // 4. Hit Solid Obstacle (Container, Barricade, or non-trigger obstacle) - Stop and Destroy!
+            bool isGroundOrRoad = other.name.IndexOf("Road", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                  other.name.IndexOf("Ground", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                  other.name.IndexOf("Floor", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                  other.name.IndexOf("Plane", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                  other.name.IndexOf("Terrain", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (!isGroundOrRoad && (
+                other.GetComponentInParent<MobControl.Level.RoadObstacle>() != null ||
+                other.name.Contains("Barricade") ||
+                other.name.Contains("Container") ||
+                other.name.Contains("Obstacle") ||
+                (!other.isTrigger && other.GetComponentInParent<MobUnit>() == null)))
+            {
+                ReturnToPool();
+                return;
             }
         }
 

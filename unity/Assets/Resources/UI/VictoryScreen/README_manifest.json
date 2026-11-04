@@ -1,0 +1,34 @@
+{
+  "asset_pack": "Zombie Squad Mission Cleared / Victory UI",
+  "source_dimensions": [
+    1086,
+    1448
+  ],
+  "file_format": "PNG",
+  "assets": [
+    "00_full_victory_reference.png",
+    "01_zombie_squad_logo.png",
+    "02_victory_soldier_character.png",
+    "03_mission_cleared_banner.png",
+    "04_main_victory_panel.png",
+    "05_perfect_run_text.png",
+    "06_star_one.png",
+    "07_star_two.png",
+    "08_star_three.png",
+    "09_three_stars_group.png",
+    "10_coin_reward_badge.png",
+    "11_coin_stack_icon.png",
+    "12_next_level_button.png",
+    "13_next_level_play_icon.png",
+    "14_replay_mission_button.png",
+    "15_replay_icon.png",
+    "16_mission_menu_button.png",
+    "17_home_icon.png",
+    "18_left_panel_corner_rock_grass.png",
+    "19_right_panel_corner_rock_grass.png",
+    "20_left_hazard_border.png",
+    "21_right_hazard_border.png",
+    "22_dimmed_road_background.png"
+  ],
+  "note": "Individually cropped from a flattened reference image. Some crops retain surrounding background or overlapping artwork; they are not all clean transparent sprites."
+}

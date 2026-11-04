@@ -74,3 +74,5 @@ Thumbs.db
 **/_Recovery/
 _Recovery/
 
+*.log
+*.zip

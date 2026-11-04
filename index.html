@@ -1,0 +1,2089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <title>Zombie Squad - Unified Responsive Game Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900;1000&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #facc15;
+      --gold-dark: #ca8a04;
+      --gem: #38bdf8;
+      --gem-dark: #0284c7;
+      --bg-dark: #070d19;
+      --card-bg: linear-gradient(165deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+      --card-border: rgba(148, 163, 184, 0.22);
+      --green-btn: linear-gradient(180deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+      --blue-btn: linear-gradient(180deg, #38bdf8 0%, #0284c7 50%, #0369a1 100%);
+      --yellow-btn: linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+      --red-btn: linear-gradient(180deg, #f87171 0%, #ef4444 50%, #b91c1c 100%);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #020617;
+      font-family: 'Fredoka One', cursive;
+      color: #fff;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Responsive Game Frame ── */
+    .game-wrapper {
+      position: relative;
+      width: min(100vw, calc(100vh * 9 / 16));
+      height: 100vh;
+      max-width: 520px;
+      margin: 0 auto;
+      overflow: hidden;
+      background: var(--bg-dark);
+      box-shadow: 0 0 60px rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Persistent Top HUD (Same layout everywhere) ── */
+    .top-hud {
+      position: relative;
+      height: clamp(56px, 7.5vh, 68px);
+      min-height: 56px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      z-index: 100;
+      background: linear-gradient(180deg, rgba(7, 13, 25, 0.98) 0%, rgba(11, 19, 36, 0.92) 100%);
+      border-bottom: 2px solid rgba(255,255,255,0.08);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    }
+
+    .hud-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-back-hud {
+      height: clamp(34px, 4.4vh, 40px);
+      padding: 0 12px;
+      background: var(--red-btn);
+      border: 1.5px solid #fca5a5;
+      border-radius: 12px;
+      color: #fff;
+      font-size: clamp(0.78rem, 2vmin, 0.92rem);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+      transition: transform 0.1s;
+    }
+    .btn-back-hud:active { transform: scale(0.92); }
+
+    .hud-screen-title {
+      font-size: clamp(0.95rem, 2.5vmin, 1.25rem);
+      color: #facc15;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+      white-space: nowrap;
+    }
+
+    .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .currency-pill {
+      height: clamp(32px, 4.2vh, 38px);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1.5px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      padding: 2px 4px 2px 8px;
+      gap: 5px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+    }
+    .currency-pill .c-icon {
+      font-size: clamp(0.95rem, 2.2vmin, 1.15rem);
+      line-height: 1;
+    }
+    .currency-pill .c-val {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 900;
+      font-size: clamp(0.8rem, 2vmin, 0.95rem);
+      color: #fff;
+      min-width: 44px;
+    }
+    .currency-pill .c-add {
+      width: clamp(22px, 2.8vh, 26px);
+      height: clamp(22px, 2.8vh, 26px);
+      background: var(--green-btn);
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 900;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .currency-pill .c-add:active { transform: scale(0.85); }
+
+    .btn-fb-toggle {
+      height: clamp(32px, 4.2vh, 38px);
+      padding: 0 8px;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1.5px solid var(--gold);
+      border-radius: 999px;
+      color: var(--gold);
+      font-size: clamp(0.68rem, 1.7vmin, 0.8rem);
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: transform 0.1s;
+    }
+    .btn-fb-toggle:active { transform: scale(0.92); }
+
+    /* ── Main Content Area ── */
+    .screens-container {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .screen.active {
+      display: flex;
+    }
+
+    /* ── Fallback Overlay View ── */
+    .screen-fallback {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      display: none;
+      z-index: 50;
+    }
+    .screen-fallback img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .fallback-mode .screen-fallback {
+      display: block;
+    }
+
+    /* ── Scrollable Body for Sub-Screens ── */
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px 14px 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screen-scroll::-webkit-scrollbar { width: 4px; }
+    .screen-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
+
+    /* ── Universal Card Styling ── */
+    .game-card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1.5px solid rgba(255,255,255,0.08);
+      padding-bottom: 8px;
+    }
+    .card-title {
+      font-size: clamp(0.95rem, 2.4vmin, 1.15rem);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-subtitle {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.76rem;
+      color: #94a3b8;
+      font-weight: 700;
+    }
+
+    /* ── Universal Tab System ── */
+    .game-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(11, 19, 36, 0.85);
+      padding: 4px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .tab-pill {
+      flex: 1;
+      padding: 7px 4px;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      color: #94a3b8;
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(0.72rem, 1.9vmin, 0.88rem);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .tab-pill.active {
+      background: var(--blue-btn);
+      color: #fff;
+      box-shadow: 0 3px 8px rgba(2, 132, 199, 0.5);
+    }
+
+    /* ── Universal Action Buttons ── */
+    .btn-game {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: none;
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(0.82rem, 2.1vmin, 0.98rem);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .btn-game:active { transform: translateY(3px) scale(0.96); }
+    .btn-game.green {
+      background: var(--green-btn);
+      border-bottom: 3px solid #14532d;
+    }
+    .btn-game.yellow {
+      background: var(--yellow-btn);
+      color: #78350f;
+      border-bottom: 3px solid #b45309;
+    }
+    .btn-game.blue {
+      background: var(--blue-btn);
+      border-bottom: 3px solid #075985;
+    }
+    .btn-game:disabled {
+      background: #475569 !important;
+      border-color: #334155 !important;
+      color: #94a3b8 !important;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ── Universal Stat Progress Bar ── */
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0;
+    }
+    .stat-meta {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .stat-label-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .stat-val-badge {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 900;
+      font-size: 0.76rem;
+      color: var(--gold);
+    }
+    .stat-track {
+      height: 12px;
+      background: rgba(11, 19, 36, 0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .stat-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+      border-radius: 999px;
+      transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ========================================== */
+    /* SCREEN 1: HOME SCREEN                      */
+    /* ========================================== */
+    #screenHome {
+      position: absolute;
+      inset: 0;
+    }
+    .home-bg-clean {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center bottom;
+      pointer-events: none;
+    }
+
+    .home-logo-wrap {
+      position: absolute;
+      top: clamp(16px, 3vh, 32px);
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .home-logo-img {
+      width: clamp(260px, 66vw, 380px);
+      max-height: 135px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,0.65));
+      animation: floatLogo 3s ease-in-out infinite;
+    }
+    @keyframes floatLogo {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .home-side-col {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-44%);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(12px, 2vh, 20px);
+      z-index: 20;
+    }
+    .home-side-col.left { left: clamp(10px, 3vw, 18px); }
+    .home-side-col.right { right: clamp(10px, 3vw, 18px); }
+
+    .home-icon-btn {
+      width: clamp(66px, 16vw, 88px);
+      height: clamp(58px, 14vw, 78px);
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .home-icon-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6));
+    }
+    .home-icon-btn:hover { transform: scale(1.08); }
+    .home-icon-btn:active { transform: scale(0.92); }
+
+    .home-bottom-cta {
+      position: absolute;
+      bottom: clamp(22px, 5vh, 44px);
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 20;
+    }
+    .btn-play-cta {
+      width: clamp(240px, 66vw, 340px);
+      height: clamp(74px, 11vh, 96px);
+      cursor: pointer;
+      transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation: playBreath 2.2s ease-in-out infinite;
+    }
+    .btn-play-cta img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 20px rgba(0,0,0,0.65));
+    }
+    .btn-play-cta:active { transform: scale(0.92); }
+    @keyframes playBreath {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.035); }
+    }
+
+    /* ── Home Hero Showcase Interactive Stage ── */
+    .home-hero-stage {
+      position: absolute;
+      bottom: clamp(100px, 14.5vh, 145px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: clamp(180px, 45vw, 250px);
+      height: clamp(220px, 32vh, 320px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hero-hit-target {
+      width: 100%;
+      height: 100%;
+      border-radius: 28px;
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+    }
+    .home-hero-stage:active .hero-hit-target {
+      transform: scale(0.94);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ========================================== */
+    /* SCREEN 2: WEAPONS SCREEN (REFINED LAYOUT)  */
+    /* ========================================== */
+    .weapon-stage-card {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 1.5px solid rgba(56, 189, 248, 0.3);
+      border-radius: 18px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    .weapon-carousel-nav {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .btn-carousel-arrow {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    .btn-carousel-arrow:active { transform: scale(0.9); }
+
+    .weapon-stage-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin: -10px 0 6px;
+    }
+    .weapon-preview-img {
+      width: clamp(140px, 34vw, 190px);
+      height: clamp(80px, 18vw, 110px);
+      object-fit: contain;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.7));
+      transition: transform 0.3s;
+    }
+    .weapon-preview-img:hover { transform: scale(1.06) rotate(-2deg); }
+
+    .weapon-name-tag {
+      font-size: clamp(1.1rem, 3vmin, 1.4rem);
+      color: #fff;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+    .weapon-type-tag {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      font-weight: 800;
+    }
+
+    /* Weapon Selector Strip (Bottom of Weapons) */
+    .weapon-grid-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .wep-mini-card {
+      background: #1e293b;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .wep-mini-card.active {
+      border-color: #38bdf8;
+      background: linear-gradient(160deg, #1e3a5f 0%, #0f172a 100%);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+    }
+    .wep-mini-card .wep-mini-icon {
+      font-size: 1.4rem;
+    }
+    .wep-mini-card .wep-mini-name {
+      font-size: 0.68rem;
+      white-space: nowrap;
+    }
+
+    /* ========================================== */
+    /* SCREEN 3: SHOP SCREEN (REFINED COIN & GEMS) */
+    /* ========================================== */
+    .shop-packs-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .shop-pack-card {
+      background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+      border: 1.5px solid rgba(250, 204, 21, 0.25);
+      border-radius: 14px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      position: relative;
+    }
+    .shop-pack-card.featured {
+      border-color: var(--gold);
+      box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
+    }
+    .shop-pack-badge {
+      position: absolute;
+      top: -8px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #fff;
+    }
+    .shop-pack-icon {
+      font-size: clamp(1.8rem, 4.5vmin, 2.4rem);
+      line-height: 1;
+      margin: 4px 0;
+    }
+    .shop-pack-title {
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+    .shop-pack-amount {
+      font-family: 'Nunito', sans-serif;
+      font-size: 1rem;
+      font-weight: 1000;
+      color: #22c55e;
+    }
+
+    /* ========================================== */
+    /* SCREEN 4: CHARACTERS SCREEN                */
+    /* ========================================== */
+    .heroes-2col-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .hero-box {
+      background: var(--card-bg);
+      border: 1.5px solid var(--card-border);
+      border-radius: 16px;
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .hero-box.selected {
+      border-color: #38bdf8;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
+      background: linear-gradient(160deg, #1e3a5f 0%, #0f172a 100%);
+    }
+    .hero-avatar {
+      width: clamp(62px, 14vw, 82px);
+      height: clamp(62px, 14vw, 82px);
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    }
+    .hero-name-label {
+      font-size: 0.95rem;
+    }
+    .hero-perk-label {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #94a3b8;
+    }
+    .hero-tag-badge {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-weight: 900;
+    }
+    .hero-tag-badge.equipped { background: #22c55e; color: #fff; }
+    .hero-tag-badge.locked { background: #475569; color: #cbd5e1; }
+
+    /* ========================================== */
+    /* SCREEN 5: DAILY REWARDS                    */
+    /* ========================================== */
+    .daily-7days-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .daily-day-cell {
+      background: #1e293b;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 10px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      text-align: center;
+    }
+    .daily-day-cell.day-jackpot {
+      grid-column: span 2;
+      background: linear-gradient(160deg, #78350f 0%, #1e293b 100%);
+      border-color: var(--gold);
+    }
+    .daily-day-cell.claimed {
+      opacity: 0.55;
+      border-color: #22c55e;
+    }
+    .daily-day-cell.ready {
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Floating Toast Popup */
+    .game-toast {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.7);
+      background: rgba(15, 23, 42, 0.96);
+      border: 2px solid var(--gold);
+      border-radius: 20px;
+      padding: 16px 28px;
+      color: #fff;
+      font-size: 1.15rem;
+      text-align: center;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.85);
+    }
+    .game-toast.visible {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+
+    /* Featured PowerUp Badge Toast */
+    .powerup-badge-toast {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.2);
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      filter: drop-shadow(0 15px 35px rgba(0,0,0,0.85));
+    }
+    .powerup-badge-toast.visible {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+    .powerup-badge-toast img {
+      max-width: min(85vw, 340px);
+      height: auto;
+      object-fit: contain;
+      animation: badgeGlowPulse 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes badgeGlowPulse {
+      from { transform: scale(0.97); filter: brightness(1); }
+      to { transform: scale(1.03); filter: brightness(1.15) drop-shadow(0 0 20px rgba(255, 230, 0, 0.6)); }
+    }
+
+    /* ==========================================
+       DEFEAT / CRASHED MODAL OVERLAY (100% RESPONSIVE)
+       ========================================== */
+    .defeat-modal {
+      position: absolute;
+      inset: 0;
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: rgba(4, 8, 18, 0.55);
+      backdrop-filter: blur(6px);
+      padding: clamp(8px, 1.8vh, 16px);
+      animation: defeatFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .defeat-modal.active {
+      display: flex;
+    }
+    @keyframes defeatFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .defeat-master-card {
+      position: relative;
+      width: 100%;
+      max-width: min(100%, calc(94vh * 1086 / 1448));
+      max-height: 94vh;
+      aspect-ratio: 1086 / 1448;
+      background-image: url('./assets/images/defeat/00_full_reference_feathered.png');
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+      border-radius: 12px;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.92);
+      filter: drop-shadow(0 10px 30px rgba(0,0,0,0.85));
+    }
+
+    /* Calibrated responsive interactive buttons mapped directly over the golden and blue buttons */
+    .defeat-btn-action {
+      position: absolute;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-radius: 999px;
+      outline: none;
+      transition: transform 0.12s ease, background-color 0.12s ease;
+    }
+    .defeat-btn-action:hover {
+      background-color: rgba(255, 255, 255, 0.12);
+    }
+    .defeat-btn-action:active {
+      transform: scale(0.96);
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-retry-hitbox {
+      left: 16.1%;
+      right: 16.2%;
+      top: 63.5%;
+      height: 10%;
+    }
+
+    .btn-menu-hitbox {
+      left: 19.8%;
+      right: 19.9%;
+      top: 78%;
+      height: 9.7%;
+    }
+
+    /* Dynamic Subtitle overlay */
+    .defeat-dynamic-subtitle {
+      position: absolute;
+      left: 16.6%;
+      right: 16.6%;
+      top: 50.4%;
+      height: 9%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(0.75rem, 2.4vmin, 1.05rem);
+      color: #f8fafc;
+      background: #182030;
+      border-radius: 8px;
+      padding: 0 10px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .defeat-dynamic-subtitle.visible {
+      display: flex;
+    }
+
+    .defeat-dynamic-title {
+      position: absolute;
+      left: 16.6%;
+      right: 16.6%;
+      top: 41.4%;
+      height: 8.3%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(1.2rem, 3.8vmin, 1.7rem);
+      color: #fff;
+      text-shadow: 0 3px 0 #7f1d1d, 0 5px 10px rgba(0,0,0,0.9);
+    }
+    .defeat-dynamic-title.visible {
+      display: flex;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-wrapper" id="gameFrame">
+
+  <!-- ========================================== -->
+  <!-- PERSISTENT TOP HUD BAR                     -->
+  <!-- ========================================== -->
+  <header class="top-hud">
+    <div class="hud-left">
+      <button class="btn-back-hud" id="hudBackBtn" style="display:none;" onclick="navTo('screenHome')">
+        ◀ BACK
+      </button>
+      <span class="hud-screen-title" id="hudTitle">ZOMBIE SQUAD</span>
+    </div>
+
+    <div class="hud-right">
+      <div class="currency-pill">
+        <span class="c-icon">🪙</span>
+        <span class="c-val" id="valCoins">1,500</span>
+        <button class="c-add" title="+500 Coins" onclick="addCoins(500)">+</button>
+      </div>
+
+      <div class="currency-pill">
+        <span class="c-icon">💎</span>
+        <span class="c-val" id="valDiamonds">80</span>
+        <button class="c-add" title="+20 Diamonds" onclick="addDiamonds(20)">+</button>
+      </div>
+
+      <button class="btn-fb-toggle" id="hudFbToggle" title="Toggle Original Image vs Interactive" onclick="toggleScreenFallback()">
+        <span id="fbIcon">🖼️</span>
+        <span id="fbLabel">Fallback</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- MAIN SCREENS CONTAINER                     -->
+  <!-- ========================================== -->
+  <div class="screens-container">
+
+    <!-- 1. HOME SCREEN -->
+    <section class="screen active" id="screenHome">
+      <img class="home-bg-clean" src="./assets/ui/HomeScreen_Scenery_Clean.png" alt="Home Background"/>
+
+      <div class="home-logo-wrap">
+        <img class="home-logo-img" src="./assets/ui/Home_Title_ZombieSquad.png" alt="Zombie Squad Title"/>
+      </div>
+
+      <!-- Left Column (Shop, Characters, Weapons) -->
+      <div class="home-side-col left">
+        <div class="home-icon-btn" title="Shop" onclick="window.location.href='shop.html'">
+          <img src="./assets/ui/Home_Btn_Shop.png" alt="Shop"/>
+        </div>
+        <div class="home-icon-btn" title="Characters" onclick="window.location.href='characters.html'">
+          <img src="./assets/ui/Home_Btn_Characters.png" alt="Characters"/>
+        </div>
+        <div class="home-icon-btn" title="Weapons" onclick="window.location.href='weapons.html'">
+          <img src="./assets/ui/Home_Btn_Weapons.png" alt="Weapons"/>
+        </div>
+      </div>
+
+      <!-- Right Column (Missions, Daily, Upgrade) -->
+      <div class="home-side-col right">
+        <div class="home-icon-btn" title="Missions" onclick="navTo('screenMissions')">
+          <img src="./assets/ui/Home_Btn_Missions.png" alt="Missions"/>
+        </div>
+        <div class="home-icon-btn" title="Daily Rewards" onclick="window.location.href='daily.html'">
+          <img src="./assets/ui/Home_Btn_Daily.png" alt="Daily"/>
+        </div>
+        <div class="home-icon-btn" title="Squad Upgrade" onclick="window.location.href='upgrade.html'">
+          <img src="./assets/ui/Home_Btn_Upgrade.png" alt="Upgrade"/>
+        </div>
+        <div class="home-icon-btn" title="CRASHED / Defeat Screen" onclick="showDefeatScreen('CRASHED!', 'You crashed into a wrecked burned car.')" style="border: 2px solid #ef4444; border-radius: 14px; background: rgba(220, 38, 38, 0.35);">
+          <img src="./assets/images/defeat/06_retry_icon.png" alt="Defeat" style="width:26px; height:26px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));"/>
+        </div>
+      </div>
+
+      <!-- Center Hero Showcase Interactive Area (Authentic Hero & Squad seamlessly rendered in HD Scenery) -->
+      <div class="home-hero-stage" onclick="onHeroTap()" title="Squad Leader (Tap to Change)">
+        <div class="hero-hit-target"></div>
+      </div>
+
+      <!-- Bottom Play Button -->
+      <div class="home-bottom-cta">
+        <div class="btn-play-cta" onclick="onPlayTap()">
+          <img src="./assets/ui/Home_Btn_Play.png" alt="Play Game"/>
+        </div>
+      </div>
+
+      <!-- Home Fallback -->
+      <div class="screen-fallback">
+        <img src="./assets/home-bg.jpg" alt="Original Home Screenshot"/>
+      </div>
+    </section>
+
+    <!-- 2. SHOP SCREEN (REFINED COIN & GEMS) -->
+    <section class="screen" id="screenShop">
+      <div class="screen-scroll">
+        <!-- Shop Tabs -->
+        <div class="game-tabs" id="shopTabs">
+          <button class="tab-pill active" onclick="switchShopTab('coins')">🪙 Coins</button>
+          <button class="tab-pill" onclick="switchShopTab('diamonds')">💎 Diamonds</button>
+          <button class="tab-pill" onclick="switchShopTab('special')">⭐ Special</button>
+          <button class="tab-pill" onclick="switchShopTab('skins')">🎨 Skins</button>
+        </div>
+
+        <!-- Coins Tab Content -->
+        <div class="game-card" id="shopTab_coins">
+          <div class="card-header-bar">
+            <div>
+              <div class="card-title">🪙 COIN SUPPLIES</div>
+              <div class="card-subtitle">Convert diamonds to gold rations for squad upgrades</div>
+            </div>
+          </div>
+
+          <!-- Quick link to dedicated full cyber shop -->
+          <div style="margin-bottom: 10px; display: flex; justify-content: flex-end;">
+            <a href="shop.html" class="btn-game yellow" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; padding:6px 12px; border-radius:8px;">
+              ⚡ LAUNCH DEDICATED SHOP →
+            </a>
+          </div>
+
+          <div class="shop-packs-grid">
+            <!-- 1,000 Coins -> ₹80 -->
+            <div class="shop-pack-card" onclick="window.location.href='shop.html'">
+              <div class="shop-pack-amount" style="font-size: 1.2rem; color: #fff;">1,000</div>
+              <img src="./assets/shop/coins_1000.jpg" alt="1,000 Coins" style="width: 70px; height: 70px; object-fit: contain; border-radius: 8px; margin: 4px 0;" />
+              <button class="btn-game green" style="width:100%; margin-top:4px; font-size: 1rem; font-weight: 800;" onclick="event.stopPropagation(); buyCoinsRealMoney(1000, 80)">
+                ₹80
+              </button>
+            </div>
+
+            <!-- 5,000 Coins -> ₹200 -->
+            <div class="shop-pack-card featured" onclick="window.location.href='shop.html'">
+              <span class="shop-pack-badge">POPULAR</span>
+              <div class="shop-pack-amount" style="font-size: 1.2rem; color: #fff;">5,000</div>
+              <img src="./assets/shop/coins_5000.jpg" alt="5,000 Coins" style="width: 70px; height: 70px; object-fit: contain; border-radius: 8px; margin: 4px 0;" />
+              <button class="btn-game green" style="width:100%; margin-top:4px; font-size: 1rem; font-weight: 800;" onclick="event.stopPropagation(); buyCoinsRealMoney(5000, 200)">
+                ₹200
+              </button>
+            </div>
+
+            <!-- 20,000 Coins -> ₹1,000 -->
+            <div class="shop-pack-card" onclick="window.location.href='shop.html'">
+              <div class="shop-pack-amount" style="font-size: 1.2rem; color: #fff;">20,000</div>
+              <img src="./assets/shop/chest_20000.jpg" alt="20,000 Coins" style="width: 70px; height: 70px; object-fit: contain; border-radius: 8px; margin: 4px 0;" />
+              <button class="btn-game green" style="width:100%; margin-top:4px; font-size: 1rem; font-weight: 800;" onclick="event.stopPropagation(); buyCoinsRealMoney(20000, 1000)">
+                ₹1,000
+              </button>
+            </div>
+
+            <!-- 50,000 Coins -> ₹2,000 -->
+            <div class="shop-pack-card" onclick="window.location.href='shop.html'">
+              <div class="shop-pack-amount" style="font-size: 1.2rem; color: #fff;">50,000</div>
+              <img src="./assets/shop/chest_50000.jpg" alt="50,000 Coins" style="width: 70px; height: 70px; object-fit: contain; border-radius: 8px; margin: 4px 0;" />
+              <button class="btn-game green" style="width:100%; margin-top:4px; font-size: 1rem; font-weight: 800;" onclick="event.stopPropagation(); buyCoinsRealMoney(50000, 2000)">
+                ₹2,000
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diamonds Tab Content -->
+        <div class="game-card" id="shopTab_diamonds" style="display:none;">
+          <div class="card-header-bar">
+            <div>
+              <div class="card-title">💎 DIAMOND PACKS</div>
+              <div class="card-subtitle">Premium currency for elite heroes and weapon upgrades</div>
+            </div>
+          </div>
+
+          <div class="shop-packs-grid">
+            <div class="shop-pack-card">
+              <span class="shop-pack-badge">AD REWARD</span>
+              <div class="shop-pack-icon">🎬</div>
+              <div class="shop-pack-title">Intel Briefing</div>
+              <div class="shop-pack-amount" style="color:#38bdf8;">+20 Diamonds</div>
+              <button class="btn-game green" style="width:100%; margin-top:4px;" onclick="watchIntelBriefing()">
+                WATCH FREE
+              </button>
+            </div>
+
+            <div class="shop-pack-card featured">
+              <div class="shop-pack-icon">💎</div>
+              <div class="shop-pack-title">Pouch of Gems</div>
+              <div class="shop-pack-amount" style="color:#38bdf8;">+100 Diamonds</div>
+              <button class="btn-game yellow" style="width:100%; margin-top:4px;" onclick="addDiamonds(100)">
+                $0.99
+              </button>
+            </div>
+
+            <div class="shop-pack-card">
+              <div class="shop-pack-icon">💍</div>
+              <div class="shop-pack-title">Chest of Gems</div>
+              <div class="shop-pack-amount" style="color:#38bdf8;">+500 Diamonds</div>
+              <button class="btn-game yellow" style="width:100%; margin-top:4px;" onclick="addDiamonds(500)">
+                $4.99
+              </button>
+            </div>
+
+            <div class="shop-pack-card">
+              <div class="shop-pack-icon">🏆</div>
+              <div class="shop-pack-title">Safe of Gems</div>
+              <div class="shop-pack-amount" style="color:#38bdf8;">+1,500 Diamonds</div>
+              <button class="btn-game yellow" style="width:100%; margin-top:4px;" onclick="addDiamonds(1500)">
+                $12.99
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Special Tab Content -->
+        <div class="game-card" id="shopTab_special" style="display:none;">
+          <div class="card-header-bar">
+            <div class="card-title">⭐ SPECIAL SQUAD PACKS</div>
+          </div>
+          <div class="shop-pack-card featured" style="width:100%;">
+            <span class="shop-pack-badge">50% OFF</span>
+            <div class="shop-pack-icon">🚀</div>
+            <div class="shop-pack-title">SURVIVOR BUNDLE</div>
+            <div class="shop-pack-amount">+10,000 Coins + 100 💎 + Heavy Hero</div>
+            <button class="btn-game yellow" style="width:80%; margin-top:8px;" onclick="buyStarterBundle()">
+              💎 100 GEMS
+            </button>
+          </div>
+        </div>
+
+        <!-- Skins Tab Content -->
+        <div class="game-card" id="shopTab_skins" style="display:none;">
+          <div class="card-header-bar">
+            <div class="card-title">🎨 TACTICAL HERO SKINS</div>
+          </div>
+          <div style="font-size:0.85rem; color:#94a3b8; text-align:center; padding:18px 0;">
+            🔥 Special Camouflage & Neon Squad Skins Unlocking Soon!
+          </div>
+        </div>
+      </div>
+
+      <!-- Shop Fallback -->
+      <div class="screen-fallback">
+        <img src="./assets/shop-bg.jpg" alt="Original Shop Screenshot"/>
+      </div>
+    </section>
+
+    <!-- 3. WEAPONS SCREEN (REFINED LAYOUT) -->
+    <section class="screen" id="screenWeapons">
+      <div class="screen-scroll">
+        <!-- Weapon Showcase Stage Card -->
+        <div class="weapon-stage-card">
+          <div class="weapon-carousel-nav">
+            <button class="btn-carousel-arrow" onclick="cycleWeapon(-1)">◀</button>
+            <div class="weapon-stage-center">
+              <img class="weapon-preview-img" src="./assets/ui/GunUpgrade_IsolatedGun.png" alt="Gun Preview"/>
+              <h3 class="weapon-name-tag" id="wepStageTitle">ASSAULT RIFLE</h3>
+              <span class="weapon-type-tag" id="wepStageDesc">Tactical Automatic Rifle</span>
+            </div>
+            <button class="btn-carousel-arrow" onclick="cycleWeapon(1)">▶</button>
+          </div>
+
+          <button class="btn-game green" id="wepEquipBtn" style="width:100%; margin-top:10px;" onclick="equipCurrentWeapon()">
+            EQUIPPED ✓
+          </button>
+        </div>
+
+        <!-- Weapon Stats Card -->
+        <div class="game-card">
+          <div class="card-header-bar">
+            <div class="card-title">⚙️ WEAPON SPECIFICATIONS</div>
+            <span class="card-subtitle" id="wepTotalLvlBadge">TOTAL LV. 4</span>
+          </div>
+
+          <!-- Stat 1: Damage -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>💥 Damage</span>
+                <span class="stat-val-badge" id="wepVal_damage">22 DMG (Lv 1)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="wepBar_damage" style="width: 15%;"></div></div>
+            </div>
+            <button class="btn-game yellow" onclick="upgradeWepStat('damage')">
+              🪙 <span id="wepCost_damage">150</span>
+            </button>
+          </div>
+
+          <!-- Stat 2: Fire Rate -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>⚡ Fire Rate</span>
+                <span class="stat-val-badge" id="wepVal_rate">5.5 rps (Lv 1)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="wepBar_rate" style="width: 20%;"></div></div>
+            </div>
+            <button class="btn-game yellow" onclick="upgradeWepStat('rate')">
+              🪙 <span id="wepCost_rate">180</span>
+            </button>
+          </div>
+
+          <!-- Stat 3: Range -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>🎯 Range</span>
+                <span class="stat-val-badge" id="wepVal_range">35 m (Lv 1)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="wepBar_range" style="width: 25%;"></div></div>
+            </div>
+            <button class="btn-game yellow" onclick="upgradeWepStat('range')">
+              🪙 <span id="wepCost_range">140</span>
+            </button>
+          </div>
+
+          <!-- Stat 4: Magazine -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>📦 Magazine Capacity</span>
+                <span class="stat-val-badge" id="wepVal_mag">30 Rounds (Lv 1)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="wepBar_mag" style="width: 30%;"></div></div>
+            </div>
+            <button class="btn-game yellow" onclick="upgradeWepStat('mag')">
+              🪙 <span id="wepCost_mag">200</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Weapons Quick Selector Strip -->
+        <div class="game-card">
+          <div class="card-title" style="font-size:0.9rem;">SELECT ACTIVE WEAPON</div>
+          <div class="weapon-grid-strip" id="weaponStrip">
+            <!-- Mini weapon cards injected by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Weapons Fallback -->
+      <div class="screen-fallback">
+        <img src="./assets/weapons-bg.jpg" alt="Original Weapons Screenshot"/>
+      </div>
+    </section>
+
+    <!-- 4. SQUAD UPGRADE SCREEN -->
+    <section class="screen" id="screenUpgrade">
+      <div class="screen-scroll">
+        <div class="game-card">
+          <div class="card-header-bar">
+            <div>
+              <div class="card-title">⚡ SQUAD ATTRIBUTES</div>
+              <div class="card-subtitle">Permanent battle upgrades for all deployed units</div>
+            </div>
+          </div>
+
+          <!-- Max Health -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>❤️ Squad Health</span>
+                <span class="stat-val-badge" id="sqdLvl_hp">Level 1 (200 HP)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="sqdBar_hp" style="width: 10%;"></div></div>
+            </div>
+            <button class="btn-game yellow" id="sqdBtn_hp" onclick="upgradeSquad('hp')">
+              🪙 <span id="sqdCost_hp">150</span>
+            </button>
+          </div>
+
+          <!-- Damage -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>💥 Soldier Damage</span>
+                <span class="stat-val-badge" id="sqdLvl_dmg">Level 1 (15 DMG)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="sqdBar_dmg" style="width: 10%;"></div></div>
+            </div>
+            <button class="btn-game yellow" id="sqdBtn_dmg" onclick="upgradeSquad('dmg')">
+              🪙 <span id="sqdCost_dmg">200</span>
+            </button>
+          </div>
+
+          <!-- Fire Rate -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>⚡ Fire Rate</span>
+                <span class="stat-val-badge" id="sqdLvl_fr">Level 1 (4.0 rps)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="sqdBar_fr" style="width: 10%;"></div></div>
+            </div>
+            <button class="btn-game yellow" id="sqdBtn_fr" onclick="upgradeSquad('fr')">
+              🪙 <span id="sqdCost_fr">250</span>
+            </button>
+          </div>
+
+          <!-- Speed -->
+          <div class="stat-row">
+            <div class="stat-meta">
+              <div class="stat-label-wrap">
+                <span>🏃 Squad Mobility</span>
+                <span class="stat-val-badge" id="sqdLvl_spd">Level 1 (6.0 m/s)</span>
+              </div>
+              <div class="stat-track"><div class="stat-fill" id="sqdBar_spd" style="width: 10%;"></div></div>
+            </div>
+            <button class="btn-game yellow" id="sqdBtn_spd" onclick="upgradeSquad('spd')">
+              🪙 <span id="sqdCost_spd">180</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upgrade Fallback -->
+      <div class="screen-fallback">
+        <img src="./assets/upgrade-bg.jpg" alt="Original Upgrade Screenshot"/>
+      </div>
+    </section>
+
+    <!-- 5. CHARACTERS SCREEN -->
+    <section class="screen" id="screenCharacters">
+      <div class="screen-scroll">
+        <div class="game-card">
+          <div class="card-header-bar">
+            <div>
+              <div class="card-title">🎖️ SQUAD COMMANDERS</div>
+              <div class="card-subtitle">Choose your frontline commander with unique combat perks</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="heroes-2col-grid" id="heroesGrid">
+          <!-- Injected by JS -->
+        </div>
+      </div>
+
+      <!-- Characters Fallback -->
+      <div class="screen-fallback">
+        <img src="./assets/characters-bg.jpg" alt="Original Characters Screenshot"/>
+      </div>
+    </section>
+
+    <!-- 6. MISSIONS SCREEN -->
+    <section class="screen" id="screenMissions">
+      <div class="screen-scroll">
+        <div class="game-card">
+          <div class="card-header-bar">
+            <div>
+              <div class="card-title">📋 BATTLE BOUNTIES</div>
+              <div class="card-subtitle">Complete tactical objectives to claim coin and gem rewards</div>
+            </div>
+          </div>
+
+          <div id="missionsList" style="display:flex; flex-direction:column; gap:10px;">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Missions Fallback -->
+      <div class="screen-fallback">
+        <img src="./assets/missions-bg.jpg" alt="Original Missions Screenshot"/>
+      </div>
+    </section>
+
+    <!-- 7. DAILY REWARDS SCREEN -->
+    <section class="screen" id="screenDaily">
+      <div class="screen-scroll">
+        <div class="game-card">
+          <div class="card-header-bar">
+            <div>
+              <div class="card-title">📅 7-DAY REWARD CALENDAR</div>
+              <div class="card-subtitle">Consecutive daily logins reward escalating currency and gems</div>
+            </div>
+          </div>
+
+          <div class="daily-7days-grid" id="dailyCalendar">
+            <!-- Injected by JS -->
+          </div>
+
+          <button class="btn-game green" id="btnDailyClaimMain" style="width:100%; margin-top:8px;" onclick="claimDailyReward()">
+            CLAIM TODAY'S REWARD
+          </button>
+        </div>
+      </div>
+
+      <!-- Daily Fallback -->
+      <div class="screen-fallback">
+        <img src="./assets/daily-bg.jpg" alt="Original Daily Screenshot"/>
+      </div>
+    </section>
+
+  </div><!-- /screens-container -->
+
+  <!-- ========================================== -->
+  <!-- CRASHED / DEFEAT FULLSCREEN MODAL          -->
+  <!-- ========================================== -->
+  <div class="defeat-modal" id="defeatModal">
+    <div class="defeat-master-card" role="dialog" aria-modal="true" aria-label="Game Over Screen">
+      <!-- Dynamic Title (only visible if custom title is supplied) -->
+      <div class="defeat-dynamic-title" id="defeatTitle">CRASHED!</div>
+
+      <!-- Dynamic Subtitle (only visible if custom reason is supplied) -->
+      <div class="defeat-dynamic-subtitle" id="defeatReason">You crashed into a wrecked burned car.</div>
+
+      <!-- TRY AGAIN Button Hitbox (Golden button in graphic) -->
+      <button class="defeat-btn-action btn-retry-hitbox" onclick="onDefeatRetry()" aria-label="Try Again">
+        <span class="sr-only">Try Again</span>
+      </button>
+
+      <!-- MISSION MENU Button Hitbox (Blue button in graphic) -->
+      <button class="defeat-btn-action btn-menu-hitbox" onclick="onDefeatMenu()" aria-label="Mission Menu">
+        <span class="sr-only">Mission Menu</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Popup -->
+  <div class="game-toast" id="toastPop">Reward Claimed!</div>
+
+</div><!-- /game-wrapper -->
+
+<script>
+  // ==========================================
+  // AUDIO SYNTHESIZER & REAL SOUND ENGINE
+  // ==========================================
+  const SFX = {
+    ctx: null,
+    bgm: new Audio('./assets/audio/bgm_royal_battlefield.mp3'),
+    isMusicPlaying: false,
+    clips: {
+      click: './assets/audio/sfx_ui_click.wav',
+      coin: './assets/audio/sfx_coin.wav',
+      upgrade: './assets/audio/sfx_upgrade.wav',
+      gunfire: './assets/audio/sfx_gunfire.wav',
+      gate: './assets/audio/sfx_gate_pass.wav'
+    },
+    clickPool: [],
+    clickPoolIdx: 0,
+    lastClickTime: 0,
+    init() {
+      if (!this.ctx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) this.ctx = new AudioContext();
+      }
+      if (this.clickPool.length === 0) {
+        for (let i = 0; i < 6; i++) {
+          const a = new Audio(this.clips.click);
+          a.preload = 'auto';
+          this.clickPool.push(a);
+        }
+      }
+      if (this.bgm && !this.isMusicPlaying) {
+        this.bgm.loop = true;
+        this.bgm.volume = 0.40;
+        this.bgm.play().then(() => { this.isMusicPlaying = true; }).catch(() => {});
+      }
+    },
+    playFile(key, vol = 0.8) {
+      try {
+        const src = this.clips[key];
+        if (src) {
+          const a = new Audio(src);
+          a.volume = vol;
+          a.play().catch(() => {});
+        }
+      } catch(e) {}
+    },
+    click() {
+      this.init();
+      const now = Date.now();
+      if (now - this.lastClickTime < 40) return;
+      this.lastClickTime = now;
+      try {
+        if (this.clickPool.length > 0) {
+          const snd = this.clickPool[this.clickPoolIdx];
+          this.clickPoolIdx = (this.clickPoolIdx + 1) % this.clickPool.length;
+          snd.currentTime = 0;
+          snd.volume = 1.0;
+          snd.play().catch(() => {});
+        } else {
+          this.playFile('click', 1.0);
+        }
+      } catch(e) {
+        this.playFile('click', 1.0);
+      }
+    },
+    coin() {
+      this.init();
+      this.playFile('coin', 0.90);
+    },
+    fanfare() {
+      this.init();
+      this.playFile('upgrade', 0.95);
+    },
+    buzzer() {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.connect(g); g.connect(this.ctx.destination);
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(160, this.ctx.currentTime);
+        o.frequency.setValueAtTime(110, this.ctx.currentTime + 0.12);
+        g.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+        o.start(); o.stop(this.ctx.currentTime + 0.18);
+      } catch(e) {}
+    }
+  };
+
+  // Global button audio trigger: any button, link, card, or clickable element plays tactile audio immediately!
+  document.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('button, .btn, .btn-fb-toggle, .hud-btn, .tab-btn, a, [onclick], .level-card, .char-card, .shop-item, .weapon-card, .mission-item, .daily-card, .modal-close, .nav-btn, [role="button"], input[type="button"], input[type="submit"]');
+    if (btn) {
+      SFX.click();
+    }
+  }, true);
+
+  // ==========================================
+  // STATE MANAGEMENT
+  // ==========================================
+  const DEFAULT_GAME_STATE = {
+    coins: 1500,
+    diamonds: 80,
+    selectedHero: 'Soldier',
+    selectedWeapon: 'AssaultRifle',
+    squad: {
+      hp:  { lvl: 1, base: 200, step: 25, unit: 'HP', cost: 150 },
+      dmg: { lvl: 1, base: 15,  step: 3,  unit: 'DMG', cost: 200 },
+      fr:  { lvl: 1, base: 4.0, step: 0.4, unit: 'rps', cost: 250 },
+      spd: { lvl: 1, base: 6.0, step: 0.3, unit: 'm/s', cost: 180 }
+    },
+    weapons: {
+      AssaultRifle: { name: 'ASSAULT RIFLE', type: 'Tactical Automatic Rifle', damage: 1, rate: 1, range: 1, mag: 1 },
+      Shotgun:      { name: 'COMBAT SHOTGUN', type: 'Close-Quarters Devastator', damage: 1, rate: 1, range: 1, mag: 1 },
+      Sniper:       { name: 'SNIPER RIFLE',   type: 'Long-Range Armor Piercing', damage: 1, rate: 1, range: 1, mag: 1 },
+      Minigun:      { name: 'HEAVY MINIGUN',  type: 'Rapid Suppression Storm', damage: 1, rate: 1, range: 1, mag: 1 }
+    },
+    heroes: {
+      Soldier: { name: 'Soldier', perk: 'Balanced Rifleman', unlocked: true, icon: './assets/ui/Hero_Soldier_Icon.png' },
+      Ranger:  { name: 'Ranger',  perk: 'Agile Speed Runner', unlocked: true, icon: './assets/ui/Hero_Ranger_Icon.png' },
+      Heavy:   { name: 'Heavy',   perk: 'Armored Tank (+50% HP)', unlocked: false, cost: 2000, curr: 'coins', icon: './assets/ui/Hero_Heavy_Icon.png' },
+      Sniper:  { name: 'Sniper',  perk: 'Headshot Specialist', unlocked: false, cost: 50, curr: 'diamonds', icon: './assets/ui/Hero_Sniper_Icon.png' },
+      Medic:   { name: 'Medic',   perk: 'Field Squad Regeneration', unlocked: false, cost: 3500, curr: 'coins', icon: './assets/ui/Hero_Medic_Icon.png' }
+    },
+    missions: [
+      { id: 1, title: 'Slay 50 Runner Zombies', cur: 35, max: 50, reward: 350, curr: 'coins', claimed: false },
+      { id: 2, title: 'Upgrade Squad Attribute 3 Times', cur: 1, max: 3, reward: 500, curr: 'coins', claimed: false },
+      { id: 3, title: 'Upgrade Any Armory Weapon', cur: 0, max: 1, reward: 35, curr: 'diamonds', claimed: false }
+    ],
+    dailyClaimDay: 1
+  };
+
+  let AppState = JSON.parse(localStorage.getItem('ZombieSquad_UnifiedState') || 'null') || DEFAULT_GAME_STATE;
+
+  function saveAppState() {
+    localStorage.setItem('ZombieSquad_UnifiedState', JSON.stringify(AppState));
+    refreshHUD();
+  }
+
+  function refreshHUD() {
+    document.getElementById('valCoins').textContent = AppState.coins.toLocaleString();
+    document.getElementById('valDiamonds').textContent = AppState.diamonds.toLocaleString();
+  }
+
+  function showToast(text) {
+    const t = document.getElementById('toastPop');
+    t.textContent = text;
+    t.classList.add('visible');
+    setTimeout(() => t.classList.remove('visible'), 1600);
+  }
+
+  function showPowerUpBadge(badgeName) {
+    let el = document.getElementById('powerupBadgeToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'powerupBadgeToast';
+      el.className = 'powerup-badge-toast';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `<img src="./assets/images/powerups/${badgeName}.png" alt="${badgeName}" />`;
+    el.classList.add('visible');
+    if (window._badgeTimer) clearTimeout(window._badgeTimer);
+    window._badgeTimer = setTimeout(() => {
+      el.classList.remove('visible');
+    }, 1800);
+  }
+
+  function addCoins(qty) {
+    AppState.coins += qty;
+    saveAppState();
+    SFX.coin();
+    showToast(`+${qty.toLocaleString()} Coins!`);
+  }
+
+  function addDiamonds(qty) {
+    AppState.diamonds += qty;
+    saveAppState();
+    SFX.coin();
+    showToast(`+${qty} Diamonds!`);
+  }
+
+  function spendCoins(qty) {
+    if (AppState.coins < qty) {
+      SFX.buzzer();
+      showToast('❌ Not Enough Coins!');
+      return false;
+    }
+    AppState.coins -= qty;
+    saveAppState();
+    SFX.click();
+    return true;
+  }
+
+  function spendDiamonds(qty) {
+    if (AppState.diamonds < qty) {
+      SFX.buzzer();
+      showToast('❌ Not Enough Diamonds!');
+      return false;
+    }
+    AppState.diamonds -= qty;
+    saveAppState();
+    SFX.click();
+    return true;
+  }
+
+  // ==========================================
+  // NAVIGATION & FALLBACK CONTROLLER
+  // ==========================================
+  let currentScreen = 'screenHome';
+  let fallbackMap = {};
+
+  const SCREEN_TITLES = {
+    screenHome: 'ZOMBIE SQUAD',
+    screenShop: 'MILITARY SHOP',
+    screenWeapons: 'ARMORY WEAPONS',
+    screenUpgrade: 'SQUAD UPGRADE',
+    screenCharacters: 'SQUAD HEROES',
+    screenMissions: 'BATTLE MISSIONS',
+    screenDaily: '7-DAY REWARDS'
+  };
+
+  function navTo(screenId) {
+    SFX.click();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+    currentScreen = screenId;
+
+    // Header Back & Title
+    const backBtn = document.getElementById('hudBackBtn');
+    backBtn.style.display = (screenId === 'screenHome') ? 'none' : 'flex';
+    document.getElementById('hudTitle').textContent = SCREEN_TITLES[screenId] || 'ZOMBIE SQUAD';
+
+    updateFallbackUI();
+
+    // Refresh active screen content
+    if (screenId === 'screenWeapons') renderWeaponsView();
+    if (screenId === 'screenUpgrade') renderUpgradeView();
+    if (screenId === 'screenCharacters') renderHeroesView();
+    if (screenId === 'screenMissions') renderMissionsView();
+    if (screenId === 'screenDaily') renderDailyView();
+  }
+
+  function toggleScreenFallback() {
+    SFX.click();
+    const isFb = !fallbackMap[currentScreen];
+    fallbackMap[currentScreen] = isFb;
+    const el = document.getElementById(currentScreen);
+    if (isFb) el.classList.add('fallback-mode');
+    else el.classList.remove('fallback-mode');
+    updateFallbackUI();
+  }
+
+  function updateFallbackUI() {
+    const isFb = !!fallbackMap[currentScreen];
+    document.getElementById('fbIcon').textContent = isFb ? '⚡' : '🖼️';
+    document.getElementById('fbLabel').textContent = isFb ? 'Interactive' : 'Fallback';
+  }
+
+  // ==========================================
+  // 1. SHOP SCREEN CONTROLLER
+  // ==========================================
+  function switchShopTab(tabKey) {
+    SFX.click();
+    const tabs = ['coins', 'diamonds', 'special', 'skins'];
+    tabs.forEach((t, idx) => {
+      document.getElementById(`shopTab_${t}`).style.display = (t === tabKey) ? 'flex' : 'none';
+      document.querySelectorAll('#shopTabs .tab-pill')[idx].classList.toggle('active', t === tabKey);
+    });
+  }
+
+  function claimFreeRation() {
+    addCoins(1000);
+    showToast('📦 Claimed 1,000 Free Coins!');
+  }
+
+  function buyCoinsRealMoney(coinsQty, inrPrice) {
+    SFX.fanfare();
+    AppState.coins += coinsQty;
+    saveAppState();
+    updateTopHud();
+    showToast(`🎉 Paid ₹${inrPrice.toLocaleString()}! +${coinsQty.toLocaleString()} Coins added!`);
+  }
+
+  function buyCoinsForGems(coinsQty, gemsCost) {
+    if (spendDiamonds(gemsCost)) {
+      AppState.coins += coinsQty;
+      saveAppState();
+      SFX.coin();
+      showToast(`💰 Purchased +${coinsQty.toLocaleString()} Coins!`);
+    }
+  }
+
+  function watchIntelBriefing() {
+    SFX.click();
+    showToast('📺 Watching Intel Briefing...');
+    setTimeout(() => {
+      addDiamonds(20);
+    }, 700);
+  }
+
+  function buyStarterBundle() {
+    if (spendDiamonds(100)) {
+      AppState.coins += 10000;
+      AppState.heroes.Heavy.unlocked = true;
+      saveAppState();
+      SFX.fanfare();
+      showToast('⭐ Starter Bundle Claimed (+10K Coins & Heavy Hero)!');
+    }
+  }
+
+  // ==========================================
+  // 2. WEAPONS SCREEN CONTROLLER
+  // ==========================================
+  const WEAPON_KEYS = ['AssaultRifle', 'Shotgun', 'Sniper', 'Minigun'];
+  let currentWepIdx = 0;
+
+  function cycleWeapon(dir) {
+    SFX.click();
+    currentWepIdx = (currentWepIdx + dir + WEAPON_KEYS.length) % WEAPON_KEYS.length;
+    renderWeaponsView();
+  }
+
+  function selectWeaponByIndex(idx) {
+    SFX.click();
+    currentWepIdx = idx;
+    renderWeaponsView();
+  }
+
+  function renderWeaponsView() {
+    const key = WEAPON_KEYS[currentWepIdx];
+    const w = AppState.weapons[key];
+
+    // Stage Info
+    document.getElementById('wepStageTitle').textContent = w.name;
+    document.getElementById('wepStageDesc').textContent = w.type;
+
+    const totalLvl = w.damage + w.rate + w.range + w.mag;
+    document.getElementById('wepTotalLvlBadge').textContent = `TOTAL LV. ${totalLvl}`;
+
+    // Equip Button
+    const eqBtn = document.getElementById('wepEquipBtn');
+    if (AppState.selectedWeapon === key) {
+      eqBtn.textContent = 'EQUIPPED ✓';
+      eqBtn.className = 'btn-game green';
+    } else {
+      eqBtn.textContent = 'EQUIP THIS WEAPON';
+      eqBtn.className = 'btn-game yellow';
+    }
+
+    // 4 Stats
+    const stats = [
+      { id: 'damage', label: 'DMG', base: 20, mult: 4 },
+      { id: 'rate',   label: 'rps', base: 4.5, mult: 0.5 },
+      { id: 'range',  label: 'm',   base: 30, mult: 5 },
+      { id: 'mag',    label: 'Rds', base: 25, mult: 5 }
+    ];
+
+    stats.forEach(s => {
+      const lvl = w[s.id];
+      const val = (s.id === 'rate') ? (s.base + lvl * s.mult).toFixed(1) : Math.round(s.base + lvl * s.mult);
+      document.getElementById(`wepVal_${s.id}`).textContent = `${val} ${s.label} (Lv ${lvl})`;
+      document.getElementById(`wepBar_${s.id}`).style.width = `${Math.min(100, lvl * 10)}%`;
+      document.getElementById(`wepCost_${s.id}`).textContent = 100 * lvl;
+    });
+
+    // Weapon Mini Strip
+    const strip = document.getElementById('weaponStrip');
+    strip.innerHTML = '';
+    const icons = ['🔫', '💥', '🎯', '⚡'];
+    WEAPON_KEYS.forEach((k, i) => {
+      const active = (i === currentWepIdx);
+      const isEq = (AppState.selectedWeapon === k);
+      const card = document.createElement('div');
+      card.className = `wep-mini-card ${active ? 'active' : ''}`;
+      card.onclick = () => selectWeaponByIndex(i);
+      card.innerHTML = `
+        <span class="wep-mini-icon">${icons[i]}</span>
+        <span class="wep-mini-name">${AppState.weapons[k].name.split(' ')[0]}</span>
+        <span style="font-size:0.65rem; color:${isEq ? '#22c55e' : '#94a3b8'}">${isEq ? 'ACTIVE' : 'READY'}</span>
+      `;
+      strip.appendChild(card);
+    });
+  }
+
+  function upgradeWepStat(statId) {
+    const key = WEAPON_KEYS[currentWepIdx];
+    const w = AppState.weapons[key];
+    const cost = 100 * w[statId];
+    if (spendCoins(cost)) {
+      w[statId]++;
+      // Mission progress
+      if (AppState.missions[2].cur < AppState.missions[2].max) {
+        AppState.missions[2].cur++;
+      }
+      saveAppState();
+      SFX.fanfare();
+      showToast(`🔫 Upgraded ${w.name} ${statId.toUpperCase()}!`);
+      renderWeaponsView();
+    }
+  }
+
+  function equipCurrentWeapon() {
+    const key = WEAPON_KEYS[currentWepIdx];
+    AppState.selectedWeapon = key;
+    saveAppState();
+    SFX.click();
+    showToast(`Equipped ${AppState.weapons[key].name}!`);
+    renderWeaponsView();
+  }
+
+  // ==========================================
+  // 3. SQUAD UPGRADE CONTROLLER
+  // ==========================================
+  function renderUpgradeView() {
+    for (const [key, d] of Object.entries(AppState.squad)) {
+      const val = d.base + (d.lvl - 1) * d.step;
+      const formatted = (key === 'fr' || key === 'spd') ? val.toFixed(1) : val;
+      document.getElementById(`sqdLvl_${key}`).textContent = `Level ${d.lvl} (${formatted} ${d.unit})`;
+      document.getElementById(`sqdBar_${key}`).style.width = `${Math.min(100, d.lvl * 10)}%`;
+
+      const cost = Math.round(d.cost * Math.pow(1.3, d.lvl - 1));
+      const costEl = document.getElementById(`sqdCost_${key}`);
+      const btn = document.getElementById(`sqdBtn_${key}`);
+      if (d.lvl >= 10) {
+        costEl.textContent = 'MAX';
+        btn.disabled = true;
+      } else {
+        costEl.textContent = cost;
+        btn.disabled = AppState.coins < cost;
+      }
+    }
+  }
+
+  function upgradeSquad(key) {
+    const d = AppState.squad[key];
+    if (d.lvl >= 10) return;
+    const cost = Math.round(d.cost * Math.pow(1.3, d.lvl - 1));
+    if (spendCoins(cost)) {
+      d.lvl++;
+      if (AppState.missions[1].cur < AppState.missions[1].max) {
+        AppState.missions[1].cur++;
+      }
+      saveAppState();
+      SFX.fanfare();
+      showToast(`⚡ Squad Attribute Upgraded to Lv ${d.lvl}!`);
+      renderUpgradeView();
+    }
+  }
+
+  // ==========================================
+  // 4. CHARACTERS CONTROLLER
+  // ==========================================
+  function renderHeroesView() {
+    const grid = document.getElementById('heroesGrid');
+    grid.innerHTML = '';
+    for (const [key, h] of Object.entries(AppState.heroes)) {
+      const isSel = AppState.selectedHero === key;
+      const card = document.createElement('div');
+      card.className = `hero-box ${isSel ? 'selected' : ''}`;
+      card.onclick = () => onHeroClick(key);
+
+      card.innerHTML = `
+        <img class="hero-avatar" src="${h.icon}" alt="${h.name}" onerror="this.src='./assets/ui/Hero_Soldier_Icon.png'"/>
+        <span class="hero-name-label">${h.name}</span>
+        <span class="hero-perk-label">${h.perk}</span>
+        ${h.unlocked ? `
+          <span class="hero-tag-badge ${isSel ? 'equipped' : 'locked'}">
+            ${isSel ? 'EQUIPPED ✓' : 'TAP TO EQUIP'}
+          </span>
+        ` : `
+          <button class="btn-game ${h.curr === 'coins' ? 'yellow' : 'blue'}" style="padding:6px 12px; font-size:0.75rem; width:100%;" onclick="buyHero('${key}', event)">
+            ${h.curr === 'coins' ? '🪙 ' + h.cost : '💎 ' + h.cost}
+          </button>
+        `}
+      `;
+      grid.appendChild(card);
+    }
+  }
+
+  function onHeroClick(key) {
+    const h = AppState.heroes[key];
+    if (!h.unlocked) return;
+    AppState.selectedHero = key;
+    saveAppState();
+    SFX.click();
+    showToast(`🎖️ Selected Squad Leader: ${h.name}!`);
+    renderHeroesView();
+  }
+
+  function buyHero(key, evt) {
+    evt.stopPropagation();
+    const h = AppState.heroes[key];
+    const ok = (h.curr === 'coins') ? spendCoins(h.cost) : spendDiamonds(h.cost);
+    if (ok) {
+      h.unlocked = true;
+      AppState.selectedHero = key;
+      saveAppState();
+      SFX.fanfare();
+      showToast(`🎉 Unlocked ${h.name}!`);
+      renderHeroesView();
+    }
+  }
+
+  // ==========================================
+  // 5. MISSIONS CONTROLLER
+  // ==========================================
+  function renderMissionsView() {
+    const list = document.getElementById('missionsList');
+    list.innerHTML = '';
+    AppState.missions.forEach(m => {
+      const done = m.cur >= m.max;
+      const row = document.createElement('div');
+      row.className = 'stat-row';
+      row.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+      row.style.padding = '8px 0';
+      row.innerHTML = `
+        <div class="stat-meta">
+          <div class="stat-label-wrap">
+            <span>${m.title}</span>
+            <span class="stat-val-badge">${m.cur} / ${m.max}</span>
+          </div>
+          <div class="stat-track"><div class="stat-fill" style="width:${Math.min(100, (m.cur/m.max)*100)}%;"></div></div>
+        </div>
+        ${m.claimed ? `
+          <button class="btn-game" disabled>CLAIMED ✓</button>
+        ` : (done ? `
+          <button class="btn-game green" onclick="claimMissionReward(${m.id})">
+            CLAIM ${m.curr === 'coins' ? '🪙 ' + m.reward : '💎 ' + m.reward}
+          </button>
+        ` : `
+          <button class="btn-game yellow" style="padding:6px 10px; font-size:0.75rem;" onclick="testMissionBoost(${m.id})">
+            + BOOST
+          </button>
+        `)}
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function testMissionBoost(id) {
+    const m = AppState.missions.find(x => x.id === id);
+    if (!m) return;
+    m.cur = Math.min(m.max, m.cur + Math.ceil(m.max * 0.35));
+    saveAppState();
+    SFX.click();
+    renderMissionsView();
+  }
+
+  function claimMissionReward(id) {
+    const m = AppState.missions.find(x => x.id === id);
+    if (!m || m.claimed || m.cur < m.max) return;
+    m.claimed = true;
+    if (m.curr === 'coins') addCoins(m.reward);
+    else addDiamonds(m.reward);
+    saveAppState();
+    SFX.fanfare();
+    showToast('🎁 Mission Bounty Claimed!');
+    renderMissionsView();
+  }
+
+  // ==========================================
+  // 6. DAILY REWARDS CONTROLLER
+  // ==========================================
+  const DAILY_REWARDS = [
+    { day: 1, text: '🪙 150', c: 150, d: 0 },
+    { day: 2, text: '🪙 300', c: 300, d: 0 },
+    { day: 3, text: '🪙 500', c: 500, d: 0 },
+    { day: 4, text: '🪙 1,000', c: 1000, d: 0 },
+    { day: 5, text: '🪙 1,500', c: 1500, d: 0 },
+    { day: 6, text: '🪙 2,500', c: 2500, d: 0 },
+    { day: 7, text: '🪙 5,000 + 💎 50', c: 5000, d: 50 }
+  ];
+
+  function renderDailyView() {
+    const cal = document.getElementById('dailyCalendar');
+    cal.innerHTML = '';
+    const cur = AppState.dailyClaimDay;
+
+    DAILY_REWARDS.forEach(r => {
+      const isClaimed = r.day < cur;
+      const isReady = r.day === cur;
+      const cell = document.createElement('div');
+      cell.className = `daily-day-cell ${r.day === 7 ? 'day-jackpot' : ''} ${isClaimed ? 'claimed' : ''} ${isReady ? 'ready' : ''}`;
+      cell.innerHTML = `
+        <span style="font-size:0.72rem; color:#94a3b8;">DAY ${r.day}</span>
+        <span style="font-size:1.3rem;">${r.day === 7 ? '👑' : '🪙'}</span>
+        <span style="font-family:'Nunito',sans-serif; font-size:0.74rem; font-weight:900; color:var(--gold);">${r.text}</span>
+        <span style="font-size:0.65rem; color:${isClaimed ? '#22c55e' : (isReady ? '#38bdf8' : '#64748b')}">
+          ${isClaimed ? 'CLAIMED ✓' : (isReady ? 'READY' : 'LOCKED')}
+        </span>
+      `;
+      cal.appendChild(cell);
+    });
+
+    const btn = document.getElementById('btnDailyClaimMain');
+    if (cur > 7) {
+      btn.textContent = 'ALL 7 DAYS CLAIMED ✓';
+      btn.disabled = true;
+    } else {
+      btn.textContent = `CLAIM DAY ${cur} SUPPLY!`;
+      btn.disabled = false;
+    }
+  }
+
+  function claimDailyReward() {
+    const cur = AppState.dailyClaimDay;
+    if (cur > 7) return;
+    const r = DAILY_REWARDS[cur - 1];
+    if (r.c) addCoins(r.c);
+    if (r.d) addDiamonds(r.d);
+    AppState.dailyClaimDay++;
+    saveAppState();
+    SFX.fanfare();
+    showToast(`🎉 Day ${cur} Reward Added!`);
+    renderDailyView();
+  }
+
+  function onHeroTap() {
+    SFX.click();
+    showToast(`🎖️ Squad Leader: ${AppState.heroes[AppState.selectedHero]?.name || 'Soldier'} Ready!`);
+    setTimeout(() => navTo('screenCharacters'), 400);
+  }
+
+  function onPlayTap() {
+    SFX.click();
+    showToast('🚀 Launching Zombie Squad Battle...');
+    setTimeout(() => navTo('screenMissions'), 500);
+  }
+
+  // ==========================================
+  // 7. DEFEAT / CRASHED MODAL CONTROLLER
+  // ==========================================
+  function showDefeatScreen(title = 'CRASHED!', reason = 'You crashed into a wrecked burned car.') {
+    SFX.click();
+    const modal = document.getElementById('defeatModal');
+    if (!modal) return;
+    const titleEl = document.getElementById('defeatTitle');
+    const reasonEl = document.getElementById('defeatReason');
+    if (titleEl) {
+      titleEl.textContent = title;
+      if (title && title !== 'CRASHED!') {
+        titleEl.classList.add('visible');
+      } else {
+        titleEl.classList.remove('visible');
+      }
+    }
+    if (reasonEl) {
+      reasonEl.textContent = reason;
+      if (reason && reason !== 'You crashed into a wrecked burned car.') {
+        reasonEl.classList.add('visible');
+      } else {
+        reasonEl.classList.remove('visible');
+      }
+    }
+    modal.classList.add('active');
+  }
+
+  function hideDefeatScreen() {
+    const modal = document.getElementById('defeatModal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  function onDefeatRetry() {
+    SFX.click();
+    hideDefeatScreen();
+    showToast('🔄 Restarting Mission...');
+    setTimeout(() => {
+      navTo('screenMissions');
+    }, 400);
+  }
+
+  function onDefeatMenu() {
+    SFX.click();
+    hideDefeatScreen();
+    navTo('screenHome');
+  }
+
+  // Initial startup
+  refreshHUD();
+</script>
+</body>
+</html>

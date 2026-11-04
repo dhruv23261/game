@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>SQUAD UPGRADE - Zombie Squad</title>
+  <!-- Google Fonts: Fredoka & Outfit for AAA sci-fi mobile game typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ==========================================================================
+       RESET & ROOT DESIGN SYSTEM
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-dark: #000c28;
+      --cyan-bright: #00d2ff;
+      --cyan-glow: rgba(0, 210, 255, 0.6);
+      --cyan-border: #00b4f0;
+
+      --gold-bright: #ffea55;
+      --gold-primary: #ffc400;
+      --gold-glow: rgba(255, 196, 0, 0.7);
+
+      --green-top: #52ec80;
+      --green-mid: #22c55e;
+      --green-bot: #15803d;
+
+      --font-game: 'Fredoka', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: 'Outfit', sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000511;
+      font-family: var(--font-game);
+      color: #ffffff;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Outer Wrapper for Desktop & Tablet Centering */
+    .viewport-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #07193d 0%, #000614 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient Tech Decor */
+    .desktop-bg-decor {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.45;
+      background: 
+        radial-gradient(circle at 15% 25%, rgba(0, 210, 255, 0.18) 0%, transparent 40%),
+        radial-gradient(circle at 85% 75%, rgba(0, 120, 255, 0.22) 0%, transparent 45%),
+        linear-gradient(45deg, transparent 48%, rgba(0, 210, 255, 0.06) 50%, transparent 52%);
+      background-size: 100% 100%, 100% 100%, 60px 60px;
+    }
+
+    /* ==========================================================================
+       MAIN MOBILE CANVAS (576:1024 Exact Ratio Frame)
+       ========================================================================== */
+    .upgrade-frame {
+      width: 100%;
+      height: 100%;
+      max-width: 480px;
+      max-height: 980px;
+      aspect-ratio: 576 / 1024;
+      background: #031336 url('./assets/upgrade-bg.jpg') no-repeat center center;
+      background-size: cover;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 55px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 180, 255, 0.35);
+    }
+
+    @media (min-width: 481px) {
+      .upgrade-frame {
+        height: 96vh;
+        border-radius: 26px;
+        border: 2px solid rgba(0, 210, 255, 0.5);
+      }
+    }
+
+    /* ==========================================================================
+       1. TOP HEADER HUD (MATCHES EXACT BAKED-IN CAPSULES IN UPGRADE-BG.JPG)
+       ========================================================================== */
+    /* Back Button: x: 18..76, y: 14..70 */
+    .header-hit-back {
+      position: absolute;
+      left: 2.8%;
+      top: 1.2%;
+      width: 10.5%;
+      height: 5.6%;
+      cursor: pointer;
+      z-index: 30;
+      border-radius: 12px;
+      background: transparent;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .header-hit-back:active {
+      transform: scale(0.92);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Coin Amount: inside dark slot x: 362..424 (62.8%..73.6%), y: 16..48 (1.6%..4.7%) */
+    .hud-slot-coin {
+      position: absolute;
+      left: 62.8%;
+      top: 1.6%;
+      width: 10.8%;
+      height: 3.2%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.8);
+      z-index: 25;
+      letter-spacing: 0.3px;
+      pointer-events: none;
+    }
+
+    /* Coin Plus Button: x: 425..445, y: 16..48 */
+    .hud-btn-coin-plus {
+      position: absolute;
+      left: 73.8%;
+      top: 1.5%;
+      width: 4.8%;
+      height: 3.5%;
+      cursor: pointer;
+      z-index: 30;
+      border-radius: 6px;
+      background: transparent;
+      transition: transform 0.1s ease;
+    }
+    .hud-btn-coin-plus:active {
+      transform: scale(0.85);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Diamond Amount: inside dark slot x: 484..534 (84.0%..92.7%), y: 16..48 (1.6%..4.7%) */
+    .hud-slot-diamond {
+      position: absolute;
+      left: 84.0%;
+      top: 1.6%;
+      width: 8.8%;
+      height: 3.2%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.8);
+      z-index: 25;
+      letter-spacing: 0.3px;
+      pointer-events: none;
+    }
+
+    /* Diamond Plus Button: x: 535..555, y: 16..48 */
+    .hud-btn-diamond-plus {
+      position: absolute;
+      left: 92.8%;
+      top: 1.5%;
+      width: 4.8%;
+      height: 3.5%;
+      cursor: pointer;
+      z-index: 30;
+      border-radius: 6px;
+      background: transparent;
+      transition: transform 0.1s ease;
+    }
+    .hud-btn-diamond-plus:active {
+      transform: scale(0.85);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ==========================================================================
+       2. INTERACTIVE LEVEL BARS (EXACT FIT INSIDE DESIGN CAPSULES)
+       ========================================================================== */
+    .level-bar-slot {
+      position: absolute;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 15;
+    }
+
+    .level-bar-fill {
+      position: absolute;
+      left: 2px;
+      top: 2px;
+      bottom: 2px;
+      border-radius: 12px;
+      background: linear-gradient(90deg, #15803d 0%, #22c55e 60%, #4ade80 100%);
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+      transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .level-bar-fill.cyan-fill {
+      background: linear-gradient(90deg, #0284c7 0%, #06b6d4 60%, #38bdf8 100%);
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+    }
+
+    .level-bar-text {
+      position: relative;
+      z-index: 2;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.9);
+      user-select: none;
+    }
+
+    /* Exact coordinates of the 4 capsule bars */
+    #barCount {
+      left: 7.465%;
+      top: 31.836%;
+      width: 35.937%;
+      height: 3.808%;
+    }
+    #barHealth {
+      left: 56.944%;
+      top: 31.836%;
+      width: 35.937%;
+      height: 3.808%;
+    }
+    #barDamage {
+      left: 7.465%;
+      top: 72.070%;
+      width: 35.937%;
+      height: 3.906%;
+    }
+    #barSpeed {
+      left: 56.944%;
+      top: 72.070%;
+      width: 35.937%;
+      height: 3.906%;
+    }
+
+    /* ==========================================================================
+       3. INTERACTIVE UPGRADE BUTTONS (EXACT FIT OVER GREEN BUTTONS)
+       ========================================================================== */
+    .card-upgrade-btn {
+      position: absolute;
+      border-radius: 20px;
+      cursor: pointer;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Right 68% of the button for price text (left 32% reserved for the emblem) */
+      padding-left: 32%;
+      background: transparent;
+      border: none;
+      outline: none;
+      transition: transform 0.1s ease, filter 0.15s ease;
+    }
+
+    .card-upgrade-btn:active {
+      transform: scale(0.96);
+      filter: brightness(1.2);
+    }
+
+    .card-upgrade-btn.disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.4) brightness(0.9);
+    }
+
+    .card-upgrade-btn.shake {
+      animation: buttonShake 0.35s ease;
+    }
+
+    @keyframes buttonShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    /* Price Label inside Button */
+    .upgrade-price-tag {
+      font-family: var(--font-game);
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 2px 0 #0f5126, 0 3px 6px rgba(0, 0, 0, 0.8);
+      letter-spacing: 0.5px;
+      line-height: 1;
+    }
+
+    .upgrade-price-tag.max-state {
+      font-size: 1.15rem;
+      color: #fef08a;
+      text-shadow: 0 2px 0 #854d0e, 0 0 10px rgba(250, 204, 21, 0.8);
+      letter-spacing: 1.2px;
+    }
+
+    /* Exact coordinates of the 4 buttons */
+    #btnCount {
+      left: 6.076%;
+      top: 37.597%;
+      width: 38.368%;
+      height: 6.347%;
+    }
+    #btnHealth {
+      left: 55.729%;
+      top: 37.597%;
+      width: 38.368%;
+      height: 6.347%;
+    }
+    #btnDamage {
+      left: 6.076%;
+      top: 77.929%;
+      width: 38.368%;
+      height: 6.347%;
+    }
+    #btnSpeed {
+      left: 55.729%;
+      top: 77.929%;
+      width: 38.368%;
+      height: 6.347%;
+    }
+
+    /* ==========================================================================
+       4. BOTTOM ACTIVE SQUAD COMBAT SUMMARY & DEV QUICK BAR
+       ========================================================================== */
+    .upgrade-bottom-area {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 20;
+    }
+
+    .combat-summary-pill {
+      background: linear-gradient(180deg, rgba(8, 38, 88, 0.95) 0%, rgba(3, 17, 44, 0.98) 100%);
+      border: 1.5px solid rgba(0, 210, 255, 0.6);
+      border-radius: 14px;
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .summary-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1.1;
+    }
+    .summary-item .label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #93c5fd;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .summary-item .value {
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #ffea55;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    .dev-quick-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-dev-chip {
+      background: rgba(0, 210, 255, 0.15);
+      border: 1px solid rgba(0, 210, 255, 0.4);
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #bae6fd;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .btn-dev-chip:hover {
+      background: rgba(0, 210, 255, 0.3);
+      color: #ffffff;
+    }
+    .btn-dev-chip:active {
+      transform: scale(0.92);
+    }
+
+    /* ==========================================================================
+       5. CELEBRATION MODAL & CANVAS
+       ========================================================================== */
+    #particleCanvas {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    .upgrade-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 5, 20, 0.82);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .upgrade-modal-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .upgrade-modal-card {
+      width: 86%;
+      max-width: 360px;
+      background: linear-gradient(180deg, #09377a 0%, #031336 100%);
+      border: 2px solid var(--cyan-bright);
+      border-radius: 22px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 0 45px rgba(0, 210, 255, 0.5), 0 15px 35px rgba(0, 0, 0, 0.9);
+      transform: scale(0.85);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .upgrade-modal-backdrop.active .upgrade-modal-card {
+      transform: scale(1);
+    }
+
+    .modal-icon-wrap {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 210, 255, 0.35) 0%, transparent 70%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    .modal-icon-badge {
+      font-size: 40px;
+      filter: drop-shadow(0 0 12px rgba(255, 234, 85, 0.8));
+    }
+
+    .modal-title {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #ffea55;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(255, 234, 85, 0.8);
+      margin-bottom: 4px;
+    }
+
+    .modal-subtitle {
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      color: #c7dcfa;
+      margin-bottom: 12px;
+    }
+
+    .modal-stat-box {
+      width: 100%;
+      background: rgba(1, 15, 42, 0.8);
+      border: 1px solid rgba(0, 210, 255, 0.4);
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-stat-box .old-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+    .modal-stat-box .arrow {
+      font-size: 1.1rem;
+      color: var(--cyan-bright);
+    }
+    .modal-stat-box .new-val {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #4ade80;
+      text-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+    }
+
+    .btn-modal-ok {
+      width: 100%;
+      height: 48px;
+      background: linear-gradient(180deg, #52ec80 0%, #15803d 100%);
+      border: 2px solid #86efac;
+      border-radius: 14px;
+      font-family: var(--font-game);
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      transition: transform 0.1s ease;
+    }
+    .btn-modal-ok:active {
+      transform: scale(0.95);
+    }
+
+    /* Floating Game Toast */
+    .game-toast {
+      position: absolute;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(3, 19, 54, 0.95);
+      border: 1.5px solid var(--cyan-bright);
+      box-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+      border-radius: 12px;
+      padding: 8px 18px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      z-index: 120;
+      white-space: nowrap;
+    }
+
+    .game-toast.active {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="viewport-container">
+    <div class="desktop-bg-decor"></div>
+
+    <!-- MAIN GAME CANVAS FRAME (576 x 1024 exact match) -->
+    <main class="upgrade-frame">
+
+      <!-- 1. TOP HEADER HUD HIT ZONES (PRECISION FIT OVER BAKED-IN ART) -->
+      <!-- Back Button -->
+      <button class="header-hit-back" id="btnBackHome" title="Return to Home" onclick="goBackHome()"></button>
+
+      <!-- Coin Amount Display inside gold capsule slot -->
+      <div class="hud-slot-coin" id="hudCoinAmount">5,005</div>
+      <!-- Coin Plus Button -->
+      <button class="hud-btn-coin-plus" id="btnAddCoins" title="Add Coins" onclick="topUpCoins(event)"></button>
+
+      <!-- Diamond Amount Display inside cyan capsule slot -->
+      <div class="hud-slot-diamond" id="hudDiamondAmount">50</div>
+      <!-- Diamond Plus Button -->
+      <button class="hud-btn-diamond-plus" id="btnAddDiamonds" title="Add Diamonds" onclick="topUpDiamonds(event)"></button>
+
+      <!-- 2. INTERACTIVE LEVEL BARS (EXACT CAPSULE POSITIONS) -->
+      <!-- 1. Top-Left: Soldier Count -->
+      <div class="level-bar-slot" id="barCount" onclick="onBarClick('count')" title="Soldier Count Level">
+        <div class="level-bar-fill" id="fillCount" style="width: 10%;"></div>
+        <span class="level-bar-text" id="lvlTxtCount">LEVEL 1</span>
+      </div>
+      <button class="card-upgrade-btn" id="btnCount" onclick="onUpgradeTap('count')">
+        <span class="upgrade-price-tag" id="priceCount">200</span>
+      </button>
+
+      <!-- 2. Top-Right: Soldier Health -->
+      <div class="level-bar-slot" id="barHealth" onclick="onBarClick('health')" title="Soldier Health Level">
+        <div class="level-bar-fill" id="fillHealth" style="width: 10%;"></div>
+        <span class="level-bar-text" id="lvlTxtHealth">LEVEL 1</span>
+      </div>
+      <button class="card-upgrade-btn" id="btnHealth" onclick="onUpgradeTap('health')">
+        <span class="upgrade-price-tag" id="priceHealth">150</span>
+      </button>
+
+      <!-- 3. Bottom-Left: Soldier Damage -->
+      <div class="level-bar-slot" id="barDamage" onclick="onBarClick('damage')" title="Soldier Damage Level">
+        <div class="level-bar-fill" id="fillDamage" style="width: 10%;"></div>
+        <span class="level-bar-text" id="lvlTxtDamage">LEVEL 1</span>
+      </div>
+      <button class="card-upgrade-btn" id="btnDamage" onclick="onUpgradeTap('damage')">
+        <span class="upgrade-price-tag" id="priceDamage">180</span>
+      </button>
+
+      <!-- 4. Bottom-Right: Soldier Speed -->
+      <div class="level-bar-slot" id="barSpeed" onclick="onBarClick('speed')" title="Soldier Speed Level">
+        <div class="level-bar-fill cyan-fill" id="fillSpeed" style="width: 10%;"></div>
+        <span class="level-bar-text" id="lvlTxtSpeed">LEVEL 1</span>
+      </div>
+      <button class="card-upgrade-btn" id="btnSpeed" onclick="onUpgradeTap('speed')">
+        <span class="upgrade-price-tag" id="priceSpeed">5</span>
+      </button>
+
+      <!-- 3. BOTTOM COMBAT SUMMARY & DEV CONTROLS -->
+      <footer class="upgrade-bottom-area">
+        <div class="combat-summary-pill">
+          <div class="summary-item">
+            <span class="label">Squad Size</span>
+            <span class="value" id="summaryUnits">2 Units</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Total HP</span>
+            <span class="value" id="summaryHP">100 HP</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Bullet DMG</span>
+            <span class="value" id="summaryDMG">15 DMG</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Mobility</span>
+            <span class="value" id="summarySPD">+0%</span>
+          </div>
+        </div>
+
+        <div class="dev-quick-actions">
+          <button class="btn-dev-chip" onclick="devAddCoins()">+1,000 🪙</button>
+          <button class="btn-dev-chip" onclick="devAddDiamonds()">+50 💎</button>
+          <button class="btn-dev-chip" onclick="devMaxAll()">⚡ Max All</button>
+          <button class="btn-dev-chip" onclick="devResetAll()">↺ Reset</button>
+        </div>
+      </footer>
+
+      <!-- Particle Canvas for Upgrades -->
+      <canvas id="particleCanvas"></canvas>
+
+      <!-- 4. UPGRADE CELEBRATION MODAL -->
+      <div class="upgrade-modal-backdrop" id="upgradeModal">
+        <div class="upgrade-modal-card">
+          <div class="modal-icon-wrap">
+            <span class="modal-icon-badge" id="modalIcon">⚡</span>
+          </div>
+          <div class="modal-title" id="modalTitle">UPGRADE COMPLETE!</div>
+          <div class="modal-subtitle" id="modalSubtitle">Soldier Damage Level 2</div>
+
+          <div class="modal-stat-box">
+            <span class="old-val" id="modalOldVal">15 DMG</span>
+            <span class="arrow">➔</span>
+            <span class="new-val" id="modalNewVal">20 DMG (+5)</span>
+          </div>
+
+          <button class="btn-modal-ok" onclick="closeUpgradeModal()">BATTLE READY!</button>
+        </div>
+      </div>
+
+      <!-- Floating Game Toast -->
+      <div class="game-toast" id="toastNotice">Upgraded!</div>
+
+    </main>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       AUDIO SYNTHESIZER (Web Audio API - AAA Procedural Sound Effects)
+       ========================================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.bgm = new Audio('./assets/audio/bgm_royal_battlefield.mp3');
+        this.bgm.loop = true;
+        this.bgm.volume = 0.50;
+        this.isMusicPlaying = false;
+
+        this.clips = {
+          click: './assets/audio/sfx_ui_click.wav',
+          upgrade: './assets/audio/sfx_upgrade.wav',
+          coin: './assets/audio/sfx_coin.wav',
+          diamond: './assets/audio/sfx_diamond.wav',
+          gunfire: './assets/audio/sfx_gunfire.wav'
+        };
+
+        // Pre-allocated click audio pool for instantaneous 0ms tactile button feedback
+        this.clickPool = [];
+        for (let i = 0; i < 6; i++) {
+          const a = new Audio(this.clips.click);
+          a.preload = 'auto';
+          this.clickPool.push(a);
+        }
+        this.clickPoolIdx = 0;
+        this.lastClickTime = 0;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        this.playBGM();
+      }
+
+      playBGM() {
+        if (!this.isMusicPlaying && this.bgm) {
+          this.bgm.play().then(() => {
+            this.isMusicPlaying = true;
+          }).catch(() => {});
+        }
+      }
+
+      toggleBGM() {
+        if (!this.bgm) return false;
+        if (this.isMusicPlaying) {
+          this.bgm.pause();
+          this.isMusicPlaying = false;
+        } else {
+          this.bgm.play();
+          this.isMusicPlaying = true;
+        }
+        return this.isMusicPlaying;
+      }
+
+      playFile(clipKey, vol = 0.8) {
+        try {
+          const path = this.clips[clipKey];
+          if (path) {
+            const a = new Audio(path);
+            a.volume = vol;
+            a.play().catch(() => {});
+          }
+        } catch(e) {}
+      }
+
+      playClick() {
+        this.init();
+        const now = Date.now();
+        if (now - this.lastClickTime < 40) return;
+        this.lastClickTime = now;
+        try {
+          const snd = this.clickPool[this.clickPoolIdx];
+          this.clickPoolIdx = (this.clickPoolIdx + 1) % this.clickPool.length;
+          snd.currentTime = 0;
+          snd.volume = 1.0;
+          snd.play().catch(() => {});
+        } catch(e) {
+          this.playFile('click', 1.0);
+        }
+      }
+
+      playUpgradeSuccess() {
+        this.init();
+        this.playFile('upgrade', 0.95);
+      }
+
+      playErrorBuzzer() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.18);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+
+      playTopup() {
+        this.init();
+        this.playFile('coin', 0.9);
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    // Global button sound listener: Any button, link, tab, card, or interactive element plays audio immediately!
+    document.addEventListener('pointerdown', (e) => {
+      const btn = e.target.closest('button, .btn, .hud-btn, a, [onclick], .level-bar-slot, .card, .btn-upgrade, .header-hit-back, .hud-btn-coin-plus, .hud-btn-diamond-plus, .modal-close, .modal-btn, .dev-chip, input[type="button"], input[type="submit"], [role="button"]');
+      if (btn) {
+        sound.playClick();
+      }
+    }, true);
+
+    /* ==========================================================================
+       DATA MODEL & CONFIGURATION
+       ========================================================================== */
+    const MAX_LEVEL = 10;
+
+    const ATTRIBUTES = {
+      count: {
+        key: 'Count',
+        name: 'Soldier Count',
+        icon: '👥',
+        currency: 'coins',
+        baseCost: 200,
+        unit: 'Soldiers',
+        getVal: (lvl) => `${lvl + 1} Soldiers`,
+        getDelta: () => `+1 Mob Soldier to Squad`,
+        getSummaryVal: (lvl) => `${lvl + 1} Units`
+      },
+      health: {
+        key: 'Health',
+        name: 'Soldier Health',
+        icon: '❤️',
+        currency: 'coins',
+        baseCost: 150,
+        unit: 'HP',
+        getVal: (lvl) => `${100 + (lvl - 1) * 25} HP`,
+        getDelta: () => `+25 Max HP & Armor`,
+        getSummaryVal: (lvl) => `${100 + (lvl - 1) * 25} HP`
+      },
+      damage: {
+        key: 'Damage',
+        name: 'Soldier Damage',
+        icon: '💥',
+        currency: 'coins',
+        baseCost: 180,
+        unit: 'DMG',
+        getVal: (lvl) => `${15 + (lvl - 1) * 5} DMG`,
+        getDelta: () => `+5 Bullet Damage`,
+        getSummaryVal: (lvl) => `${15 + (lvl - 1) * 5} DMG`
+      },
+      speed: {
+        key: 'Speed',
+        name: 'Soldier Speed',
+        icon: '👟',
+        currency: 'diamonds',
+        baseCost: 5,
+        unit: '%',
+        getVal: (lvl) => `+${(lvl - 1) * 8}%`,
+        getDelta: () => `+8% Movement & Agility`,
+        getSummaryVal: (lvl) => `+${(lvl - 1) * 8}%`
+      }
+    };
+
+    function calculateCost(attrKey, lvl) {
+      const attr = ATTRIBUTES[attrKey];
+      return attr.baseCost * lvl;
+    }
+
+    /* ==========================================================================
+       LOCALSTORAGE STATE
+       ========================================================================== */
+    const State = {
+      coins: parseInt(localStorage.getItem('ZombieSquad_Coins')) || 5005,
+      diamonds: parseInt(localStorage.getItem('ZombieSquad_Diamonds')) || 50,
+      levels: {
+        count: parseInt(localStorage.getItem('ZombieSquad_Upgrade_Count')) || 1,
+        health: parseInt(localStorage.getItem('ZombieSquad_Upgrade_Health')) || 1,
+        damage: parseInt(localStorage.getItem('ZombieSquad_Upgrade_Damage')) || 1,
+        speed: parseInt(localStorage.getItem('ZombieSquad_Upgrade_Speed')) || 1
+      }
+    };
+
+    function saveState() {
+      localStorage.setItem('ZombieSquad_Coins', State.coins);
+      localStorage.setItem('ZombieSquad_Diamonds', State.diamonds);
+      localStorage.setItem('ZombieSquad_Upgrade_Count', State.levels.count);
+      localStorage.setItem('ZombieSquad_Upgrade_Health', State.levels.health);
+      localStorage.setItem('ZombieSquad_Upgrade_Damage', State.levels.damage);
+      localStorage.setItem('ZombieSquad_Upgrade_Speed', State.levels.speed);
+    }
+
+    /* ==========================================================================
+       DOM ELEMENTS
+       ========================================================================== */
+    const hudCoinAmount = document.getElementById('hudCoinAmount');
+    const hudDiamondAmount = document.getElementById('hudDiamondAmount');
+    const toastNotice = document.getElementById('toastNotice');
+
+    const summaryUnits = document.getElementById('summaryUnits');
+    const summaryHP = document.getElementById('summaryHP');
+    const summaryDMG = document.getElementById('summaryDMG');
+    const summarySPD = document.getElementById('summarySPD');
+
+    function updateCurrencyHUD() {
+      hudCoinAmount.textContent = State.coins.toLocaleString();
+      hudDiamondAmount.textContent = State.diamonds.toLocaleString();
+    }
+
+    function renderAllCards() {
+      ['count', 'health', 'damage', 'speed'].forEach(attrKey => {
+        renderCard(attrKey);
+      });
+      updateBottomSummary();
+    }
+
+    function renderCard(attrKey) {
+      const lvl = State.levels[attrKey];
+      const attr = ATTRIBUTES[attrKey];
+      const isMax = lvl >= MAX_LEVEL;
+      const cost = calculateCost(attrKey, lvl);
+
+      // 1. Level Fill and Text
+      const fillEl = document.getElementById(`fill${capitalize(attrKey)}`);
+      const txtEl = document.getElementById(`lvlTxt${capitalize(attrKey)}`);
+      const progressPercent = Math.min(100, (lvl / MAX_LEVEL) * 100);
+      fillEl.style.width = `${progressPercent}%`;
+
+      if (isMax) {
+        txtEl.textContent = '★ MAX LEVEL';
+        txtEl.style.color = '#fef08a';
+      } else {
+        txtEl.textContent = `LEVEL ${lvl}`;
+        txtEl.style.color = '#ffffff';
+      }
+
+      // 2. Button Price Text
+      const btnEl = document.getElementById(`btn${capitalize(attrKey)}`);
+      const priceEl = document.getElementById(`price${capitalize(attrKey)}`);
+
+      if (isMax) {
+        priceEl.textContent = 'MAX';
+        priceEl.className = 'upgrade-price-tag max-state';
+        btnEl.classList.add('disabled');
+      } else {
+        priceEl.textContent = cost.toLocaleString();
+        priceEl.className = 'upgrade-price-tag';
+
+        // Check currency affordability for visual cue
+        const affordable = (attr.currency === 'coins' && State.coins >= cost) ||
+                           (attr.currency === 'diamonds' && State.diamonds >= cost);
+        if (!affordable) {
+          btnEl.classList.add('disabled');
+        } else {
+          btnEl.classList.remove('disabled');
+        }
+      }
+    }
+
+    function updateBottomSummary() {
+      summaryUnits.textContent = ATTRIBUTES.count.getSummaryVal(State.levels.count);
+      summaryHP.textContent = ATTRIBUTES.health.getSummaryVal(State.levels.health);
+      summaryDMG.textContent = ATTRIBUTES.damage.getSummaryVal(State.levels.damage);
+      summarySPD.textContent = ATTRIBUTES.speed.getSummaryVal(State.levels.speed);
+    }
+
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    /* ==========================================================================
+       UPGRADE ACTIONS & CELEBRATION
+       ========================================================================== */
+    function onUpgradeTap(attrKey) {
+      sound.playClick();
+      const lvl = State.levels[attrKey];
+      const attr = ATTRIBUTES[attrKey];
+      const btnEl = document.getElementById(`btn${capitalize(attrKey)}`);
+
+      if (lvl >= MAX_LEVEL) {
+        sound.playClick();
+        showToast(`★ ${attr.name} is already at MAX LEVEL!`);
+        return;
+      }
+
+      const cost = calculateCost(attrKey, lvl);
+
+      // Currency check
+      if (attr.currency === 'coins') {
+        if (State.coins < cost) {
+          sound.playErrorBuzzer();
+          shakeButton(btnEl);
+          showToast(`Need ${(cost - State.coins).toLocaleString()} more Coins! Tap +`);
+          return;
+        }
+        State.coins -= cost;
+      } else {
+        if (State.diamonds < cost) {
+          sound.playErrorBuzzer();
+          shakeButton(btnEl);
+          showToast(`Need ${(cost - State.diamonds)} more Diamonds! Tap +`);
+          return;
+        }
+        State.diamonds -= cost;
+      }
+
+      // Upgrade logic
+      const oldVal = attr.getVal(lvl);
+      State.levels[attrKey]++;
+      const newVal = attr.getVal(State.levels[attrKey]);
+      saveState();
+
+      // Audio & Visual FX
+      sound.playUpgradeSuccess();
+      triggerUpgradeBurst(btnEl);
+      updateCurrencyHUD();
+      renderAllCards();
+
+      // Show Celebration Modal
+      openUpgradeModal(attrKey, lvl + 1, oldVal, newVal);
+    }
+
+    function onBarClick(attrKey) {
+      sound.playClick();
+      const lvl = State.levels[attrKey];
+      const attr = ATTRIBUTES[attrKey];
+      showToast(`${attr.icon} ${attr.name}: ${attr.getVal(lvl)} (Lv ${lvl}/${MAX_LEVEL})`);
+    }
+
+    function shakeButton(btn) {
+      btn.classList.remove('shake');
+      void btn.offsetWidth; // Force reflow
+      btn.classList.add('shake');
+    }
+
+    function openUpgradeModal(attrKey, newLvl, oldVal, newVal) {
+      const attr = ATTRIBUTES[attrKey];
+      document.getElementById('modalIcon').textContent = attr.icon;
+      document.getElementById('modalTitle').textContent = `${attr.name.toUpperCase()} UPGRADED!`;
+      document.getElementById('modalSubtitle').textContent = `Now reached Level ${newLvl} / ${MAX_LEVEL}`;
+      document.getElementById('modalOldVal').textContent = oldVal;
+      document.getElementById('modalNewVal').textContent = `${newVal} (${attr.getDelta()})`;
+      document.getElementById('upgradeModal').classList.add('active');
+    }
+
+    function closeUpgradeModal() {
+      sound.playClick();
+      document.getElementById('upgradeModal').classList.remove('active');
+    }
+
+    /* ==========================================================================
+       CURRENCY TOP-UP & DEV TOOLS
+       ========================================================================== */
+    function topUpCoins(e) {
+      if (e) e.stopPropagation();
+      sound.playTopup();
+      State.coins += 500;
+      saveState();
+      updateCurrencyHUD();
+      renderAllCards();
+      showToast('+500 Coins Added!');
+      triggerCoinSparks();
+    }
+
+    function topUpDiamonds(e) {
+      if (e) e.stopPropagation();
+      sound.playTopup();
+      State.diamonds += 50;
+      saveState();
+      updateCurrencyHUD();
+      renderAllCards();
+      showToast('+50 Diamonds Added!');
+    }
+
+    function devAddCoins() {
+      sound.playTopup();
+      State.coins += 1000;
+      saveState();
+      updateCurrencyHUD();
+      renderAllCards();
+      showToast('+1,000 Coins Added!');
+    }
+
+    function devAddDiamonds() {
+      sound.playTopup();
+      State.diamonds += 50;
+      saveState();
+      updateCurrencyHUD();
+      renderAllCards();
+      showToast('+50 Diamonds Added!');
+    }
+
+    function devMaxAll() {
+      sound.playUpgradeSuccess();
+      ['count', 'health', 'damage', 'speed'].forEach(k => State.levels[k] = MAX_LEVEL);
+      saveState();
+      renderAllCards();
+      showToast('⚡ All 4 Squad Attributes Maxed Out!');
+    }
+
+    function devResetAll() {
+      sound.playClick();
+      ['count', 'health', 'damage', 'speed'].forEach(k => State.levels[k] = 1);
+      saveState();
+      renderAllCards();
+      showToast('↺ Squad Upgrades Reset to Level 1!');
+    }
+
+    function goBackHome() {
+      sound.playClick();
+      window.location.href = './index.html';
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      toastNotice.textContent = msg;
+      toastNotice.classList.add('active');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toastNotice.classList.remove('active');
+      }, 2200);
+    }
+
+    /* ==========================================================================
+       CANVAS PARTICLE EXPLOSION (GLOWING SPARKS & BURST)
+       ========================================================================== */
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function triggerUpgradeBurst(targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      const parentRect = canvas.parentElement.getBoundingClientRect();
+      const originX = rect.left - parentRect.left + rect.width / 2;
+      const originY = rect.top - parentRect.top + rect.height / 2;
+
+      for (let i = 0; i < 35; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 7 + 3;
+        particles.push({
+          x: originX,
+          y: originY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: Math.random() * 4 + 2,
+          color: Math.random() > 0.4 ? '#4ade80' : '#ffea55',
+          alpha: 1,
+          decay: Math.random() * 0.025 + 0.015
+        });
+      }
+    }
+
+    function triggerCoinSparks() {
+      const parentRect = canvas.parentElement.getBoundingClientRect();
+      const originX = parentRect.width * 0.7;
+      const originY = 30;
+
+      for (let i = 0; i < 20; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 4 + 2;
+        particles.push({
+          x: originX,
+          y: originY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: Math.random() * 3 + 1.5,
+          color: '#fbbf24',
+          alpha: 1,
+          decay: 0.03
+        });
+      }
+    }
+
+    function updateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.15; // Gravity
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      requestAnimationFrame(updateParticles);
+    }
+    requestAnimationFrame(updateParticles);
+
+    // Initial Load
+    updateCurrencyHUD();
+    renderAllCards();
+  </script>
+</body>
+</html>

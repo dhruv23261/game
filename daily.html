@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>DAILY REWARDS - Zombie Squad</title>
+  <!-- Google Fonts: Fredoka & Outfit for AAA sci-fi mobile game typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ==========================================================================
+       RESET & ROOT DESIGN SYSTEM
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-dark: #000c28;
+      --cyan-bright: #00d2ff;
+      --cyan-glow: rgba(0, 210, 255, 0.6);
+      --cyan-border: #00b4f0;
+
+      --gold-bright: #ffea55;
+      --gold-primary: #ffc400;
+      --gold-glow: rgba(255, 196, 0, 0.7);
+
+      --green-top: #52ec80;
+      --green-mid: #22c55e;
+      --green-bot: #15803d;
+
+      --font-game: 'Fredoka', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: 'Outfit', sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000511;
+      font-family: var(--font-game);
+      color: #ffffff;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Outer Wrapper for Desktop & Tablet Centering */
+    .viewport-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #07193d 0%, #000614 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient Tech Decor */
+    .desktop-bg-decor {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.45;
+      background: 
+        radial-gradient(circle at 15% 25%, rgba(0, 210, 255, 0.18) 0%, transparent 40%),
+        radial-gradient(circle at 85% 75%, rgba(0, 120, 255, 0.22) 0%, transparent 45%),
+        linear-gradient(45deg, transparent 48%, rgba(0, 210, 255, 0.06) 50%, transparent 52%);
+      background-size: 100% 100%, 100% 100%, 60px 60px;
+    }
+
+    /* ==========================================================================
+       MAIN MOBILE CANVAS (576:1024 Exact Ratio Frame)
+       ========================================================================== */
+    .daily-frame {
+      width: 100%;
+      height: 100%;
+      max-width: 480px;
+      max-height: 980px;
+      aspect-ratio: 576 / 1024;
+      background: #031336 url('./assets/daily-bg.jpg') no-repeat center center;
+      background-size: cover;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 55px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 180, 255, 0.35);
+    }
+
+    @media (min-width: 481px) {
+      .daily-frame {
+        height: 96vh;
+        border-radius: 26px;
+        border: 2px solid rgba(0, 210, 255, 0.5);
+      }
+    }
+
+    /* ==========================================================================
+       1. TOP HEADER HUD
+       ========================================================================== */
+    .daily-header {
+      position: relative;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 12px 6px 12px;
+      gap: 8px;
+    }
+
+    .btn-back {
+      width: 44px;
+      height: 42px;
+      background: linear-gradient(180deg, #1251b3 0%, #082963 100%);
+      border: 2px solid var(--cyan-border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      transition: transform 0.1s ease, filter 0.15s ease;
+      flex-shrink: 0;
+    }
+    .btn-back:active {
+      transform: scale(0.92);
+      filter: brightness(1.2);
+    }
+    .btn-back svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
+    }
+
+    .daily-title-badge {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 
+        0 0 10px rgba(0, 210, 255, 0.9),
+        0 3px 0 #00438c,
+        0 4px 8px rgba(0, 0, 0, 0.9);
+      margin-left: 2px;
+      margin-right: auto;
+    }
+
+    /* Currencies Container */
+    .currency-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .currency-capsule {
+      height: 32px;
+      background: linear-gradient(180deg, #021a44 0%, #000c28 100%);
+      border: 1.5px solid #0099e6;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      padding: 2px 3px 2px 4px;
+      gap: 4px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .currency-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .currency-icon.coin {
+      background: radial-gradient(circle at 35% 35%, #fff066 0%, #f59e0b 70%, #b45309 100%);
+      box-shadow: 0 0 6px #fbbf24;
+      border: 1px solid #fef08a;
+    }
+
+    .currency-icon.coin::after {
+      content: '★';
+      font-size: 12px;
+      color: #78350f;
+    }
+
+    .currency-icon.diamond {
+      background: radial-gradient(circle at 35% 35%, #a5f3fc 0%, #06b6d4 70%, #0e7490 100%);
+      box-shadow: 0 0 6px #22d3ee;
+      border: 1px solid #cffafe;
+      clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
+    }
+
+    .currency-amount {
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #ffffff;
+      padding: 0 2px;
+      letter-spacing: 0.5px;
+      min-width: 32px;
+      text-align: right;
+    }
+
+    .btn-add-currency {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+      border: 1px solid #86efac;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      transition: transform 0.1s ease;
+    }
+    .btn-add-currency:active {
+      transform: scale(0.85);
+    }
+
+    /* ==========================================================================
+       2. INTERACTIVE REWARD SLOTS OVERLAY
+       ========================================================================== */
+    .daily-rewards-overlay {
+      position: absolute;
+      top: 48.5%;
+      left: 2.2%;
+      width: 95.6%;
+      height: 21.0%;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      z-index: 20;
+    }
+
+    .day-slot {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: 6px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .day-slot:hover {
+      transform: translateY(-2px);
+    }
+    .day-slot:active {
+      transform: scale(0.95);
+    }
+
+    /* Active Ready Day Glow */
+    .day-slot.ready {
+      border: 2px solid #ffea55;
+      box-shadow: 
+        0 0 16px rgba(255, 234, 85, 0.85),
+        inset 0 0 12px rgba(255, 234, 85, 0.4);
+      background: rgba(255, 220, 40, 0.12);
+      animation: pulseActiveDay 1.6s infinite alternate ease-in-out;
+    }
+
+    @keyframes pulseActiveDay {
+      0% {
+        box-shadow: 0 0 10px rgba(255, 234, 85, 0.6), inset 0 0 8px rgba(255, 234, 85, 0.3);
+      }
+      100% {
+        box-shadow: 0 0 22px rgba(255, 234, 85, 1), inset 0 0 16px rgba(255, 234, 85, 0.6);
+      }
+    }
+
+    /* Claimed Day */
+    .day-slot.claimed {
+      background: rgba(0, 30, 80, 0.55);
+      border: 1.5px solid rgba(34, 197, 94, 0.8);
+      filter: saturate(0.85);
+    }
+
+    /* Checkmark Badge for Claimed */
+    .claimed-badge {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+      border: 2px solid #86efac;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.8), 0 4px 8px rgba(0, 0, 0, 0.7);
+      z-index: 5;
+    }
+
+    .claimed-badge svg {
+      width: 18px;
+      height: 18px;
+      fill: #ffffff;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+    }
+
+    /* "COLLECT" Pulsing Badge for Ready Day */
+    .ready-badge {
+      position: absolute;
+      top: 6px;
+      font-size: 8px;
+      font-weight: 800;
+      color: #000;
+      background: #ffea55;
+      padding: 2px 4px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      animation: bounceReady 1s infinite alternate;
+    }
+
+    @keyframes bounceReady {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-3px); }
+    }
+
+    /* Day Number & Amount labels inside slot */
+    .slot-day-label {
+      position: absolute;
+      top: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #a5c2ea;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .day-slot.ready .slot-day-label {
+      color: #ffea55;
+      text-shadow: 0 0 6px rgba(255, 234, 85, 0.8);
+    }
+
+    .slot-amount-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+      letter-spacing: 0.5px;
+    }
+
+    .day-slot.ready .slot-amount-label {
+      color: #52ec80;
+      text-shadow: 0 0 8px rgba(82, 236, 128, 0.9), 0 2px 4px rgba(0, 0, 0, 0.9);
+    }
+
+    /* ==========================================================================
+       3. BIG AAA GREEN CLAIM BUTTON (DIRT ROAD AREA)
+       ========================================================================== */
+    .claim-action-area {
+      position: absolute;
+      top: 71.8%;
+      left: 10%;
+      width: 80%;
+      height: 7.2%;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-claim-main {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, #4ade80 0%, #22c55e 40%, #15803d 100%);
+      border: 3px solid #bbf7d0;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.8),
+        0 0 25px rgba(34, 197, 94, 0.65),
+        inset 0 2px 2px rgba(255, 255, 255, 0.8),
+        inset 0 -3px 4px rgba(0, 0, 0, 0.4);
+      transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Glossy Shimmer */
+    .btn-claim-main::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+      transform: skewX(-25deg);
+      animation: btnShimmer 3s infinite;
+    }
+
+    @keyframes btnShimmer {
+      0% { left: -100%; }
+      30% { left: 160%; }
+      100% { left: 160%; }
+    }
+
+    .btn-claim-main:active {
+      transform: scale(0.96) translateY(2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.9), 0 0 15px rgba(34, 197, 94, 0.4);
+    }
+
+    .btn-claim-main.claimed-state {
+      background: linear-gradient(180deg, #475569 0%, #334155 50%, #1e293b 100%);
+      border-color: #64748b;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+      cursor: default;
+    }
+    .btn-claim-main.claimed-state:active {
+      transform: none;
+    }
+
+    .claim-btn-text {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .claim-coin-icon {
+      width: 26px;
+      height: 26px;
+      background: radial-gradient(circle at 35% 35%, #fff066 0%, #f59e0b 70%, #b45309 100%);
+      border: 1.5px solid #fef08a;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #fbbf24;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .claim-coin-icon::after {
+      content: '★';
+      font-size: 14px;
+      color: #78350f;
+    }
+
+    /* Subtitle & Dev Skip Timer Link */
+    .claim-timer-hint {
+      margin-top: 6px;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fde047;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-dev-skip {
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 0.70rem;
+      color: #38bdf8;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: background 0.15s ease;
+    }
+    .btn-dev-skip:hover {
+      background: rgba(0, 180, 255, 0.3);
+    }
+
+    /* ==========================================================================
+       4. CELEBRATORY COIN EXPLOSION PARTICLES (CANVAS)
+       ========================================================================== */
+    #particleCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ==========================================================================
+       5. POPUP REWARD MODAL & TOAST
+       ========================================================================== */
+    .reward-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 5, 20, 0.82);
+      backdrop-filter: blur(4px);
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .reward-modal-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .reward-modal-card {
+      width: 86%;
+      max-width: 380px;
+      background: linear-gradient(180deg, #07265e 0%, #031336 100%);
+      border: 2px solid var(--cyan-bright);
+      border-radius: 22px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(0, 210, 255, 0.5), 0 15px 35px rgba(0, 0, 0, 0.9);
+      transform: scale(0.85);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .reward-modal-backdrop.active .reward-modal-card {
+      transform: scale(1);
+    }
+
+    .modal-sunburst {
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, rgba(255, 234, 85, 0.4) 0%, transparent 70%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .modal-coin-graphic {
+      width: 72px;
+      height: 72px;
+      background: radial-gradient(circle at 35% 35%, #fff066 0%, #f59e0b 70%, #b45309 100%);
+      border: 3px solid #fef08a;
+      border-radius: 50%;
+      box-shadow: 0 0 25px #fbbf24;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: coinFloat 2s infinite ease-in-out alternate;
+    }
+
+    .modal-coin-graphic::after {
+      content: '★';
+      font-size: 38px;
+      color: #78350f;
+    }
+
+    @keyframes coinFloat {
+      0% { transform: translateY(0) rotate(0deg); }
+      100% { transform: translateY(-8px) rotate(6deg); }
+    }
+
+    .modal-title {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: #ffea55;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(255, 234, 85, 0.8);
+      margin-bottom: 4px;
+    }
+
+    .modal-subtitle {
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      color: #c7dcfa;
+      margin-bottom: 20px;
+    }
+
+    .modal-reward-val {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: #52ec80;
+      text-shadow: 0 0 15px rgba(82, 236, 128, 0.9);
+      margin-bottom: 20px;
+    }
+
+    .btn-modal-ok {
+      width: 100%;
+      height: 48px;
+      background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+      border: 2px solid #86efac;
+      border-radius: 14px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      transition: transform 0.1s ease;
+    }
+    .btn-modal-ok:active {
+      transform: scale(0.95);
+    }
+
+    /* Toast Notification */
+    .game-toast {
+      position: absolute;
+      top: 65px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(3, 19, 54, 0.92);
+      border: 1.5px solid var(--cyan-bright);
+      box-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+      border-radius: 12px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      z-index: 120;
+    }
+
+    .game-toast.active {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="viewport-container">
+    <div class="desktop-bg-decor"></div>
+
+    <!-- MAIN GAME CANVAS FRAME (576 x 1024 exact match) -->
+    <main class="daily-frame">
+
+      <!-- 1. TOP HEADER HUD -->
+      <header class="daily-header">
+        <!-- Back Button -->
+        <button class="btn-back" id="btnBackHome" title="Return to Home" onclick="goBackHome()">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path>
+          </svg>
+        </button>
+
+        <!-- Title -->
+        <div class="daily-title-badge">DAILY</div>
+
+        <!-- Currencies Bar -->
+        <div class="currency-bar">
+          <!-- Coins Capsule -->
+          <div class="currency-capsule">
+            <div class="currency-icon coin"></div>
+            <span class="currency-amount" id="hudCoinAmount">5,085</span>
+            <button class="btn-add-currency" id="btnAddCoins" onclick="topUpCoins(event)">+</button>
+          </div>
+
+          <!-- Diamonds Capsule -->
+          <div class="currency-capsule">
+            <div class="currency-icon diamond"></div>
+            <span class="currency-amount" id="hudDiamondAmount">50</span>
+            <button class="btn-add-currency" id="btnAddDiamonds" onclick="topUpDiamonds(event)">+</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- 2. INTERACTIVE 7-DAY REWARD SLOTS OVERLAY -->
+      <section class="daily-rewards-overlay" id="dailySlotsContainer">
+        <!-- Injected dynamically by JS matching Day 1 to Day 7 coordinates -->
+      </section>
+
+      <!-- 3. BIG AAA GREEN CLAIM BUTTON (DIRT ROAD AREA) -->
+      <div class="claim-action-area">
+        <button class="btn-claim-main" id="btnMainClaim" onclick="onMainClaimTap()">
+          <span class="claim-coin-icon"></span>
+          <span class="claim-btn-text" id="claimBtnText">COLLECT DAY 2 (+20)</span>
+        </button>
+
+        <div class="claim-timer-hint" id="timerHintContainer" style="display:none;">
+          <span id="countdownTimerText">NEXT REWARD IN: 23:59:45</span>
+          <button class="btn-dev-skip" onclick="devSkipTimer()" title="Dev Tool: Unlock next day immediately">⚡ SKIP TIMER</button>
+        </div>
+      </div>
+
+      <!-- Particle Canvas for Celebratory Coin Bursts -->
+      <canvas id="particleCanvas"></canvas>
+
+      <!-- 4. REWARD CELEBRATION MODAL -->
+      <div class="reward-modal-backdrop" id="rewardModal">
+        <div class="reward-modal-card">
+          <div class="modal-sunburst">
+            <div class="modal-coin-graphic"></div>
+          </div>
+          <div class="modal-title" id="modalTitle">REWARD CLAIMED!</div>
+          <div class="modal-subtitle" id="modalSubtitle">Streak: Day 2 / 7</div>
+          <div class="modal-reward-val" id="modalRewardVal">+20 COINS</div>
+          <button class="btn-modal-ok" onclick="closeRewardModal()">AWESOME!</button>
+        </div>
+      </div>
+
+      <!-- Floating Toast -->
+      <div class="game-toast" id="toastNotice">Coins Added!</div>
+
+    </main>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       AUDIO SYNTHESIZER (Web Audio API - Crisp AAA Sound Effects)
+       ========================================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playClick() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.06);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.06);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.06);
+      }
+
+      playClaimFanfare() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0, now + idx * 0.08);
+          gain.gain.linearRampToValueAtTime(0.35, now + idx * 0.08 + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.4);
+        });
+      }
+
+      playCoinPickup() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(987.77, now); // B5
+        osc.frequency.setValueAtTime(1318.51, now + 0.07); // E6
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+
+      playTopup() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    /* ==========================================================================
+       DATA & LOCALSTORAGE PERSISTENCE
+       ========================================================================== */
+    const DAILY_REWARDS = [
+      { day: 1, amount: 10 },
+      { day: 2, amount: 20 },
+      { day: 3, amount: 30 },
+      { day: 4, amount: 40 },
+      { day: 5, amount: 50 },
+      { day: 6, amount: 60 },
+      { day: 7, amount: 100 }
+    ];
+
+    const State = {
+      coins: parseInt(localStorage.getItem('ZombieSquad_Coins')) || 5085,
+      diamonds: parseInt(localStorage.getItem('ZombieSquad_Diamonds')) || 50,
+      currentDay: parseInt(localStorage.getItem('ZombieSquad_DailyCurrentDay')) || 2,
+      lastClaimTime: parseInt(localStorage.getItem('ZombieSquad_DailyLastClaim')) || 0,
+      claimedDays: {}
+    };
+
+    // Load claimed status for all 7 days
+    for (let d = 1; d <= 7; d++) {
+      State.claimedDays[d] = localStorage.getItem(`ZombieSquad_DailyClaimed_Day_${d}`) === '1';
+    }
+
+    // Default Day 1 claimed if fresh state and currentDay >= 2
+    if (State.currentDay > 1 && !State.claimedDays[1]) {
+      State.claimedDays[1] = true;
+      localStorage.setItem('ZombieSquad_DailyClaimed_Day_1', '1');
+    }
+
+    function saveState() {
+      localStorage.setItem('ZombieSquad_Coins', State.coins);
+      localStorage.setItem('ZombieSquad_Diamonds', State.diamonds);
+      localStorage.setItem('ZombieSquad_DailyCurrentDay', State.currentDay);
+      localStorage.setItem('ZombieSquad_DailyLastClaim', State.lastClaimTime);
+      for (let d = 1; d <= 7; d++) {
+        localStorage.setItem(`ZombieSquad_DailyClaimed_Day_${d}`, State.claimedDays[d] ? '1' : '0');
+      }
+    }
+
+    /* ==========================================================================
+       UI RENDERING & REWARDS LOGIC
+       ========================================================================== */
+    const hudCoinAmount = document.getElementById('hudCoinAmount');
+    const hudDiamondAmount = document.getElementById('hudDiamondAmount');
+    const slotsContainer = document.getElementById('dailySlotsContainer');
+    const btnMainClaim = document.getElementById('btnMainClaim');
+    const claimBtnText = document.getElementById('claimBtnText');
+    const timerHintContainer = document.getElementById('timerHintContainer');
+    const countdownTimerText = document.getElementById('countdownTimerText');
+    const toastNotice = document.getElementById('toastNotice');
+
+    function updateCurrencyHUD() {
+      hudCoinAmount.textContent = State.coins.toLocaleString();
+      hudDiamondAmount.textContent = State.diamonds.toLocaleString();
+    }
+
+    function renderSlots() {
+      slotsContainer.innerHTML = '';
+
+      DAILY_REWARDS.forEach(reward => {
+        const isClaimed = State.claimedDays[reward.day];
+        const isReady = (reward.day === State.currentDay) && !isClaimed;
+
+        const slot = document.createElement('div');
+        slot.className = `day-slot ${isClaimed ? 'claimed' : ''} ${isReady ? 'ready' : ''}`;
+        slot.title = `Day ${reward.day}: +${reward.amount} Coins`;
+        slot.onclick = () => onSlotClick(reward.day);
+
+        if (isClaimed) {
+          slot.innerHTML = `
+            <div class="claimed-badge">
+              <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            </div>
+          `;
+        } else if (isReady) {
+          slot.innerHTML = `
+            <div class="ready-badge">COLLECT</div>
+          `;
+        }
+
+        slotsContainer.appendChild(slot);
+      });
+
+      updateMainClaimButton();
+    }
+
+    function updateMainClaimButton() {
+      const cur = State.currentDay;
+      const isTodayClaimed = State.claimedDays[cur];
+
+      if (cur > 7 || (cur === 7 && isTodayClaimed)) {
+        btnMainClaim.className = 'btn-claim-main claimed-state';
+        claimBtnText.textContent = '✓ 7-DAY STREAK COMPLETE!';
+        timerHintContainer.style.display = 'flex';
+        countdownTimerText.textContent = 'NEW CYCLE STARTS TOMORROW';
+      } else if (isTodayClaimed) {
+        btnMainClaim.className = 'btn-claim-main claimed-state';
+        claimBtnText.textContent = `✓ DAY ${cur} CLAIMED`;
+        timerHintContainer.style.display = 'flex';
+        startCountdown();
+      } else {
+        btnMainClaim.className = 'btn-claim-main';
+        const amt = DAILY_REWARDS[cur - 1].amount;
+        claimBtnText.innerHTML = `COLLECT DAY ${cur} (+${amt})`;
+        timerHintContainer.style.display = 'none';
+      }
+    }
+
+    let countdownInterval = null;
+    function startCountdown() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      
+      function tick() {
+        const now = Date.now();
+        const nextClaim = State.lastClaimTime + (24 * 60 * 60 * 1000);
+        const diff = Math.max(0, nextClaim - now);
+
+        if (diff <= 0) {
+          clearInterval(countdownInterval);
+          if (State.currentDay < 7) {
+            State.currentDay++;
+            saveState();
+            renderSlots();
+          }
+          return;
+        }
+
+        const hrs = Math.floor(diff / (1000 * 60 * 60));
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+        countdownTimerText.textContent = `NEXT IN: ${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      }
+
+      tick();
+      countdownInterval = setInterval(tick, 1000);
+    }
+
+    /* ==========================================================================
+       CLAIMING REWARDS & CELEBRATION
+       ========================================================================== */
+    function onSlotClick(day) {
+      sound.playClick();
+      if (day === State.currentDay && !State.claimedDays[day]) {
+        claimReward(day);
+      } else if (State.claimedDays[day]) {
+        showToast(`Day ${day} already collected!`);
+      } else {
+        showToast(`Day ${day} unlocks after Day ${day - 1}!`);
+      }
+    }
+
+    function onMainClaimTap() {
+      sound.playClick();
+      const cur = State.currentDay;
+      if (cur <= 7 && !State.claimedDays[cur]) {
+        claimReward(cur);
+      } else if (cur > 7) {
+        showToast('All 7 days complete! Resetting streak...');
+        State.currentDay = 1;
+        DAILY_REWARDS.forEach(r => State.claimedDays[r.day] = false);
+        saveState();
+        renderSlots();
+      }
+    }
+
+    function claimReward(day) {
+      const reward = DAILY_REWARDS[day - 1];
+      State.claimedDays[day] = true;
+      State.coins += reward.amount;
+      State.lastClaimTime = Date.now();
+      saveState();
+
+      // Trigger Celebration
+      sound.playClaimFanfare();
+      triggerCoinExplosion();
+      animateNumberRoll(hudCoinAmount, State.coins - reward.amount, State.coins, 1000);
+
+      // Open Modal
+      document.getElementById('modalTitle').textContent = `DAY ${day} COLLECTED!`;
+      document.getElementById('modalSubtitle').textContent = `7-Day Squad Login Streak`;
+      document.getElementById('modalRewardVal').textContent = `+${reward.amount} COINS`;
+      document.getElementById('rewardModal').classList.add('active');
+
+      renderSlots();
+    }
+
+    function closeRewardModal() {
+      sound.playClick();
+      document.getElementById('rewardModal').classList.remove('active');
+    }
+
+    function devSkipTimer() {
+      sound.playClick();
+      if (State.currentDay < 7) {
+        State.currentDay++;
+        State.lastClaimTime = 0;
+        saveState();
+        renderSlots();
+        showToast(`Unlocked Day ${State.currentDay}!`);
+      } else {
+        State.currentDay = 1;
+        DAILY_REWARDS.forEach(r => State.claimedDays[r.day] = false);
+        State.lastClaimTime = 0;
+        saveState();
+        renderSlots();
+        showToast('Reset streak to Day 1!');
+      }
+    }
+
+    /* ==========================================================================
+       TOP-UP & TOAST HELPERS
+       ========================================================================== */
+    function topUpCoins(e) {
+      e.stopPropagation();
+      sound.playTopup();
+      State.coins += 500;
+      saveState();
+      updateCurrencyHUD();
+      showToast('+500 Coins Added!');
+      triggerCoinExplosion();
+    }
+
+    function topUpDiamonds(e) {
+      e.stopPropagation();
+      sound.playTopup();
+      State.diamonds += 50;
+      saveState();
+      updateCurrencyHUD();
+      showToast('+50 Diamonds Added!');
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      toastNotice.textContent = msg;
+      toastNotice.classList.add('active');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toastNotice.classList.remove('active');
+      }, 2000);
+    }
+
+    function goBackHome() {
+      sound.playClick();
+      window.location.href = './index.html';
+    }
+
+    function animateNumberRoll(el, start, end, duration) {
+      const startTime = performance.now();
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const val = Math.floor(start + (end - start) * ease);
+        el.textContent = val.toLocaleString();
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        } else {
+          el.textContent = end.toLocaleString();
+        }
+      }
+      requestAnimationFrame(update);
+    }
+
+    /* ==========================================================================
+       CANVAS COIN EXPLOSION PARTICLES
+       ========================================================================== */
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class CoinParticle {
+      constructor(x, y, targetX, targetY) {
+        this.x = x;
+        this.y = y;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 9 + 4;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed - 3;
+        this.gravity = 0.35;
+        this.size = Math.random() * 8 + 12;
+        this.alpha = 1;
+        this.rot = Math.random() * Math.PI;
+        this.rotSpeed = (Math.random() - 0.5) * 0.3;
+        this.seekTarget = false;
+        setTimeout(() => { this.seekTarget = true; }, 320 + Math.random() * 150);
+      }
+
+      update() {
+        if (!this.seekTarget) {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.vy += this.gravity;
+        } else {
+          const dx = this.targetX - this.x;
+          const dy = this.targetY - this.y;
+          this.x += dx * 0.18;
+          this.y += dy * 0.18;
+          this.size = Math.max(4, this.size * 0.94);
+          if (Math.hypot(dx, dy) < 18) {
+            this.alpha = 0;
+            sound.playCoinPickup();
+          }
+        }
+        this.rot += this.rotSpeed;
+      }
+
+      draw(c) {
+        c.save();
+        c.translate(this.x, this.y);
+        c.rotate(this.rot);
+        c.globalAlpha = this.alpha;
+        c.beginPath();
+        c.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+        c.fillStyle = '#ffc400';
+        c.fill();
+        c.lineWidth = 2;
+        c.strokeStyle = '#fff066';
+        c.stroke();
+        c.restore();
+      }
+    }
+
+    function triggerCoinExplosion() {
+      const rect = btnMainClaim.getBoundingClientRect();
+      const parentRect = canvas.getBoundingClientRect();
+      const originX = rect.left + rect.width / 2 - parentRect.left;
+      const originY = rect.top + rect.height / 2 - parentRect.top;
+
+      const hudCoinRect = hudCoinAmount.getBoundingClientRect();
+      const targetX = hudCoinRect.left + hudCoinRect.width / 2 - parentRect.left;
+      const targetY = hudCoinRect.top + hudCoinRect.height / 2 - parentRect.top;
+
+      for (let i = 0; i < 24; i++) {
+        particles.push(new CoinParticle(originX, originY, targetX, targetY));
+      }
+
+      if (!isAnimating) animateParticles();
+    }
+
+    let isAnimating = false;
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles = particles.filter(p => p.alpha > 0);
+      particles.forEach(p => {
+        p.update();
+        p.draw(ctx);
+      });
+
+      if (particles.length > 0) {
+        isAnimating = true;
+        requestAnimationFrame(animateParticles);
+      } else {
+        isAnimating = false;
+      }
+    }
+
+    // Initialize Page
+    updateCurrencyHUD();
+    renderSlots();
+  </script>
+</body>
+</html>

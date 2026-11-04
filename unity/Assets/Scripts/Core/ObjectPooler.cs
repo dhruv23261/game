@@ -59,11 +59,14 @@ namespace MobControl.Core
 
                 Queue<GameObject> objectPool = new Queue<GameObject>();
                 GameObject parentGroup = new GameObject($"Pool_{item.tag}");
-                parentGroup.transform.SetParent(transform);
+                parentGroup.transform.SetParent(transform, false);
+                parentGroup.transform.localPosition = Vector3.zero;
 
                 for (int i = 0; i < item.size; i++)
                 {
-                    GameObject obj = Instantiate(item.prefab, parentGroup.transform);
+                    GameObject obj = Instantiate(item.prefab, parentGroup.transform, false);
+                    obj.transform.localPosition = Vector3.zero;
+                    obj.transform.position = new Vector3(0f, -9999f, 0f);
                     obj.SetActive(false);
                     objectPool.Enqueue(obj);
                 }
@@ -127,6 +130,7 @@ namespace MobControl.Core
                 return;
             }
 
+            obj.transform.position = new Vector3(0f, -9999f, 0f);
             obj.SetActive(false);
             poolDictionary[tag].Enqueue(obj);
         }
@@ -144,11 +148,14 @@ namespace MobControl.Core
 
             Queue<GameObject> objectPool = new Queue<GameObject>();
             GameObject parentGroup = new GameObject($"Pool_{tag}");
-            parentGroup.transform.SetParent(transform);
+            parentGroup.transform.SetParent(transform, false);
+            parentGroup.transform.localPosition = Vector3.zero;
 
             for (int i = 0; i < size; i++)
             {
-                GameObject obj = Instantiate(prefab, parentGroup.transform);
+                GameObject obj = Instantiate(prefab, parentGroup.transform, false);
+                obj.transform.localPosition = Vector3.zero;
+                obj.transform.position = new Vector3(0f, -9999f, 0f);
                 obj.SetActive(false);
                 objectPool.Enqueue(obj);
             }

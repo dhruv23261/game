@@ -6,6 +6,12 @@ using MobControl.UI;
 
 namespace MobControl.Combat
 {
+    public enum GateRewardType
+    {
+        SquadMultiplier,
+        GunUpgrade
+    }
+
     public class DestructibleGate : MonoBehaviour
     {
         [Header("Gate Health & Settings")]
@@ -17,6 +23,10 @@ namespace MobControl.Combat
         [SerializeField] private Transform rightDoor;
         [SerializeField] private ParticleSystem breakVfx;
 
+        [Header("Reward Type")]
+        [SerializeField] private GateRewardType rewardType = GateRewardType.SquadMultiplier;
+        [SerializeField] private float gunSpeedMultiplier = 2.2f;
+
         [Header("Multiplier Reward Configuration")]
         [Tooltip("The multiplier operation: Multiply (×) or Add (+)")]
         [SerializeField] private GateOperation operation = GateOperation.Multiply;
@@ -26,8 +36,10 @@ namespace MobControl.Combat
 
         [Tooltip("Optional reference to the 3D '×2' text label on this gate. Auto-found if null.")]
         [SerializeField] private TextMeshPro multiplierLabel;
-
         [SerializeField] private GameObject multiplierTrigger;
+
+        [Tooltip("Custom gate world width (e.g. 2.3 for 1 lane, 5.2 for full road container)")]
+        [SerializeField] private float gateWidth = 2.3f;
 
         private int currentHealth;
         private bool isBroken = false;
@@ -45,7 +57,40 @@ namespace MobControl.Combat
         public int MaxHealth => maxHealth;
         public int MultiplierValue => multiplierValue;
         public GateOperation Operation => operation;
+        public GateRewardType RewardType => rewardType;
+        public float GateWidth => gateWidth;
         public event System.Action OnGateBroken;
+
+        public void SetGateStats(int health, int multiplier, GateOperation op = GateOperation.Multiply, float width = 2.3f)
+        {
+            maxHealth = health;
+            currentHealth = health;
+            rewardType = GateRewardType.SquadMultiplier;
+            multiplierValue = multiplier;
+            operation = op;
+            gateWidth = width;
+            FindAndSyncMultiplierLabel();
+            UpdateHealthUI();
+        }
+
+        public void SetGunUpgradeStats(int health, float speedMult = 2.2f, float width = 2.45f)
+        {
+            maxHealth = health;
+            currentHealth = health;
+            rewardType = GateRewardType.GunUpgrade;
+            gunSpeedMultiplier = speedMult;
+            gateWidth = width;
+            FindAndSyncMultiplierLabel();
+            FindAndSyncHealthText();
+            UpdateHealthUI();
+
+            if (multiplierLabel != null) multiplierLabel.gameObject.SetActive(false);
+            if (healthText != null)
+            {
+                healthText.gameObject.SetActive(true);
+                textOriginalScale = healthText.transform.localScale;
+            }
+        }
 
         private void OnValidate()
         {
@@ -107,7 +152,7 @@ namespace MobControl.Combat
             float sy = Mathf.Max(0.001f, Mathf.Abs(transform.lossyScale.y));
             float sz = Mathf.Max(0.001f, Mathf.Abs(transform.lossyScale.z));
 
-            float targetWorldWidth = 2.3f; // Covers one lane (2.3m), cleanly separated from other lane
+            float targetWorldWidth = gateWidth > 0f ? gateWidth : 2.3f;
             float targetWorldHeight = 3.6f;
             float targetWorldDepth = 1.2f;
 
@@ -161,6 +206,7 @@ namespace MobControl.Combat
 
             if (currentHealth <= 0)
             {
+                isBroken = true;
                 BreakAndOpenGate();
             }
         }
@@ -168,6 +214,22 @@ namespace MobControl.Combat
         private void UpdateHealthUI()
         {
             if (healthText == null) return;
+
+            healthText.gameObject.SetActive(true);
+
+            if (rewardType == GateRewardType.GunUpgrade)
+            {
+                if (isBroken || currentHealth <= 0)
+                {
+                    healthText.text = "<color=#00FFAA><b>0</b></color>";
+                    return;
+                }
+
+                float pct = (float)currentHealth / Mathf.Max(1, maxHealth);
+                string countCol = pct > 0.55f ? "#FFD700" : (pct > 0.25f ? "#FF8800" : "#FF2244");
+                healthText.text = $"<color={countCol}><b>{currentHealth}</b></color>";
+                return;
+            }
 
             if (isBroken)
             {
@@ -222,11 +284,19 @@ namespace MobControl.Combat
 
             if (multiplierLabel != null)
             {
-                string symbol = operation == GateOperation.Multiply ? "×" : "+";
-                multiplierLabel.text = $"{symbol}{multiplierValue}";
-                multiplierLabel.color = (operation == GateOperation.Multiply)
-                    ? new Color(0.1f, 0.95f, 1f, 1f) 
-                    : new Color(0.2f, 1f, 0.5f, 1f);
+                if (rewardType == GateRewardType.GunUpgrade)
+                {
+                    multiplierLabel.gameObject.SetActive(false);
+                }
+                else
+                {
+                    multiplierLabel.gameObject.SetActive(true);
+                    string symbol = operation == GateOperation.Multiply ? "×" : "+";
+                    multiplierLabel.text = $"{symbol}{multiplierValue}";
+                    multiplierLabel.color = (operation == GateOperation.Multiply)
+                        ? new Color(0.1f, 0.95f, 1f, 1f) 
+                        : new Color(0.2f, 1f, 0.5f, 1f);
+                }
             }
         }
 
@@ -314,90 +384,143 @@ namespace MobControl.Combat
             }
         }
 
+        private bool isTriggered = false;
+
         private void BreakAndOpenGate()
         {
+            if (isTriggered) return;
+            isTriggered = true;
             isBroken = true;
             ActiveGates.Remove(this);
-            UpdateHealthUI();
 
             OnGateBroken?.Invoke();
 
-            // Hide 2D Health Bar so it vanishes along with the broken gate
-            ThomasDev.HealthSystem.HealthBarUI uiBar = GetComponentInChildren<ThomasDev.HealthSystem.HealthBarUI>();
-            if (uiBar != null)
+            // Disable all colliders immediately so it never blocks, hits, or triggers again
+            foreach (var col in GetComponentsInChildren<Collider>(true))
             {
-                uiBar.Hide();
+                col.enabled = false;
             }
 
-            if (breakVfx != null)
+            // 1. Immediately spawn bursting explosion particles & sound impact
+            SpawnBreakExplosion(transform.position);
+
+            // 2. Trigger punchy haptic feedback on box break!
+            TriggerBoxBreakHaptic();
+
+            // 3. Screen shake on box destruction
+            if (Camera.main != null)
             {
-                breakVfx.Play();
+                Camera.main.GetComponent<MobControl.Core.SmoothCameraFollow>()?.TriggerShake(0.18f);
             }
 
-            if (cachedUiBar != null)
-            {
-                cachedUiBar.Hide();
-            }
-
-            if (boxCollider != null)
-            {
-                boxCollider.enabled = false;
-            }
-
-            if (leftDoor != null && rightDoor != null)
-            {
-                StartCoroutine(SwingDoorsOpen());
-            }
-            else
-            {
-                StartCoroutine(SinkGateMesh());
-            }
-
-            if (multiplierTrigger != null)
-            {
-                multiplierTrigger.SetActive(true);
-            }
-
-            // Immediately spawn squad allies based on this gate's configured multiplier value!
+            // 4. Launch 3D animated flying reward that arcs to the player and triggers arrival VFX + ally spawn
             if (PlayerRunnerController.Instance != null && !PlayerRunnerController.Instance.IsDead)
             {
-                if (multiplierTrigger != null && multiplierTrigger.TryGetComponent<MultiplierGate>(out var mGate))
-                {
-                    PlayerRunnerController.Instance.MarkGatePassed(mGate.GateInstanceId);
-                }
-
-                int currentSquad = PlayerRunnerController.Instance.TotalSquadSize;
-                int targetSquad = (operation == GateOperation.Multiply)
-                    ? (currentSquad * multiplierValue)
-                    : (currentSquad + multiplierValue);
-                int alliesToAdd = Mathf.Max(0, targetSquad - currentSquad);
-
-                PlayerRunnerController.Instance.SpawnSquadAllies(alliesToAdd);
-
-                if (healthText != null)
-                {
-                    healthText.text = $"<size=120%><color=#00FF66><b>+{alliesToAdd} ALLIES! (SQUAD: {targetSquad})</b></color></size>";
-                }
+                FlyingRewardSequence.Launch(transform.position, PlayerRunnerController.Instance, rewardType, multiplierValue, gunSpeedMultiplier);
             }
 
-            // Pop and highlight the multiplier label
-            if (multiplierLabel != null)
+            // Immediately disable and remove this gate from the scene!
+            gameObject.SetActive(false);
+            Destroy(gameObject);
+        }
+
+        private void TriggerBoxBreakHaptic()
+        {
+            try
             {
-                multiplierLabel.color = new Color(0.2f, 1f, 0.4f, 1f);
-                multiplierLabel.transform.localScale = multiplierLabel.transform.localScale * 1.25f;
+                if (ZombieRunnerUIManager.Instance != null && !ZombieRunnerUIManager.Instance.IsVibrationEnabled)
+                    return;
+
+#if UNITY_ANDROID || UNITY_IOS
+                if (!Application.isEditor) Handheld.Vibrate();
+#endif
+            }
+            catch {}
+        }
+
+        private static Material s_sharedExplosionMat;
+
+        private void SpawnBreakExplosion(Vector3 pos)
+        {
+            GameObject explosionObj = new GameObject("Container_Break_Explosion");
+            explosionObj.transform.position = pos + new Vector3(0f, 1.0f, 0f);
+
+            ParticleSystem ps = explosionObj.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.startLifetime = 0.55f;
+            main.startSpeed = new ParticleSystem.MinMaxCurve(5.0f, 11.0f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.55f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.45f, 0.05f), new Color(1f, 0.95f, 0.25f));
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.loop = false;
+            main.playOnAwake = false;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 0;
+            emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 30) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 1.0f;
+
+            var renderer = explosionObj.GetComponent<ParticleSystemRenderer>();
+            if (s_sharedExplosionMat == null)
+            {
+                Shader s = Shader.Find("Sprites/Default") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Standard");
+                if (s != null) s_sharedExplosionMat = new Material(s);
+            }
+            if (s_sharedExplosionMat != null) renderer.sharedMaterial = s_sharedExplosionMat;
+
+            ps.Play();
+            Destroy(explosionObj, 1.2f);
+        }
+
+        private IEnumerator Show05SecPopRoutine()
+        {
+            GameObject popObj = new GameObject("MultiplierPop_05s");
+            Vector3 basePos = transform.position + new Vector3(0f, 2.5f, 0f);
+            if (PlayerRunnerController.Instance != null)
+            {
+                basePos = PlayerRunnerController.Instance.transform.position + new Vector3(0f, 2.6f, 1.0f);
+            }
+            popObj.transform.position = basePos;
+            popObj.transform.rotation = Quaternion.Euler(12f, 0f, 0f);
+
+            TextMeshPro tmp = popObj.AddComponent<TextMeshPro>();
+            string symbol = operation == GateOperation.Multiply ? "×" : "+";
+            tmp.text = $"<color=#00FFCC><b>{symbol}{multiplierValue}</b></color>";
+            tmp.fontSize = 11f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.outlineWidth = 0.32f;
+            tmp.outlineColor = Color.black;
+            if (multiplierLabel != null && multiplierLabel.font != null)
+            {
+                tmp.font = multiplierLabel.font;
             }
             else
             {
-                TextMeshPro[] texts = GetComponentsInChildren<TextMeshPro>(true);
-                foreach (var txt in texts)
-                {
-                    if (txt != null && txt != healthText)
-                    {
-                        txt.color = new Color(0.2f, 1f, 0.4f, 1f);
-                        txt.transform.localScale = txt.transform.localScale * 1.25f;
-                    }
-                }
+                TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Fredoka-Bold SDF");
+                if (font != null) tmp.font = font;
             }
+
+            float elapsed = 0f;
+            float duration = 0.50f; // Exactly 0.5 seconds as requested!
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float progress = elapsed / duration;
+                // Punch scale up to 1.8x then snap down
+                float scale = (progress < 0.4f)
+                    ? Mathf.Lerp(0.8f, 1.8f, progress / 0.4f)
+                    : Mathf.Lerp(1.8f, 1.1f, (progress - 0.4f) / 0.6f);
+
+                popObj.transform.localScale = Vector3.one * (scale * 0.16f);
+                popObj.transform.position = basePos + new Vector3(0f, progress * 0.8f, 0f);
+                yield return null;
+            }
+
+            Destroy(popObj);
         }
 
         private void EnsureMultiplierTrigger()
