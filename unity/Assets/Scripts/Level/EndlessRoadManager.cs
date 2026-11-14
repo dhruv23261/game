@@ -21,6 +21,20 @@ namespace MobControl.Level
         [SerializeField] private float roadSpeed = 4.2f;
         [SerializeField] private bool isRunning = true;
 
+        [Header("Level Configuration")]
+        [SerializeField] private int currentLevel = 1;
+        public int CurrentLevel
+        {
+            get => currentLevel;
+            set
+            {
+                if (currentLevel == value) return;
+                currentLevel = value;
+                // Track may already be built with the previous level's layout (Start() runs before StartMission sets the level)
+                if (segments.Count > 0) BuildInitialEndlessTrack();
+            }
+        }
+
         public bool IsMoving => isRunning;
         public float RoadSpeed => roadSpeed;
 
@@ -225,6 +239,8 @@ namespace MobControl.Level
                 SafeDestroy(transform.GetChild(i).gameObject);
             }
             segments.Clear();
+            totalSegmentsPopulated = 0;
+            l2EnvironmentCounter = 0;
 
             // Spawn 6 sequential segments from Z = -30m to Z = +120m
             for (int i = 0; i < NUM_SEGMENTS; i++)
@@ -304,8 +320,7 @@ namespace MobControl.Level
 
             // Clear old obstacles and populate with fresh varied pattern
             seg.ClearObstacles();
-            int patternId = (totalSegmentsPopulated < 10) ? totalSegmentsPopulated : (3 + (totalSegmentsPopulated % 6));
-            List<Rect> pitRects = GetPitRectsForPattern(patternId);
+            List<Rect> pitRects = GetPitRectsForStep(totalSegmentsPopulated);
             if (seg.roadMeshFilter != null)
             {
                 seg.roadMeshFilter.sharedMesh = CreateSegmentRoadMesh(pitRects);
@@ -328,9 +343,7 @@ namespace MobControl.Level
             List<Rect> pitRects = null;
             if (withObstacles)
             {
-                int step = totalSegmentsPopulated;
-                int patternId = (step < 10) ? step : (3 + (step % 6));
-                pitRects = GetPitRectsForPattern(patternId);
+                pitRects = GetPitRectsForStep(totalSegmentsPopulated);
             }
 
             // 1. Asphalt Road Surface (Length 30m, exact UV repeat of 10m -> 3 seamless repeats!)
@@ -353,6 +366,23 @@ namespace MobControl.Level
             }
 
             return seg;
+        }
+
+        /// <summary>Road-mesh holes for the lava pits the next populated segment will contain (must match the Populate* layouts).</summary>
+        private List<Rect> GetPitRectsForStep(int step)
+        {
+            if (currentLevel == 2) return GetLevel2PitRectsForPattern(GetLevel2PatternId(step));
+            // Matches the pattern formula used by PopulateSegmentObstacles for level 1
+            int patternId = (step < 10) ? step : (3 + (step % 7));
+            return GetPitRectsForPattern(patternId);
+        }
+
+        private static int GetLevel2PatternId(int step) => (step < 10) ? step : (2 + (step % 8));
+
+        private static List<Rect> GetLevel2PitRectsForPattern(int patternId)
+        {
+            // Level 2 is Overgrown Road — NO lava pits! Clean continuous asphalt for plant monsters & roots.
+            return new List<Rect>();
         }
 
         private List<Rect> GetPitRectsForPattern(int patternId)
@@ -533,6 +563,12 @@ namespace MobControl.Level
             GameObject natureRoot = new GameObject("NatureEnvironment");
             natureRoot.transform.SetParent(parent, false);
 
+            if (currentLevel == 2)
+            {
+                CreateLevel2Environment(natureRoot.transform);
+                return;
+            }
+
             // Left & Right sloping green grass verge
             CreateGrassVerge(natureRoot.transform, true);
             CreateGrassVerge(natureRoot.transform, false);
@@ -637,9 +673,302 @@ namespace MobControl.Level
         ///
         ///  ENDLESS LOOP: Cycles zones 3-9 (progressively harder) after initial 10 zones
         /// </summary>
+        // ════════════════════════════════════════════════════════════════
+        //  LEVEL 2 — "Overgrown Highway"
+        //  Sunset sky, abandoned wrecks (Meshy heli / car / pickup / bus) and
+        //  vines creeping over the asphalt. Lane blockers are real wrecks
+        //  (solid, indestructible — no bonus rewards) and plant pods that erupt into flytraps.
+        //  Every zone keeps at least one lane open.
+        // ════════════════════════════════════════════════════════════════
+
+        private GameObject l2HeliPrefab, l2CarPrefab, l2PickupPrefab, l2BusPrefab;
+        private Material l2GrassMat, l2VineMat, l2VineDarkMat;
+        private bool l2AssetsLoaded;
+        private int l2EnvironmentCounter;
+
+        private void LoadLevel2Assets()
+        {
+            if (l2AssetsLoaded) return;
+            l2AssetsLoaded = true;
+            l2HeliPrefab   = Resources.Load<GameObject>("Prefabs/Level2/L2_HeliWreck");
+            l2CarPrefab    = Resources.Load<GameObject>("Prefabs/Level2/L2_CarWreck");
+            l2PickupPrefab = Resources.Load<GameObject>("Prefabs/Level2/L2_PickupWreck");
+            l2BusPrefab    = Resources.Load<GameObject>("Prefabs/Level2/L2_BusWreck");
+            l2VineMat      = Resources.Load<Material>("Materials/Level2/M_L2_PodLeaf");
+            l2VineDarkMat  = Resources.Load<Material>("Materials/Level2/M_L2_PodLeafDark");
+
+            if (grassMat != null)
+            {
+                // Deeper, lusher overgrowth green (reads warm under the level 2 sunset light)
+                l2GrassMat = new Material(grassMat) { name = "M_GrassVerge_L2" };
+                l2GrassMat.color = grassMat.color * new Color(0.78f, 0.92f, 0.62f, 1f);
+            }
+        }
+
+        private void CreateLevel2Environment(Transform natureRoot)
+        {
+            LoadLevel2Assets();
+
+            Material savedGrass = grassMat;
+            if (l2GrassMat != null) grassMat = l2GrassMat;
+            CreateGrassVerge(natureRoot, true);
+            CreateGrassVerge(natureRoot, false);
+            grassMat = savedGrass;
+
+            int envIndex = l2EnvironmentCounter++;
+            bool heliHere = l2HeliPrefab != null && (envIndex % 3 == 1);
+            int heliSide = ((envIndex / 3) % 2 == 0) ? 1 : -1;
+
+            int slot = 0;
+            for (float z = 3.0f; z < SEGMENT_LENGTH; z += 9.5f, slot++)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    float zJit = z + Random.Range(-0.6f, 0.6f);
+
+                    if (heliHere && side == heliSide && slot == 1)
+                    {
+                        SpawnHeliCrashSetPiece(natureRoot, new Vector3(side * (GUARDRAIL_X + 3.4f), 0f, zJit), side);
+                        continue;
+                    }
+
+                    float roll = Random.value;
+                    if (roll < 0.42f)
+                    {
+                        // Abandoned vehicle on the verge (no collider — scenery only)
+                        GameObject prefab = PickRoadsideWreck();
+                        float yaw = Random.Range(-28f, 28f) + (Random.value < 0.5f ? 180f : 0f);
+                        float x = side * (GUARDRAIL_X + (prefab == l2BusPrefab ? 2.6f : 2.0f) + Random.Range(0f, 0.4f));
+                        SpawnDecorWreck(natureRoot, prefab, new Vector3(x, 0f, zJit), yaw);
+                    }
+                    else if (rockMesh != null)
+                    {
+                        float rScale = Random.Range(5.2f, 7.4f);
+                        SpawnMeshProp(natureRoot, side < 0 ? "CliffRock_L" : "CliffRock_R", rockMesh, rockMat,
+                            new Vector3(side * (GUARDRAIL_X + 2.0f + Random.Range(0f, 0.5f)), 0f, zJit),
+                            new Vector3(rScale * 0.7f, rScale, rScale * 0.7f),
+                            Quaternion.Euler(0f, Random.Range(-25f, 25f), 0f));
+                    }
+
+                    if (treeMesh != null && Random.value < 0.8f)
+                    {
+                        float tScale = Random.Range(6.5f, 9.2f);
+                        SpawnMeshProp(natureRoot, side < 0 ? "PineTree_L" : "PineTree_R", treeMesh, treeMat,
+                            new Vector3(side * (GUARDRAIL_X + 4.6f + Random.Range(0f, 1.4f)), Random.Range(1.2f, 2.5f), z + Random.Range(-0.8f, 0.8f)),
+                            Vector3.one * tScale,
+                            Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+                    }
+                }
+            }
+
+            CreateRoadVines(natureRoot);
+        }
+
+        private GameObject PickRoadsideWreck()
+        {
+            float r = Random.value;
+            GameObject p = r < 0.40f ? l2CarPrefab : (r < 0.75f ? l2PickupPrefab : l2BusPrefab);
+            return p != null ? p : (l2CarPrefab != null ? l2CarPrefab : l2PickupPrefab);
+        }
+
+        private GameObject SpawnDecorWreck(Transform parent, GameObject prefab, Vector3 localPos, float yaw)
+        {
+            if (prefab == null) return null;
+            GameObject go = Instantiate(prefab, parent);
+            go.name = "Decor_" + prefab.name;
+            go.transform.localPosition = localPos;
+            go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            foreach (var c in go.GetComponentsInChildren<Collider>(true)) SafeDestroy(c);
+            return go;
+        }
+
+        /// <summary>Crashed military helicopter just past the guardrail, still burning.</summary>
+        private void SpawnHeliCrashSetPiece(Transform parent, Vector3 localPos, int side)
+        {
+            float yaw = (side > 0 ? -38f : 38f) + Random.Range(-8f, 8f) + (Random.value < 0.5f ? 180f : 0f);
+            GameObject heli = SpawnDecorWreck(parent, l2HeliPrefab, localPos, yaw);
+            if (heli == null) return;
+            heli.name = "Decor_HeliCrash";
+            BurnedCarBuilder.AttachWreckFire(heli.transform, new Vector3(0f, 1.6f, -1.2f), 1.25f);
+        }
+
+        /// <summary>Vines and moss creeping in from both road edges.</summary>
+        private void CreateRoadVines(Transform parent)
+        {
+            if (l2VineMat == null) return;
+            const float edgeX = ROAD_WIDTH * 0.5f;
+            for (int i = 0; i < 4; i++)
+            {
+                int side = (i % 2 == 0) ? -1 : 1;
+                float z = Random.Range(2f, SEGMENT_LENGTH - 2f);
+                // A creeping runner: a few slim overlapping leaves along the shoulder, angled slightly toward the lane
+                float baseYaw = Random.Range(-18f, 18f) - side * 8f;
+                int leaves = Random.Range(3, 5);
+                for (int k = 0; k < leaves; k++)
+                {
+                    GameObject vine = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    vine.name = "RoadVine";
+                    vine.transform.SetParent(parent, false);
+                    vine.transform.localPosition = new Vector3(side * (edgeX - 0.25f - k * 0.12f) , 0.012f, z + k * 0.55f);
+                    vine.transform.localRotation = Quaternion.Euler(0f, baseYaw + Random.Range(-25f, 25f), 0f);
+                    vine.transform.localScale = new Vector3(Random.Range(0.18f, 0.28f), 0.03f, Random.Range(0.55f, 0.85f));
+                    SafeDestroy(vine.GetComponent<Collider>());
+                    var r = vine.GetComponent<MeshRenderer>();
+                    r.sharedMaterial = (k % 2 == 0 && l2VineDarkMat != null) ? l2VineDarkMat : l2VineMat;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+            }
+        }
+
+        private void PopulateLevel2SegmentObstacles(RoadSegment seg)
+        {
+            if (seg == null || seg.obstaclesRoot == null) return;
+            LoadLevel2Assets();
+            Transform parent = seg.obstaclesRoot.transform;
+
+            int step = totalSegmentsPopulated;
+            totalSegmentsPopulated++;
+
+            switch (GetLevel2PatternId(step))
+            {
+                case 0:
+                    // First encounter: plant pod on the left, wrecked car on the right, centre open
+                    SpawnPlantMonster(parent, new Vector3(-2.2f, 0f, 15.0f));
+                    SpawnWreckBlocker(parent, l2CarPrefab, new Vector3(2.3f, 0f, 22.0f), 8f, destructible: false);
+                    break;
+
+                case 1:
+                    // Twin pods flanking a gun upgrade
+                    SpawnPlantMonster(parent, new Vector3(-2.4f, 0f, 16.0f));
+                    SpawnPlantMonster(parent, new Vector3( 2.4f, 0f, 16.0f));
+                    SpawnGunUpgradeContainer(parent, new Vector3(0.0f, 1.10f, 13.0f), 20);
+                    break;
+
+                case 2:
+                    // Pickup wreck left, pod centre, right lane open
+                    SpawnWreckBlocker(parent, l2PickupPrefab, new Vector3(-2.3f, 0f, 12.0f), -10f, destructible: false);
+                    SpawnPlantMonster(parent, new Vector3(0.0f, 0f, 20.0f));
+                    break;
+
+                case 3:
+                    // x2 squad gate with pods either side
+                    SpawnDestructibleMultiplierContainer(parent, new Vector3(0.0f, 1.10f, 15.0f), 2, 20);
+                    SpawnPlantMonster(parent, new Vector3(-2.4f, 0f,  9.0f));
+                    SpawnPlantMonster(parent, new Vector3( 2.4f, 0f, 22.0f));
+                    break;
+
+                case 4:
+                    // Slalom: three pods across left, right, centre
+                    SpawnPlantMonster(parent, new Vector3(-2.2f, 0f,  8.0f));
+                    SpawnPlantMonster(parent, new Vector3( 2.2f, 0f, 16.0f));
+                    SpawnPlantMonster(parent, new Vector3( 0.0f, 0f, 24.0f));
+                    break;
+
+                case 5:
+                    // School bus parked down the left lane, gun upgrade beside it, pod ahead on the right
+                    SpawnWreckBlocker(parent, l2BusPrefab, new Vector3(-3.0f, 0f, 15.0f), 3f, destructible: false);
+                    SpawnGunUpgradeContainer(parent, new Vector3(0.5f, 1.10f, 13.0f), 20);
+                    SpawnPlantMonster(parent, new Vector3(2.4f, 0f, 25.0f));
+                    break;
+
+                case 6:
+                    // x3 squad gate with flanking pods
+                    SpawnDestructibleMultiplierContainer(parent, new Vector3(0.0f, 1.10f, 15.0f), 3, 24);
+                    SpawnPlantMonster(parent, new Vector3(-2.3f, 0f, 18.0f));
+                    SpawnPlantMonster(parent, new Vector3( 2.3f, 0f, 18.0f));
+                    break;
+
+                case 7:
+                    // Wreck slalom: car left, pickup right, pod in the middle further on
+                    SpawnWreckBlocker(parent, l2CarPrefab,    new Vector3(-2.3f, 0f,  9.0f), -15f, destructible: false);
+                    SpawnWreckBlocker(parent, l2PickupPrefab, new Vector3( 2.3f, 0f, 19.0f), 168f, destructible: false);
+                    SpawnPlantMonster(parent, new Vector3(0.0f, 0f, 27.0f));
+                    break;
+
+                case 8:
+                    // x2 gate behind a pickup on the right, pod left
+                    SpawnWreckBlocker(parent, l2PickupPrefab, new Vector3(2.4f, 0f, 11.0f), 172f, destructible: false);
+                    SpawnDestructibleMultiplierContainer(parent, new Vector3(0.0f, 1.10f, 20.0f), 2, 22);
+                    SpawnPlantMonster(parent, new Vector3(-2.3f, 0f, 22.0f));
+                    break;
+
+                case 9:
+                default:
+                    // Bus down the right lane, pods left and centre
+                    SpawnWreckBlocker(parent, l2BusPrefab, new Vector3(3.0f, 0f, 16.0f), -4f, destructible: false);
+                    SpawnPlantMonster(parent, new Vector3(-2.3f, 0f, 10.0f));
+                    SpawnPlantMonster(parent, new Vector3( 0.0f, 0f, 23.0f));
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// A Meshy wreck parked in a lane. Solid (hurts on contact like level 1's burned cars).
+        /// Level 2 wrecks are all solid scenery-blockers (destructible=false): they never explode or give rewards.
+        /// </summary>
+        private GameObject SpawnWreckBlocker(Transform parent, GameObject prefab, Vector3 localPos, float yaw, bool destructible)
+        {
+            if (prefab == null) return SpawnBurnedCarObstacle(parent, localPos, yaw);
+
+            GameObject go = Instantiate(prefab, parent);
+            go.name = "Obstacle_Wreck_" + prefab.name;
+            go.transform.localPosition = localPos;
+            go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+
+            BoxCollider col = go.GetComponent<BoxCollider>();
+            if (col == null)
+            {
+                col = go.AddComponent<BoxCollider>();
+                col.center = new Vector3(0f, 0.7f, 0f);
+                col.size = new Vector3(1.85f, 1.4f, 4.0f);
+            }
+            col.isTrigger = false;
+
+            Rigidbody rb = go.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+
+            RoadObstacle obs = go.AddComponent<RoadObstacle>();
+            obs.Initialize(isContainer: false, damage: 1);
+
+            if (destructible)
+            {
+                DestructibleGate dGate = go.AddComponent<DestructibleGate>();
+                dGate.SetGateStats(15, 1, MobControl.Gates.GateOperation.Add, 2.0f);
+            }
+            return go;
+        }
+
+        private GameObject SpawnPlantMonster(Transform parent, Vector3 localPos)
+        {
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/PlantMonster_Prefab");
+            if (prefab == null)
+            {
+#if UNITY_EDITOR
+                prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Prefabs/PlantMonster_Prefab.prefab");
+#endif
+            }
+            // Fallback: keep the lane blocked even if the plant asset is missing from the build
+            if (prefab == null) return SpawnBurnedCarObstacle(parent, localPos, Random.Range(-20f, 20f));
+
+            GameObject plant = Instantiate(prefab, parent);
+            plant.name = $"PlantMonster_{localPos.x:F1}_{localPos.z:F1}";
+            plant.transform.localPosition = localPos;
+            plant.transform.localRotation = Quaternion.identity;
+            return plant;
+        }
+
         private void PopulateSegmentObstacles(RoadSegment seg)
         {
             if (seg == null || seg.obstaclesRoot == null) return;
+
+            if (currentLevel == 2)
+            {
+                PopulateLevel2SegmentObstacles(seg);
+                return;
+            }
+
             Transform parent = seg.obstaclesRoot.transform;
 
             int step = totalSegmentsPopulated;

@@ -19,6 +19,8 @@ namespace MobControl.Combat
         [SerializeField] private Vector3 bulletVisualScale = new Vector3(0.14f, 0.38f, 0.14f);
 
         private const string POOL_TAG = "Bullet";
+        private const float BASE_RANGE = 30.0f;
+        private const float BASE_LIFETIME = 0.5f;
         private Vector3 spawnPosition;
         private float spawnTime;
         private float distanceTraveled = 0f;
@@ -123,9 +125,10 @@ namespace MobControl.Combat
             // Standardized reach & speed: guaranteed to reach any visible gate or enemy rapidly
             string weapon = PlayerPrefs.GetString("ZombieSquad_SelectedWeapon", "M41D");
             float rangeBonus = PlayerPrefs.GetInt($"ZombieSquad_Wep_{weapon}_Range", 0) * 4.0f;
-            if (maxDistance < 70.0f) maxDistance = 75.0f;
-            maxDistance += rangeBonus;
-            if (lifeTime < 1.8f) lifeTime = 2.0f;
+            // Short reach on purpose: zombies spawn ~42m+ ahead, so they must walk in close before bullets can kill them.
+            // Set fresh every spawn — pooled bullets used to stack the range bonus on each reuse.
+            maxDistance = BASE_RANGE + rangeBonus;
+            lifeTime = Mathf.Max(BASE_LIFETIME, maxDistance / Mathf.Max(1f, speed) + 0.1f);
 
             if (overrideVisualScale)
             {
@@ -169,6 +172,26 @@ namespace MobControl.Combat
                     return;
                 }
 
+                // 1b. Hit Level 2 Emerging Plant Monster
+                var plantMonster = hit.collider.GetComponentInParent<MobControl.Creatures.EmergingPlantMonster>();
+                if (plantMonster != null)
+                {
+                    plantMonster.TakeDamage(damage * 10f);
+                    MobControl.Audio.ZombieSoundManager.Instance?.PlayBulletHit(hit.point != Vector3.zero ? hit.point : plantMonster.transform.position);
+                    ReturnToPool();
+                    return;
+                }
+
+                // 1c. Hit Level 2 Flying Wyvern Dragon
+                var flyingWyvern = hit.collider.GetComponentInParent<MobControl.Creatures.FlyingWyvernAirThreat>();
+                if (flyingWyvern != null)
+                {
+                    flyingWyvern.TakeDamage(damage * 10f);
+                    MobControl.Audio.ZombieSoundManager.Instance?.PlayBulletHit(hit.point != Vector3.zero ? hit.point : flyingWyvern.transform.position);
+                    ReturnToPool();
+                    return;
+                }
+
                 // 2. Hit Destructible Gate
                 DestructibleGate dGate = hit.collider.GetComponentInParent<DestructibleGate>();
                 if (dGate != null && !dGate.IsBroken)
@@ -204,7 +227,9 @@ namespace MobControl.Combat
                     hit.collider.name.Contains("Barricade") ||
                     hit.collider.name.Contains("Container") ||
                     hit.collider.name.Contains("Obstacle") ||
-                    (!hit.collider.isTrigger && hit.collider.GetComponentInParent<MobUnit>() == null)))
+                    (!hit.collider.isTrigger && hit.collider.GetComponentInParent<MobUnit>() == null &&
+                     hit.collider.GetComponentInParent<MobControl.Creatures.EmergingPlantMonster>() == null &&
+                     hit.collider.GetComponentInParent<MobControl.Creatures.FlyingWyvernAirThreat>() == null)))
                 {
                     ReturnToPool();
                     return;
@@ -254,6 +279,24 @@ namespace MobControl.Combat
             if (enemyMob != null && enemyMob.Team == MobTeam.Enemy && enemyMob.Health > 0)
             {
                 enemyMob.TakeDamage(damage);
+                ReturnToPool();
+                return;
+            }
+
+            // 1b. Hit Level 2 Emerging Plant Monster
+            var plantMonster = other.GetComponentInParent<MobControl.Creatures.EmergingPlantMonster>();
+            if (plantMonster != null)
+            {
+                plantMonster.TakeDamage(damage * 10f);
+                ReturnToPool();
+                return;
+            }
+
+            // 1c. Hit Level 2 Flying Wyvern Dragon
+            var flyingWyvern = other.GetComponentInParent<MobControl.Creatures.FlyingWyvernAirThreat>();
+            if (flyingWyvern != null)
+            {
+                flyingWyvern.TakeDamage(damage * 10f);
                 ReturnToPool();
                 return;
             }

@@ -23,6 +23,8 @@ namespace MobControl.Crowd
         [SerializeField] private GameObject smallZombiePrefab;
         [SerializeField] private GameObject moderateZombiePrefab;
         [SerializeField] private GameObject bossZombiePrefab;
+        [Tooltip("Level 2 Meshy plant zombie (Resources/Prefabs/Zombie_Plant). Falls back to Zombie_Moderate if missing.")]
+        [SerializeField] private GameObject plantZombiePrefab;
 
         [Header("Road Spawning Settings")]
         [SerializeField] private float spawnAheadDistanceZ = 42.0f;
@@ -38,6 +40,14 @@ namespace MobControl.Crowd
         [Tooltip("Small Red Zombie: high speed, 8 bullets to kill")]
         [SerializeField] private float smallZombieSpeed = 5.2f;
         [SerializeField] private int smallZombieHealth = 8;
+
+        [Header("Level")]
+        [SerializeField] private int currentLevel = 1;
+        public int CurrentLevel
+        {
+            get => currentLevel;
+            set => currentLevel = value;
+        }
 
         [Tooltip("Moderate Green Zombie: normal walk speed, 5 bullets to kill")]
         [SerializeField] private float moderateZombieSpeed = 3.4f;
@@ -99,6 +109,8 @@ namespace MobControl.Crowd
                     bossZombiePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Zombie_Boss.prefab");
 #endif
             }
+            if (plantZombiePrefab == null)
+                plantZombiePrefab = Resources.Load<GameObject>("Prefabs/" + PLANT_ZOMBIE_TAG);
         }
 
         public void RegisterZombiePools()
@@ -109,6 +121,7 @@ namespace MobControl.Crowd
                 if (smallZombiePrefab    != null) ObjectPooler.Instance.RegisterPool("Zombie_Small",    smallZombiePrefab,    24);
                 if (moderateZombiePrefab != null) ObjectPooler.Instance.RegisterPool("Zombie_Moderate", moderateZombiePrefab, 20);
                 if (bossZombiePrefab     != null) ObjectPooler.Instance.RegisterPool("Zombie_Boss",     bossZombiePrefab,      6);
+                if (plantZombiePrefab    != null) ObjectPooler.Instance.RegisterPool(PLANT_ZOMBIE_TAG,  plantZombiePrefab,    16);
             }
         }
 
@@ -145,7 +158,9 @@ namespace MobControl.Crowd
                 if (go != null && (go.name.StartsWith("Preview_Zombie_") ||
                                    go.name.StartsWith("Zombie_Small")    ||
                                    go.name.StartsWith("Zombie_Moderate") ||
-                                   go.name.StartsWith("Zombie_Boss")))
+                                   go.name.StartsWith("Zombie_Boss")     ||
+                                   go.name.StartsWith("Zombie_Plant")     ||
+                                   go.name.StartsWith("Level2_FlyingWyvernDragon")))
                     Destroy(go);
             }
         }
@@ -174,6 +189,12 @@ namespace MobControl.Crowd
         private IEnumerator StructuredWaveRoutine()
         {
             float totalDuration = phase1Duration + phase2Duration + phase3Duration;
+
+            if (currentLevel == 2)
+            {
+                yield return Level2WaveRoutine(totalDuration);
+                yield break;
+            }
 
             // 1-second breathing space before first wave
             yield return new WaitForSeconds(1.0f);
@@ -232,6 +253,153 @@ namespace MobControl.Crowd
                 if (bossUnit != null && ZombieRunnerUIManager.Instance != null)
                     ZombieRunnerUIManager.Instance.OnBossSpawned(bossUnit, bossZombieHealth);
             }
+        }
+
+        // ════════════════════════════════════════════════
+        //  LEVEL 2 — "Overgrown Highway"
+        //  NOT harder than level 1 — just NEW things to see:
+        //   • Plant Zombies (Meshy vine walkers) are the main enemy — slow, few hits
+        //   • zombies arrive in shapes (side-by-side rows, flank pairs, single-file lines)
+        //   • a Wyvern dragon flies over in phase 2, and a pair of them in phase 3 (shoot for bonus coins)
+        //  Spawn gaps are longer and groups smaller than level 1.
+        // ════════════════════════════════════════════════
+        public const string PLANT_ZOMBIE_TAG = "Zombie_Plant";
+        private float L2PlantSpeed    => moderateZombieSpeed * 0.85f;
+        private const int L2PlantHealth = 4;
+        private float L2SmallSpeed    => smallZombieSpeed * 0.9f;
+        private int   L2SmallHealth   => Mathf.Max(4, smallZombieHealth - 2);
+
+        private string PlantTag => (plantZombiePrefab != null) ? PLANT_ZOMBIE_TAG : "Zombie_Moderate";
+
+        private IEnumerator Level2WaveRoutine(float totalDuration)
+        {
+            yield return new WaitForSeconds(1.0f);
+
+            // Opening: a row of 3 plant zombies shuffling out of the overgrowth
+            SpawnLevel2Row(3, 22.0f);
+
+            // Phase 1: plant zombies in rows and loose pairs
+            yield return RunPhase(
+                phaseName: "L2_Phase1_Sprouting",
+                phaseDuration: phase1Duration,
+                totalDuration: totalDuration,
+                phaseStartOffset: 0f,
+                spawnInterval: new Vector2(2.6f, 3.4f),
+                spawnAction: SpawnLevel2Phase1Wave
+            );
+
+            // Phase 2: mixed plant / scout groups
+
+            yield return RunPhase(
+                phaseName: "L2_Phase2_WyvernSkies",
+                phaseDuration: phase2Duration,
+                totalDuration: totalDuration,
+                phaseStartOffset: phase1Duration,
+                spawnInterval: new Vector2(2.4f, 3.2f),
+                spawnAction: SpawnLevel2Phase2Wave
+            );
+
+            // Phase 3: plant rows advance
+
+            yield return RunPhase(
+                phaseName: "L2_Phase3_Overgrowth",
+                phaseDuration: phase3Duration,
+                totalDuration: totalDuration,
+                phaseStartOffset: phase1Duration + phase2Duration,
+                spawnInterval: new Vector2(2.2f, 3.0f),
+                spawnAction: SpawnLevel2Phase3Wave
+            );
+
+            // Boss arrives flanked by two plant zombies (same boss HP as level 1)
+            if (ZombieRunnerUIManager.Instance != null)
+            {
+                ZombieRunnerUIManager.Instance.UpdateWaveProgress(1.0f);
+                ZombieRunnerUIManager.Instance.TriggerBossAlert();
+            }
+
+            yield return new WaitForSeconds(1.2f);
+
+            GameObject bossObj = SpawnSingleZombie("Zombie_Boss", bossZombieSpeed, bossZombieHealth, 0f, 75.0f);
+            SpawnSingleZombie(PlantTag, L2PlantSpeed * 0.6f, L2PlantHealth, -2.0f, 72.0f);
+            SpawnSingleZombie(PlantTag, L2PlantSpeed * 0.6f, L2PlantHealth,  2.0f, 72.0f);
+            if (bossObj != null)
+            {
+                MobUnit bossUnit = bossObj.GetComponent<MobUnit>();
+                if (bossUnit != null && ZombieRunnerUIManager.Instance != null)
+                    ZombieRunnerUIManager.Instance.OnBossSpawned(bossUnit, bossZombieHealth);
+            }
+        }
+
+        private void SpawnLevel2Phase1Wave()
+        {
+            if (Random.value < 0.5f) SpawnLevel2Row(Random.Range(2, 4));
+            else SpawnLevel2FlankPair(PlantTag);
+        }
+
+        private void SpawnLevel2Phase2Wave()
+        {
+            float r = Random.value;
+            if (r < 0.4f)       SpawnLevel2Row(3);
+            else if (r < 0.7f)  SpawnLevel2FlankPair(PlantTag);
+            else                SpawnLevel2SingleFile(3, Random.Range(laneMinX, laneMaxX));
+        }
+
+        private void SpawnLevel2Phase3Wave()
+        {
+            if (Random.value < 0.6f) SpawnLevel2Row(Random.Range(3, 5));
+            else
+            {
+                SpawnLevel2FlankPair(PlantTag);
+                SpawnSingleZombie("Zombie_Small", L2SmallSpeed, L2SmallHealth, 0f, spawnAheadDistanceZ + 4.0f);
+            }
+        }
+
+        /// <summary>Plant zombies side by side across the road (same Z).</summary>
+        private void SpawnLevel2Row(int count, float? atZ = null)
+        {
+            float z = atZ ?? (spawnAheadDistanceZ + Random.Range(0f, 4.0f));
+            for (int i = 0; i < count; i++)
+            {
+                float t = (count == 1) ? 0.5f : i / (float)(count - 1);
+                float x = Mathf.Lerp(laneMinX, laneMaxX, t);
+                SpawnSingleZombie(PlantTag, L2PlantSpeed, L2PlantHealth, x, z + Random.Range(-0.4f, 0.4f));
+            }
+        }
+
+        /// <summary>One zombie on each road edge at once.</summary>
+        private void SpawnLevel2FlankPair(string tag)
+        {
+            float z = spawnAheadDistanceZ;
+            SpawnSingleZombie(tag, L2PlantSpeed, L2PlantHealth, laneMinX - 0.4f, z);
+            SpawnSingleZombie(tag, L2PlantSpeed, L2PlantHealth, laneMaxX + 0.4f, z);
+        }
+
+        /// <summary>Small zombies in single file down one lane.</summary>
+        private void SpawnLevel2SingleFile(int count, float x)
+        {
+            float z = spawnAheadDistanceZ;
+            for (int i = 0; i < count; i++)
+                SpawnSingleZombie("Zombie_Small", L2SmallSpeed, L2SmallHealth, x, z + i * 2.4f);
+        }
+
+        public GameObject SpawnFlyingDragonThreat() =>
+            SpawnFlyingDragonThreat(new Vector3(0f, 6.5f, 65.0f), "Level2_FlyingWyvernDragon");
+
+        public GameObject SpawnFlyingDragonThreat(Vector3 position, string objName)
+        {
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/WyvernDragon_Prefab");
+            if (prefab == null)
+            {
+#if UNITY_EDITOR
+                prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Prefabs/WyvernDragon_Prefab.prefab");
+#endif
+            }
+            if (prefab == null) return null;
+
+            GameObject dragon = Instantiate(prefab, position, Quaternion.identity);
+            dragon.name = objName;
+            Debug.Log("<color=#FF9900><b>[Level 2] Flying Wyvern Dragon Air Threat Unleashed!</b></color>");
+            return dragon;
         }
 
         // ────────────────────────────────────────────────────────────
@@ -385,6 +553,7 @@ namespace MobControl.Crowd
                 case "Zombie_Small":    return smallZombiePrefab;
                 case "Zombie_Moderate": return moderateZombiePrefab;
                 case "Zombie_Boss":     return bossZombiePrefab;
+                case PLANT_ZOMBIE_TAG:  return plantZombiePrefab != null ? plantZombiePrefab : moderateZombiePrefab;
                 default:                return moderateZombiePrefab;
             }
         }

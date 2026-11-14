@@ -135,6 +135,18 @@ namespace MobControl.Level
             if (sMat != null) soot.GetComponent<Renderer>().sharedMaterial = sMat;
         }
 
+        /// <summary>Fire, smoke, sparks and flickering light on any wreck (used by level 2's helicopter crash).</summary>
+        public static void AttachWreckFire(Transform root, Vector3 localPos, float scale)
+        {
+            AttachFireAndSmokeVFX(root);
+            Transform vfx = root.Find("VFX_FireAndSmoke");
+            if (vfx == null) return;
+            vfx.localPosition = localPos;
+            // Root may be scaled; keep the effect at a consistent world size
+            float s = Mathf.Max(0.001f, root.lossyScale.x);
+            vfx.localScale = Vector3.one * (scale / s);
+        }
+
         private static void AttachFireAndSmokeVFX(Transform carRoot)
         {
             GameObject vfxRoot = new GameObject("VFX_FireAndSmoke");

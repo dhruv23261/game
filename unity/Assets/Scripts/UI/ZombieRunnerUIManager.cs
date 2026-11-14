@@ -7227,6 +7227,62 @@ namespace MobControl.UI
             }
         }
 
+        private static Sprite s_victoryFadeSprite;
+
+        /// <summary>
+        /// Letterbox for the 3:4 victory card on tall screens: a solid band outside the card edge plus a short
+        /// gradient just inside it, both in one dark colour, so the card melts into the band with no hard seam.
+        /// </summary>
+        private static void AddVictoryEdgeFade(RectTransform card, bool top)
+        {
+            if (s_victoryFadeSprite == null)
+            {
+                var tex = new Texture2D(1, 64, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+                for (int y = 0; y < 64; y++)
+                {
+                    float t = y / 63f; // alpha 1 at the bottom row → 0 at the top row (smoothstep)
+                    tex.SetPixel(0, y, new Color(1f, 1f, 1f, 1f - t * t * (3f - 2f * t)));
+                }
+                tex.Apply();
+                s_victoryFadeSprite = Sprite.Create(tex, new Rect(0, 0, 1, 64), new Vector2(0.5f, 0.5f));
+            }
+
+            Color band = new Color(0.035f, 0.065f, 0.105f, 1f);
+            float edge = top ? 1f : 0f;
+            float inner = top ? 0.035f : 0.05f; // fraction of card height the fade reaches inside the card
+
+            // Solid band from the card edge outward (generously past the screen edge)
+            GameObject solid = new GameObject(top ? "EdgeBand_Top" : "EdgeBand_Bottom", typeof(RectTransform));
+            solid.transform.SetParent(card, false);
+            RectTransform srt = solid.GetComponent<RectTransform>();
+            srt.anchorMin = new Vector2(-0.5f, edge);
+            srt.anchorMax = new Vector2(1.5f, edge);
+            srt.pivot = new Vector2(0.5f, top ? 0f : 1f);
+            srt.sizeDelta = new Vector2(0f, 1200f);
+            srt.anchoredPosition = Vector2.zero;
+            Image simg = solid.AddComponent<Image>();
+            simg.color = band;
+            simg.raycastTarget = false;
+
+            // Gradient inside the card: opaque at the edge, clear toward the content
+            GameObject fade = new GameObject(top ? "EdgeFade_Top" : "EdgeFade_Bottom", typeof(RectTransform));
+            fade.transform.SetParent(card, false);
+            RectTransform frt = fade.GetComponent<RectTransform>();
+            frt.anchorMin = new Vector2(-0.5f, top ? 1f - inner : 0f);
+            frt.anchorMax = new Vector2(1.5f, top ? 1f : inner);
+            frt.offsetMin = Vector2.zero;
+            frt.offsetMax = Vector2.zero;
+            if (top) frt.localScale = new Vector3(1f, -1f, 1f); // opaque end up against the top edge
+            Image fimg = fade.AddComponent<Image>();
+            fimg.sprite = s_victoryFadeSprite;
+            fimg.color = band;
+            fimg.raycastTarget = false;
+
+            // Keep both under the card's text/stars/buttons
+            fade.transform.SetAsFirstSibling();
+            solid.transform.SetAsFirstSibling();
+        }
+
         private void BuildVictoryPanel(Transform canvasRoot)
         {
             victoryPanel = CreateFullPanel("VictoryPanel", canvasRoot, Color.clear);
@@ -7240,7 +7296,7 @@ namespace MobControl.UI
             vigRt.offsetMin = Vector2.zero;
             vigRt.offsetMax = Vector2.zero;
             Image vigImg = vigObj.AddComponent<Image>();
-            vigImg.color = new Color(0.02f, 0.04f, 0.08f, 0.72f);
+            vigImg.color = new Color(0.02f, 0.04f, 0.08f, 0.86f);
             vigImg.raycastTarget = true;
 
             // 2. Master Responsive Card (AspectRatioFitter FitInParent with 1024x1365 aspect ~0.75018f)
@@ -7256,6 +7312,11 @@ namespace MobControl.UI
             arf.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             arf.aspectRatio = 1024f / 1365f;
 
+            // The card art is an opaque 3:4 image; on tall phones it left hard-edged bands of undimmed level above
+            // and below it. Soft fades bleed the card's dark edges out into the vignette so the screen reads as one piece.
+            AddVictoryEdgeFade(victoryCardRect, true);
+            AddVictoryEdgeFade(victoryCardRect, false);
+
             Image cardImg = masterCard.AddComponent<Image>();
             Sprite masterSp = LoadSpriteFromFile("Resources/UI/VictoryScreen/00_master_victory_modal.png")
                            ?? LoadSpriteFromFile("Resources/UI/VictoryScreen/00_full_victory_reference.png");
@@ -7267,8 +7328,8 @@ namespace MobControl.UI
             cardImg.preserveAspect = true;
             cardImg.raycastTarget = false;
 
-            // 3. Dynamic Subtitle: "PERFECT RUN! (3/3 HP)"
-            victorySubText = CreateText("VictorySub", masterCard.transform, "PERFECT RUN! (3/3 HP)", 24, new Color(0.85f, 0.92f, 1f, 0.95f), TextAlignmentOptions.Center, true);
+            // 3. Dynamic Subtitle: "PERFECT RUN!"
+            victorySubText = CreateText("VictorySub", masterCard.transform, "PERFECT RUN!", 24, new Color(0.85f, 0.92f, 1f, 0.95f), TextAlignmentOptions.Center, true);
             victorySubText.raycastTarget = false;
             try
             {
@@ -7483,7 +7544,7 @@ namespace MobControl.UI
             vigRt.offsetMin = Vector2.zero;
             vigRt.offsetMax = Vector2.zero;
             Image vigImg = vigObj.AddComponent<Image>();
-            vigImg.color = new Color(0.02f, 0.04f, 0.08f, 0.72f);
+            vigImg.color = new Color(0.02f, 0.04f, 0.08f, 0.86f);
             vigImg.raycastTarget = true;
 
             // 2. Master Responsive Card (AspectRatioFitter FitInParent with 1086x1448 reference aspect)
@@ -8238,10 +8299,20 @@ namespace MobControl.UI
             // 1. Ensure Reference Level 1 Road & Environment is built
             MobControl.Level.NewRoadBuilder.EnsureNewRoad();
 
-            // 2. Setup Camera and Atmosphere for Level 1 Road
-            MobControl.Level.NewRoadBuilder.SetupCameraAndAtmosphere();
+            // 2. Setup Camera and Atmosphere for Level Road
+            MobControl.Level.NewRoadBuilder.SetupCameraAndAtmosphere(levelNumber);
 
-            // 3. Update HUD level title
+            // 3. Configure Level for Endless Road and Enemy Wave Spawners
+            if (MobControl.Level.EndlessRoadManager.Instance != null)
+            {
+                MobControl.Level.EndlessRoadManager.Instance.CurrentLevel = levelNumber;
+            }
+            if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
+            {
+                MobControl.Crowd.ZombieRoadWaveSpawner.Instance.CurrentLevel = levelNumber;
+            }
+
+            // 4. Update HUD level title
             if (hudLevelText != null)
             {
                 hudLevelText.text = $"LEVEL {levelNumber}";
@@ -8289,6 +8360,17 @@ namespace MobControl.UI
             ShowSwipeToStartPrompt();
 
             Debug.Log($"[ZombieSquad] Level {levelNumber} ready! Waiting for user swipe to start.");
+        }
+
+        private void SetupLevelSpecificContent(int levelNumber)
+        {
+            // Clean up any previously spawned level creatures
+            GameObject existingCreaturesRoot = GameObject.Find("Level_Creatures_Root");
+            if (existingCreaturesRoot != null)
+            {
+                if (Application.isPlaying) Destroy(existingCreaturesRoot);
+                else DestroyImmediate(existingCreaturesRoot);
+            }
         }
 
         private void UpdateGameplayHud()
@@ -8367,9 +8449,9 @@ namespace MobControl.UI
 
             if (victorySubText != null)
             {
-                if (starsEarned == 3) victorySubText.text = "PERFECT RUN! (3/3 HP)";
-                else if (starsEarned == 2) victorySubText.text = "GREAT COMBAT! (2/3 HP)";
-                else victorySubText.text = "SURVIVED! (1/3 HP)";
+                if (starsEarned == 3) victorySubText.text = "PERFECT RUN!";
+                else if (starsEarned == 2) victorySubText.text = "GREAT COMBAT!";
+                else victorySubText.text = "SURVIVED!";
             }
 
             if (victoryPanel != null)
@@ -8443,9 +8525,9 @@ namespace MobControl.UI
             // Set dynamic subtitle text
             if (victorySubText != null)
             {
-                if (starsEarned == 3) victorySubText.text = "PERFECT RUN! (3/3 HP)";
-                else if (starsEarned == 2) victorySubText.text = "GREAT COMBAT! (2/3 HP)";
-                else victorySubText.text = "SURVIVED! (1/3 HP)";
+                if (starsEarned == 3) victorySubText.text = "PERFECT RUN!";
+                else if (starsEarned == 2) victorySubText.text = "GREAT COMBAT!";
+                else victorySubText.text = "SURVIVED!";
             }
 
             // Show victory panel with animations

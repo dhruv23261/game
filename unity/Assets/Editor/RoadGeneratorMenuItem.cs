@@ -550,6 +550,27 @@ namespace MobControl.EditorTools
             StartMissionAtLevel(2);
         }
 
+        [MenuItem("Zombie Squad/Level 2/Build & Preview Level 2 in Scene")]
+        public static void BuildAndPreviewLevel2()
+        {
+            CleanLevel1Scene();
+            BuildReferenceLevel1Road();
+
+            if (EndlessRoadManager.Instance != null)
+            {
+                EndlessRoadManager.Instance.CurrentLevel = 2;
+                EndlessRoadManager.Instance.BuildInitialEndlessTrack();
+            }
+
+            if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
+            {
+                MobControl.Crowd.ZombieRoadWaveSpawner.Instance.CurrentLevel = 2;
+            }
+
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
+            Debug.Log("<color=#00FF66><b>[Level 2 Preview] Level 2 Scene successfully built with Plant Monsters and Flying Wyvern!</b></color>");
+        }
+
         [MenuItem("Zombie Squad/Quick Start Level 3 Road Battle")]
         public static void QuickStartLevel3()
         {

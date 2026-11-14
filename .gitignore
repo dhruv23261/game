@@ -76,3 +76,8 @@ _Recovery/
 
 *.log
 *.zip
+
+# Temporary raw outputs & captures
+meshy_output/
+**/Captures/
+Captures/

@@ -707,7 +707,17 @@ namespace MobControl.Level
             }
         }
 
-        public static void SetupCameraAndAtmosphere()
+        private static bool s_lightDefaultsCaptured;
+        private static Color s_defaultSunColor = Color.white;
+        private static float s_defaultSunIntensity = 1f;
+
+        public static void SetupCameraAndAtmosphere() => SetupCameraAndAtmosphere(1);
+
+        /// <summary>
+        /// Camera + sky + fog + sun for a level. Level 1: bright cartoon blue day.
+        /// Level 2 "Overgrown Highway": warm sunset skybox, peach fog and golden sunlight.
+        /// </summary>
+        public static void SetupCameraAndAtmosphere(int level)
         {
             // Vibrant bright cartoon sky blue matching reference image
             Color skyBlue = new Color(0.25f, 0.58f, 0.95f, 1f);
@@ -729,6 +739,50 @@ namespace MobControl.Level
             RenderSettings.fogColor = skyBlue;
             RenderSettings.fogStartDistance = 140.0f;
             RenderSettings.fogEndDistance = 290.0f;
+
+            Light sun = FindSun();
+            if (sun != null && !s_lightDefaultsCaptured)
+            {
+                s_lightDefaultsCaptured = true;
+                s_defaultSunColor = sun.color;
+                s_defaultSunIntensity = sun.intensity;
+            }
+            if (sun != null)
+            {
+                sun.color = s_defaultSunColor;
+                sun.intensity = s_defaultSunIntensity;
+            }
+
+            if (level != 2) return;
+
+            Color sunsetFog = new Color(0.94f, 0.68f, 0.52f, 1f);
+            Material sky = Resources.Load<Material>("Materials/Level2/M_L2_SunsetSky");
+            if (mainCam != null)
+            {
+                mainCam.backgroundColor = sunsetFog;
+                if (sky != null)
+                {
+                    RenderSettings.skybox = sky;
+                    mainCam.clearFlags = CameraClearFlags.Skybox;
+                }
+            }
+            RenderSettings.fogColor = sunsetFog;
+            RenderSettings.fogStartDistance = 70.0f;
+            RenderSettings.fogEndDistance = 240.0f;
+
+            if (sun != null)
+            {
+                sun.color = new Color(1.0f, 0.84f, 0.66f, 1f);
+                sun.intensity = s_defaultSunIntensity * 1.05f;
+            }
+        }
+
+        private static Light FindSun()
+        {
+            if (RenderSettings.sun != null) return RenderSettings.sun;
+            foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+                if (l.type == LightType.Directional && l.isActiveAndEnabled) return l;
+            return null;
         }
 
         private void BuildPlayerCharacter(Transform parent)
