@@ -12,7 +12,7 @@ namespace MobControl.UI
     /// <summary>
     /// ZombieRunnerUIManager
     /// Automatically manages:
-    /// 1. Splash Screen with "Zombie Runner" title, animated 🧟 emoji, and smooth Loading Bar.
+    /// 1. Splash Screen with "Zombie Rage" title, animated 🧟 emoji, and smooth Loading Bar.
     /// 2. Level Select Screen with Level 1, 2, 3... unlock progression, stars, and coins.
     /// 3. In-Game HUD (Level name, distance progress bar, health).
     /// 4. Level Complete / Victory Screen with star bounce pop animations & coin rewards.
@@ -43,7 +43,7 @@ namespace MobControl.UI
 
         [Header("State")]
         [SerializeField] private ScreenState currentState = ScreenState.HomeScreen;
-        public bool IsModalOpen => currentState != ScreenState.Gameplay;
+        public bool IsModalOpen => currentState != ScreenState.Gameplay || isGamePaused;
         public ScreenState CurrentState => currentState;
 
         [Header("Level Track Settings")]
@@ -65,10 +65,8 @@ namespace MobControl.UI
         [SerializeField] private RectTransform homeScreenMissionsBtnRect;
         [SerializeField] private RectTransform homeScreenDailyBtnRect;
 
-        [Header("Home Screen Modular vs Fallback Mode")]
+        [Header("Home Screen (Responsive)")]
         [SerializeField] private GameObject homeScreenResponsiveContainer;
-        [SerializeField] private GameObject homeScreenFallbackContainer;
-        [SerializeField] private TextMeshProUGUI homeScreenModeToggleText;
         private RectTransform modularPlayBtnRect;
         private RectTransform modularCharactersBtnRect;
         private RectTransform modularUpgradeBtnRect;
@@ -76,23 +74,6 @@ namespace MobControl.UI
         private RectTransform modularShopBtnRect;
         private RectTransform modularMissionsBtnRect;
         private RectTransform modularDailyBtnRect;
-        private RectTransform fallbackPlayBtnRect;
-        private RectTransform fallbackCharactersBtnRect;
-        private RectTransform fallbackUpgradeBtnRect;
-        private RectTransform fallbackWeaponsBtnRect;
-        private RectTransform fallbackShopBtnRect;
-        private RectTransform fallbackMissionsBtnRect;
-        private RectTransform fallbackDailyBtnRect;
-
-        public static bool UseModularHomeScreen
-        {
-            get => PlayerPrefs.GetInt("ZombieSquad_HomeScreen_UseModular", 1) == 1;
-            set
-            {
-                PlayerPrefs.SetInt("ZombieSquad_HomeScreen_UseModular", value ? 1 : 0);
-                PlayerPrefs.Save();
-            }
-        }
         [SerializeField] private GameObject levelMapPanel;
         [SerializeField] private RectTransform levelMapArtContainerRect;
         [SerializeField] private RectTransform levelMapBackBtnRect;
@@ -341,6 +322,9 @@ namespace MobControl.UI
 
         private const string PREF_UNLOCKED_LEVEL = "ZombieRunner_UnlockedLevel";
         private const string PREF_COINS = "ZombieRunner_Coins";
+        /// <summary>Starting wallet on a fresh install.</summary>
+        public const int DEFAULT_COINS = 100;
+        public const int DEFAULT_DIAMONDS = 10;
         private const string PREF_STARS_PREFIX = "ZombieRunner_Stars_Lvl_";
 
         public static void SafeDestroy(Object obj)
@@ -367,7 +351,7 @@ namespace MobControl.UI
 
             if (Instance == null)
             {
-                GameObject uiRoot = new GameObject("[ZombieRunner_UI_Manager]");
+                GameObject uiRoot = new GameObject("[ZombieRage_UI_Manager]");
                 Instance = uiRoot.AddComponent<ZombieRunnerUIManager>();
                 if (Application.isPlaying) DontDestroyOnLoad(uiRoot);
             }
@@ -567,6 +551,8 @@ namespace MobControl.UI
 
         private void Update()
         {
+            TickDailyCountdown();
+            HandlePauseInput();
             if (mainCanvas != null)
             {
                 CanvasScaler dynScaler = mainCanvas.GetComponent<CanvasScaler>();
@@ -705,10 +691,8 @@ namespace MobControl.UI
                     // Check PLAY button FIRST as top priority primary CTA!
                     if (homeScreenPlayBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenPlayBtnRect, pointerPos, null))
                     {
-                        int currentLevel = PlayerPrefs.GetInt(PREF_UNLOCKED_LEVEL, 1);
-                        if (currentLevel < 1) currentLevel = 1;
-                        Debug.Log($"[ZombieRunnerUIManager] HomeScreen PLAY clicked -> Launching Level {currentLevel} Road Battle directly!");
-                        StartMission(currentLevel);
+                        Debug.Log("[ZombieRunnerUIManager] HomeScreen PLAY clicked -> Opening Level Map");
+                        ShowZombieSquadLevelMap();
                         return;
                     }
                     else if (homeScreenCharactersBtnRect != null && RectTransformUtility.RectangleContainsScreenPoint(homeScreenCharactersBtnRect, pointerPos, null))
@@ -1087,6 +1071,7 @@ namespace MobControl.UI
             BuildZombieSquadDailyScreenPanel(canvasObj.transform);
             BuildSettingsPopupPanel(canvasObj.transform);
             BuildSplashPanel(canvasObj.transform);
+            if (splashPanel != null) splashPanel.SetActive(false); // splash disabled — game opens straight to Home
             BuildLevelSelectPanel(canvasObj.transform);
             BuildGameplayHudPanel(canvasObj.transform);
             BuildVictoryPanel(canvasObj.transform);
@@ -2071,172 +2056,23 @@ namespace MobControl.UI
             return null;
         }
 
-        public void ToggleHomeScreenMode()
-        {
-            SetHomeScreenModular(!UseModularHomeScreen);
-        }
-
-        public void SetHomeScreenModular(bool useModular)
-        {
-            UseModularHomeScreen = useModular;
-            UpdateHomeScreenContainers();
-        }
-
+        /// <summary>Home screen is responsive-only now (classic fallback image removed).</summary>
         public void UpdateHomeScreenContainers()
         {
-            bool isModular = UseModularHomeScreen;
-            if (homeScreenResponsiveContainer != null) homeScreenResponsiveContainer.SetActive(isModular);
-            if (homeScreenFallbackContainer != null) homeScreenFallbackContainer.SetActive(!isModular);
-
-            if (homeScreenModeToggleText != null)
-            {
-                homeScreenModeToggleText.text = isModular 
-                    ? "MODE: RESPONSIVE  (Tap: Fallback)" 
-                    : "MODE: FALLBACK  (Tap: Responsive)";
-            }
-
-            // Sync pointer rects for Update() fallback handling
-            if (isModular)
-            {
-                if (modularPlayBtnRect != null) homeScreenPlayBtnRect = modularPlayBtnRect;
-                if (modularShopBtnRect != null) homeScreenShopBtnRect = modularShopBtnRect;
-                if (modularCharactersBtnRect != null) homeScreenCharactersBtnRect = modularCharactersBtnRect;
-                if (modularWeaponsBtnRect != null) homeScreenWeaponsBtnRect = modularWeaponsBtnRect;
-                if (modularMissionsBtnRect != null) homeScreenMissionsBtnRect = modularMissionsBtnRect;
-                if (modularDailyBtnRect != null) homeScreenDailyBtnRect = modularDailyBtnRect;
-                if (modularUpgradeBtnRect != null) homeScreenUpgradeBtnRect = modularUpgradeBtnRect;
-            }
-            else
-            {
-                if (fallbackPlayBtnRect != null) homeScreenPlayBtnRect = fallbackPlayBtnRect;
-                if (fallbackShopBtnRect != null) homeScreenShopBtnRect = fallbackShopBtnRect;
-                if (fallbackCharactersBtnRect != null) homeScreenCharactersBtnRect = fallbackCharactersBtnRect;
-                if (fallbackWeaponsBtnRect != null) homeScreenWeaponsBtnRect = fallbackWeaponsBtnRect;
-                if (fallbackMissionsBtnRect != null) homeScreenMissionsBtnRect = fallbackMissionsBtnRect;
-                if (fallbackDailyBtnRect != null) homeScreenDailyBtnRect = fallbackDailyBtnRect;
-                if (fallbackUpgradeBtnRect != null) homeScreenUpgradeBtnRect = fallbackUpgradeBtnRect;
-            }
-
-            Debug.Log($"[ZombieRunnerUIManager] HomeScreen switched to: {(isModular ? "Responsive Modular UI" : "Classic Fallback Static Image")}");
+            if (homeScreenResponsiveContainer != null) homeScreenResponsiveContainer.SetActive(true);
+            if (modularPlayBtnRect != null) homeScreenPlayBtnRect = modularPlayBtnRect;
+            if (modularShopBtnRect != null) homeScreenShopBtnRect = modularShopBtnRect;
+            if (modularCharactersBtnRect != null) homeScreenCharactersBtnRect = modularCharactersBtnRect;
+            if (modularWeaponsBtnRect != null) homeScreenWeaponsBtnRect = modularWeaponsBtnRect;
+            if (modularMissionsBtnRect != null) homeScreenMissionsBtnRect = modularMissionsBtnRect;
+            if (modularDailyBtnRect != null) homeScreenDailyBtnRect = modularDailyBtnRect;
+            if (modularUpgradeBtnRect != null) homeScreenUpgradeBtnRect = modularUpgradeBtnRect;
         }
 
         private void BuildZombieSquadHomeScreenPanel(Transform canvasRoot)
         {
             // Fullscreen solid background matching artwork color palette so widescreen/tablet letterboxing blends seamlessly
             homeScreenPanel = CreateFullPanel("ZombieSquadHomeScreenPanel", canvasRoot, new Color(0.06f, 0.08f, 0.12f, 1f));
-
-            // ==========================================
-            // 1. FALLBACK STATIC CONTAINER (CLASSIC SCREEN)
-            // ==========================================
-            homeScreenFallbackContainer = new GameObject("Fallback_BakedImage_Container");
-            homeScreenFallbackContainer.transform.SetParent(homeScreenPanel.transform, false);
-            RectTransform fallbackRootRt = homeScreenFallbackContainer.AddComponent<RectTransform>();
-            fallbackRootRt.anchorMin = Vector2.zero;
-            fallbackRootRt.anchorMax = Vector2.one;
-            fallbackRootRt.offsetMin = Vector2.zero;
-            fallbackRootRt.offsetMax = Vector2.zero;
-
-            Sprite masterArtSprite = LoadZombieSquadHomeScreenSprite();
-
-            // Ambient background filler for wider tablet/iPad displays (seamlessly fills tablet side wings with atmospheric scenery)
-            GameObject ambientBg = new GameObject("AmbientTabletBackground");
-            ambientBg.transform.SetParent(homeScreenFallbackContainer.transform, false);
-            RectTransform ambRt = ambientBg.AddComponent<RectTransform>();
-            ambRt.anchorMin = Vector2.zero;
-            ambRt.anchorMax = Vector2.one;
-            ambRt.offsetMin = Vector2.zero;
-            ambRt.offsetMax = Vector2.zero;
-
-            AspectRatioFitter ambFitter = ambientBg.AddComponent<AspectRatioFitter>();
-            ambFitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-            ambFitter.aspectRatio = 941f / 1672f;
-
-            Image ambImg = ambientBg.AddComponent<Image>();
-            ambImg.sprite = masterArtSprite;
-            ambImg.preserveAspect = true;
-            ambImg.color = new Color(0.35f, 0.38f, 0.45f, 1f);
-            ambImg.raycastTarget = false;
-
-            // ArtContainer scaled with AspectRatioFitter to preserve authentic proportions on any phone, tablet or desktop
-            // Master artwork ratio: 941 x 1672 (~0.5628)
-            GameObject artContainer = new GameObject("ArtContainer");
-            artContainer.transform.SetParent(homeScreenFallbackContainer.transform, false);
-            RectTransform artRt = artContainer.AddComponent<RectTransform>();
-            artRt.anchorMin = Vector2.zero;
-            artRt.anchorMax = Vector2.one;
-            artRt.offsetMin = Vector2.zero;
-            artRt.offsetMax = Vector2.zero;
-
-            Image artImg = artContainer.AddComponent<Image>();
-            artImg.sprite = masterArtSprite;
-            artImg.preserveAspect = true;
-            artImg.raycastTarget = true;
-
-            AspectRatioFitter fitter = artContainer.AddComponent<AspectRatioFitter>();
-            fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            fitter.aspectRatio = 941f / 1672f;
-
-            // Interactive Transparent Button Overlays exactly mapped to painted master buttons:
-            // 1. PLAY Button (Bottom Center) - Directly launches active gameplay battle!
-            Button playBtn = CreateTransparentButton("Btn_Play_Fallback", artContainer.transform, new Vector2(0.202f, 0.049f), new Vector2(0.797f, 0.133f), () =>
-            {
-                int currentLevel = PlayerPrefs.GetInt(PREF_UNLOCKED_LEVEL, 1);
-                if (currentLevel < 1) currentLevel = 1;
-                Debug.Log($"[ZombieSquad] PLAY Button Pressed -> Launching Level {currentLevel} Road Battle directly!");
-                StartMission(currentLevel);
-            });
-            fallbackPlayBtnRect = playBtn.GetComponent<RectTransform>();
-
-            // 2. Left Menu Column: Shop, Characters, Weapons
-            Button shopBtn = CreateTransparentButton("Btn_Shop_Fallback", artContainer.transform, new Vector2(0.027f, 0.584f), new Vector2(0.213f, 0.677f), () =>
-            {
-                Debug.Log("[ZombieSquad] Shop Clicked -> Opening Shop Screen!");
-                ShowZombieSquadShopScreen();
-            });
-            fallbackShopBtnRect = shopBtn.GetComponent<RectTransform>();
-
-            Button charBtn = CreateTransparentButton("Btn_Characters_Fallback", artContainer.transform, new Vector2(0.027f, 0.468f), new Vector2(0.213f, 0.560f), () =>
-            {
-                Debug.Log("[ZombieSquad] Characters Clicked -> Opening Characters Screen!");
-                ShowZombieSquadCharactersScreen();
-            });
-            fallbackCharactersBtnRect = charBtn.GetComponent<RectTransform>();
-
-            Button wepBtn = CreateTransparentButton("Btn_Weapons_Fallback", artContainer.transform, new Vector2(0.027f, 0.351f), new Vector2(0.213f, 0.444f), () =>
-            {
-                Debug.Log("[ZombieSquad] Weapons Clicked -> Opening Weapons Screen!");
-                ShowZombieSquadWeaponsScreen();
-            });
-            fallbackWeaponsBtnRect = wepBtn.GetComponent<RectTransform>();
-
-            // 3. Right Menu Column: Missions, Daily, Upgrade
-            Button missionsBtn = CreateTransparentButton("Btn_Missions_Fallback", artContainer.transform, new Vector2(0.786f, 0.584f), new Vector2(0.972f, 0.677f), () =>
-            {
-                Debug.Log("[ZombieSquad] Missions Clicked -> Opening Level Map Screen!");
-                ShowZombieSquadLevelMap();
-            });
-            fallbackMissionsBtnRect = missionsBtn.GetComponent<RectTransform>();
-
-            Button dailyBtn = CreateTransparentButton("Btn_Daily_Fallback", artContainer.transform, new Vector2(0.786f, 0.468f), new Vector2(0.972f, 0.560f), () =>
-            {
-                Debug.Log("[ZombieSquad] Daily Rewards Clicked -> Opening Daily Screen!");
-                ShowZombieSquadDailyScreen();
-            });
-            fallbackDailyBtnRect = dailyBtn.GetComponent<RectTransform>();
-
-            Button upgBtn = CreateTransparentButton("Btn_Upgrade_Fallback", artContainer.transform, new Vector2(0.786f, 0.351f), new Vector2(0.972f, 0.444f), () =>
-            {
-                Debug.Log("[ZombieSquad] Upgrade Clicked -> Opening Squad Upgrade Screen!");
-                ShowZombieSquadUpgradeScreen();
-            });
-            fallbackUpgradeBtnRect = upgBtn.GetComponent<RectTransform>();
-
-            // 4. Settings Gear (Top-Right)
-            CreateTransparentButton("Btn_Settings_Fallback", artContainer.transform, new Vector2(0.861f, 0.904f), new Vector2(0.972f, 0.967f), () =>
-            {
-                Debug.Log("[ZombieSquad] Settings Clicked -> Opening Settings Popup!");
-                ShowZombieSquadSettings();
-            });
 
             // ==========================================
             // 2. RESPONSIVE MODULAR CONTAINER (HTML STYLE)
@@ -2262,7 +2098,8 @@ namespace MobControl.UI
             respAmbImg.color = new Color(0.12f, 0.16f, 0.24f, 1f);
             respAmbImg.raycastTarget = false;
 
-            // Clean Scenery Background (No baked buttons or text)
+            // Clean Scenery Background (No baked buttons or text); baked home art as last-resort backdrop
+            Sprite masterArtSprite = LoadZombieSquadHomeScreenSprite();
             Sprite cleanScenery = LoadSpriteFromUI(
                 "UI/HomeScreen/HomeScreen_Scenery_Clean",
                 "UI/HomeScreen_Scenery_Clean"
@@ -2287,7 +2124,7 @@ namespace MobControl.UI
                 ? (cleanScenery.rect.width / cleanScenery.rect.height)
                 : (1080f / 1920f);
 
-            // Title Logo (Zombie Squad)
+            // Title Logo (Zombie Rage)
             Sprite titleSprite = LoadSpriteFromUI(
                 "UI/HomeScreen/Home_Title_ZombieSquad",
                 "UI/HomeScreen/crop_title_logo"
@@ -2441,53 +2278,15 @@ namespace MobControl.UI
             );
             Button respPlayBtn = CreateImageButton("Btn_Play_Modular", homeScreenResponsiveContainer.transform, playSprite, new Vector2(540f, 180f), () =>
             {
-                int currentLevel = PlayerPrefs.GetInt(PREF_UNLOCKED_LEVEL, 1);
-                if (currentLevel < 1) currentLevel = 1;
-                Debug.Log($"[ZombieSquad] PLAY Button Pressed -> Launching Level {currentLevel} Road Battle directly!");
-                StartMission(currentLevel);
+                // PLAY always opens the Level Map first; the player picks a level there
+                Debug.Log("[ZombieSquad] PLAY Button Pressed -> Opening Level Map");
+                ShowZombieSquadLevelMap();
             });
             modularPlayBtnRect = respPlayBtn.GetComponent<RectTransform>();
             modularPlayBtnRect.anchorMin = new Vector2(0.5f, 0f);
             modularPlayBtnRect.anchorMax = new Vector2(0.5f, 0f);
             modularPlayBtnRect.pivot = new Vector2(0.5f, 0f);
             modularPlayBtnRect.anchoredPosition = new Vector2(0f, 110f);
-
-            // ==========================================
-            // 3. PERSISTENT FALLBACK / RESPONSIVE MODE TOGGLE PILL
-            // ==========================================
-            GameObject togglePillObj = new GameObject("HomeScreen_ModeToggle_Pill");
-            togglePillObj.transform.SetParent(homeScreenPanel.transform, false);
-            RectTransform pillRt = togglePillObj.AddComponent<RectTransform>();
-            pillRt.anchorMin = new Vector2(0f, 1f);
-            pillRt.anchorMax = new Vector2(0f, 1f);
-            pillRt.pivot = new Vector2(0f, 1f);
-            pillRt.anchoredPosition = new Vector2(35f, -50f);
-            pillRt.sizeDelta = new Vector2(360f, 54f);
-
-            Image pillBg = togglePillObj.AddComponent<Image>();
-            pillBg.color = new Color(0.06f, 0.09f, 0.16f, 0.92f);
-            pillBg.raycastTarget = true;
-
-            Button pillBtn = togglePillObj.AddComponent<Button>();
-            pillBtn.targetGraphic = pillBg;
-            pillBtn.onClick.AddListener(ToggleHomeScreenMode);
-
-            GameObject textObj = new GameObject("ToggleText");
-            textObj.transform.SetParent(togglePillObj.transform, false);
-            RectTransform textRt = textObj.AddComponent<RectTransform>();
-            textRt.anchorMin = Vector2.zero;
-            textRt.anchorMax = Vector2.one;
-            textRt.offsetMin = new Vector2(10f, 0f);
-            textRt.offsetMax = new Vector2(-10f, 0f);
-
-            homeScreenModeToggleText = textObj.AddComponent<TextMeshProUGUI>();
-            homeScreenModeToggleText.enabled = false; // Prevent GenerateTextMesh before material is ready
-            homeScreenModeToggleText.fontSize = 17f;
-            homeScreenModeToggleText.fontStyle = FontStyles.Bold;
-            homeScreenModeToggleText.alignment = TextAlignmentOptions.Center;
-            homeScreenModeToggleText.color = new Color(1.0f, 0.82f, 0.18f, 1f); // Golden yellow
-            homeScreenModeToggleText.raycastTarget = false;
-            homeScreenModeToggleText.enabled = true; // Now safe to generate mesh
 
             UpdateHomeScreenContainers();
         }
@@ -2608,14 +2407,36 @@ namespace MobControl.UI
             return null;
         }
 
+        private void AddLevelMapExtension(Transform artContainer, string name, string sprite, Vector2 aMin, Vector2 aMax, Vector2 pivot, bool horizontal)
+        {
+            Sprite sp = LoadSpriteFromUI(MenuHDPath + sprite);
+            if (sp == null) return;
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(artContainer, false);
+            go.transform.SetAsFirstSibling();
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = aMin;
+            rt.anchorMax = aMax;
+            rt.pivot = pivot;
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
+            Image img = go.AddComponent<Image>();
+            img.sprite = sp;
+            img.raycastTarget = false;
+            AspectRatioFitter f = go.AddComponent<AspectRatioFitter>();
+            f.aspectMode = horizontal ? AspectRatioFitter.AspectMode.WidthControlsHeight : AspectRatioFitter.AspectMode.HeightControlsWidth;
+            f.aspectRatio = sp.rect.width / sp.rect.height;
+        }
+
         private void BuildZombieSquadLevelMapPanel(Transform canvasRoot)
         {
             levelMapPanel = CreateFullPanel("ZombieSquadLevelMapPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
 
-            Sprite mapSprite = LoadZombieSquadLevelMapSprite();
+            // HD (2x upscaled + sharpened) map art; falls back to the original
+            Sprite mapSprite = LoadSpriteFromUI(MenuHDPath + "Menu_LevelMap") ?? LoadZombieSquadLevelMapSprite();
 
-            // Ambient Scenery Cover (EnvelopeParent fills 100% of any tall/wide mobile display - zero black bars!)
-            SetupAmbientSceneryCover(levelMapPanel, mapSprite, 9f / 16f);
+            // Blurred, darkened copy fills the extra space on very tall / wide screens (no duplicated-looking map)
+            SetupAmbientSceneryCover(levelMapPanel, LoadSpriteFromUI(MenuHDPath + "Menu_LevelMap_Backdrop") ?? mapSprite, 9f / 16f);
 
             // Container for 9:16 aspect ratio
             GameObject artContainer = new GameObject("ArtContainer");
@@ -2640,25 +2461,26 @@ namespace MobControl.UI
             }
             mapImg.raycastTarget = true;
 
-            Shadow mapShadowB = artContainer.AddComponent<Shadow>();
-            mapShadowB.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            mapShadowB.effectDistance = new Vector2(0f, -8f);
-
-            Shadow mapShadowT = artContainer.AddComponent<Shadow>();
-            mapShadowT.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            mapShadowT.effectDistance = new Vector2(0f, 8f);
+            // Seamless art extensions so very tall phones / tablets see more map instead of bars
+            AddLevelMapExtension(artContainer.transform, "ExtTop", "Menu_LevelMap_ExtTop", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 0f), true);
+            AddLevelMapExtension(artContainer.transform, "ExtBottom", "Menu_LevelMap_ExtBottom", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 1f), true);
+            AddLevelMapExtension(artContainer.transform, "ExtLeft", "Menu_LevelMap_ExtLeft", new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 0.5f), false);
+            AddLevelMapExtension(artContainer.transform, "ExtRight", "Menu_LevelMap_ExtRight", new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 0.5f), false);
 
             // Top-Left Back Button to Home Screen
             GameObject backBtnObj = new GameObject("Btn_Back");
             backBtnObj.transform.SetParent(artContainer.transform, false);
             RectTransform backRt = backBtnObj.AddComponent<RectTransform>();
-            backRt.anchorMin = new Vector2(0.04f, 0.89f);
-            backRt.anchorMax = new Vector2(0.16f, 0.98f);
+            // Crisp HD back button drawn exactly over the (soft) baked one
+            backRt.anchorMin = new Vector2(0.035f, 0.905f);
+            backRt.anchorMax = new Vector2(0.175f, 0.985f);
             backRt.offsetMin = Vector2.zero;
             backRt.offsetMax = Vector2.zero;
 
             Image backImg = backBtnObj.AddComponent<Image>();
-            backImg.color = new Color(1f, 1f, 1f, 0.001f);
+            Sprite hdBack = LoadSpriteFromUI(ShopHDPath + "Shop_BackButton");
+            if (hdBack != null) { backImg.sprite = hdBack; backImg.preserveAspect = true; backImg.color = Color.white; }
+            else backImg.color = new Color(1f, 1f, 1f, 0.001f);
             backImg.raycastTarget = true;
 
             Button backBtn = backBtnObj.AddComponent<Button>();
@@ -2715,41 +2537,54 @@ namespace MobControl.UI
                 GameObject nodeRoot = new GameObject(isBoss ? "Node_Boss" : $"Node_Lvl_{lvlNum}");
                 nodeRoot.transform.SetParent(containerTr, false);
 
+                // Node box is defined relative to the map art (reference 1080x1920), so it scales with the map
                 RectTransform nodeRt = nodeRoot.AddComponent<RectTransform>();
-                nodeRt.anchorMin = normPos;
-                nodeRt.anchorMax = normPos;
+                float nodeScale = isBoss ? 1f : 1.15f;
+                Vector2 half = new Vector2(size.x * nodeScale / 1080f * 0.5f, size.y * nodeScale / 1920f * 0.5f);
+                nodeRt.anchorMin = normPos - half;
+                nodeRt.anchorMax = normPos + half;
                 nodeRt.pivot = new Vector2(0.5f, 0.5f);
                 nodeRt.anchoredPosition = Vector2.zero;
-                nodeRt.sizeDelta = size;
+                nodeRt.offsetMin = Vector2.zero;
+                nodeRt.offsetMax = Vector2.zero;
                 levelMapNodeRects[i] = nodeRt;
+
+                // All visuals live in a fixed design-size child that is uniformly scaled to the node box
+                GameObject visualObj = new GameObject("Visual", typeof(RectTransform));
+                visualObj.transform.SetParent(nodeRoot.transform, false);
+                ShopResponsiveFitter visFit = visualObj.AddComponent<ShopResponsiveFitter>();
+                visFit.designSize = size;
+                visFit.minScale = 0.2f;
+                visFit.maxScale = 4f;
+                Transform visualTr = visualObj.transform;
 
                 // Outer border ring
                 GameObject outerRingObj = new GameObject("OuterRing");
-                outerRingObj.transform.SetParent(nodeRoot.transform, false);
+                outerRingObj.transform.SetParent(visualTr, false);
                 RectTransform outerRt = outerRingObj.AddComponent<RectTransform>();
                 outerRt.anchorMin = Vector2.zero;
                 outerRt.anchorMax = Vector2.one;
                 outerRt.offsetMin = Vector2.zero;
                 outerRt.offsetMax = Vector2.zero;
                 Image outerRing = outerRingObj.AddComponent<Image>();
-                outerRing.sprite = GetCircleBadgeSprite();
+                outerRing.sprite = LoadSpriteFromUI(MenuHDPath + "Menu_Node_Ring") ?? GetCircleBadgeSprite();
                 outerRing.raycastTarget = false;
 
                 // Inner Disc
                 GameObject innerDiscObj = new GameObject("InnerDisc");
-                innerDiscObj.transform.SetParent(nodeRoot.transform, false);
+                innerDiscObj.transform.SetParent(visualTr, false);
                 RectTransform innerRt = innerDiscObj.AddComponent<RectTransform>();
                 innerRt.anchorMin = Vector2.zero;
                 innerRt.anchorMax = Vector2.one;
-                innerRt.offsetMin = isBoss ? Vector2.zero : new Vector2(5, 5);
-                innerRt.offsetMax = isBoss ? Vector2.zero : new Vector2(-5, -5);
+                innerRt.offsetMin = isBoss ? Vector2.zero : new Vector2(7, 9);
+                innerRt.offsetMax = isBoss ? Vector2.zero : new Vector2(-7, -5);
                 Image innerDisc = innerDiscObj.AddComponent<Image>();
-                innerDisc.sprite = isBoss ? null : GetCircleBadgeSprite();
+                innerDisc.sprite = isBoss ? null : (LoadSpriteFromUI(MenuHDPath + "Menu_Node_Disc") ?? GetCircleBadgeSprite());
                 innerDisc.raycastTarget = false;
 
                 // Icon (Padlock for locked levels)
                 GameObject iconObj = new GameObject("Icon");
-                iconObj.transform.SetParent(nodeRoot.transform, false);
+                iconObj.transform.SetParent(visualTr, false);
                 RectTransform iconRt = iconObj.AddComponent<RectTransform>();
                 iconRt.anchorMin = new Vector2(0.5f, 0.60f);
                 iconRt.anchorMax = new Vector2(0.5f, 0.60f);
@@ -2761,8 +2596,10 @@ namespace MobControl.UI
                 iconObj.SetActive(false);
 
                 // Text (Clean bold level number)
-                TextMeshProUGUI tmp = CreateText("Label", nodeRoot.transform, lvlNum.ToString(), 42, Color.white, TextAlignmentOptions.Center, true);
+                TextMeshProUGUI tmp = CreateText("Label", visualTr, lvlNum.ToString(), 42, Color.white, TextAlignmentOptions.Center, true);
                 tmp.raycastTarget = false;
+                tmp.textWrappingMode = TextWrappingModes.NoWrap;
+                StyleShopTmp(tmp, new Color(0.02f, 0.12f, 0.38f, 1f), 0.22f, true);
                 RectTransform txtRt = tmp.GetComponent<RectTransform>();
                 txtRt.anchorMin = Vector2.zero;
                 txtRt.anchorMax = Vector2.one;
@@ -2790,17 +2627,17 @@ namespace MobControl.UI
                 if (!isBoss)
                 {
                     starsObj = new GameObject("StarsContainer");
-                    starsObj.transform.SetParent(nodeRoot.transform, false);
+                    starsObj.transform.SetParent(visualTr, false);
                     RectTransform starsRt = starsObj.AddComponent<RectTransform>();
                     starsRt.anchorMin = new Vector2(0.5f, 1f);
                     starsRt.anchorMax = new Vector2(0.5f, 1f);
                     starsRt.pivot = new Vector2(0.5f, 0.5f);
-                    starsRt.anchoredPosition = new Vector2(0, 10);
-                    starsRt.sizeDelta = new Vector2(76, 28);
+                    starsRt.anchoredPosition = new Vector2(0, 12);
+                    starsRt.sizeDelta = new Vector2(84, 32);
 
                     // Pill Badge background for high contrast against map grass/road
                     Image badgeBg = starsObj.AddComponent<Image>();
-                    Sprite bgSp = LoadStarBadgeBgSprite();
+                    Sprite bgSp = LoadSpriteFromUI(MenuHDPath + "Menu_Star_Badge") ?? LoadStarBadgeBgSprite();
                     if (bgSp != null) badgeBg.sprite = bgSp;
                     badgeBg.color = Color.white;
                     badgeBg.raycastTarget = false;
@@ -2895,8 +2732,9 @@ namespace MobControl.UI
                     item.iconImage.gameObject.SetActive(false);
                     item.numberText.gameObject.SetActive(true);
                     item.numberText.text = item.levelNumber.ToString();
-                    item.numberText.fontSize = 42;
+                    item.numberText.fontSize = 46;
                     item.numberText.color = Color.white;
+                    item.numberText.outlineColor = new Color(0.02f, 0.14f, 0.40f, 1f);
 
                     item.textRt.anchorMin = Vector2.zero;
                     item.textRt.anchorMax = Vector2.one;
@@ -2937,8 +2775,9 @@ namespace MobControl.UI
                     item.iconImage.gameObject.SetActive(false);
                     item.numberText.gameObject.SetActive(true);
                     item.numberText.text = item.levelNumber.ToString();
-                    item.numberText.fontSize = 44;
-                    item.numberText.color = new Color(0.24f, 0.12f, 0.02f, 1f); // Dark amber bold text
+                    item.numberText.fontSize = 48;
+                    item.numberText.color = Color.white;
+                    item.numberText.outlineColor = new Color(0.45f, 0.20f, 0.0f, 1f);
 
                     item.textRt.anchorMin = Vector2.zero;
                     item.textRt.anchorMax = Vector2.one;
@@ -2987,8 +2826,9 @@ namespace MobControl.UI
 
                     item.numberText.gameObject.SetActive(true);
                     item.numberText.text = item.levelNumber.ToString();
-                    item.numberText.fontSize = 20;
-                    item.numberText.color = new Color(0.85f, 0.88f, 0.92f, 0.9f);
+                    item.numberText.fontSize = 22;
+                    item.numberText.color = new Color(0.92f, 0.94f, 0.97f, 1f);
+                    item.numberText.outlineColor = new Color(0.10f, 0.12f, 0.16f, 1f);
                     item.textRt.anchorMin = new Vector2(0.5f, 0.22f);
                     item.textRt.anchorMax = new Vector2(0.5f, 0.22f);
                     item.textRt.pivot = new Vector2(0.5f, 0.5f);
@@ -3221,23 +3061,23 @@ namespace MobControl.UI
 
         #region Dynamic Currency & Settings System
         private GameObject settingsPanel;
-        private TextMeshProUGUI vibrationToggleText;
-        private Image vibrationToggleBg;
-        private TextMeshProUGUI volumeToggleText;
-        private Image volumeToggleBg;
+        private RectTransform settingsDialogRt;
+        private CanvasGroup settingsCanvasGroup;
+        private Coroutine settingsPopRoutine;
+        private SettingsToggleRefs settingsMusicToggle, settingsSfxToggle, settingsVibToggle;
+        private Image settingsMusicIcon, settingsSfxIcon, settingsVibIcon;
 
         private const string PREF_VIBRATION = "ZombieSquad_Vibration";
         private const string PREF_VOLUME = "ZombieSquad_Volume";
         private const string PREF_DIAMONDS = "ZombieRunner_Diamonds";
 
         public bool IsVibrationEnabled => PlayerPrefs.GetInt(PREF_VIBRATION, 1) == 1;
-        public bool IsVolumeEnabled => PlayerPrefs.GetInt(PREF_VOLUME, 1) == 1;
 
         private List<TextMeshProUGUI> allCoinsDisplays = new List<TextMeshProUGUI>();
         private List<TextMeshProUGUI> allDiamondsDisplays = new List<TextMeshProUGUI>();
 
-        public int GetPlayerCoins() => PlayerPrefs.GetInt(PREF_COINS, 500);
-        public int GetPlayerDiamonds() => PlayerPrefs.GetInt(PREF_DIAMONDS, 50);
+        public int GetPlayerCoins() => PlayerPrefs.GetInt(PREF_COINS, DEFAULT_COINS);
+        public int GetPlayerDiamonds() => PlayerPrefs.GetInt(PREF_DIAMONDS, DEFAULT_DIAMONDS);
 
         public void AddPlayerCoins(int amount)
         {
@@ -3304,19 +3144,55 @@ namespace MobControl.UI
 
         public void ShowZombieSquadSettings()
         {
-            if (settingsPanel != null)
-            {
-                settingsPanel.SetActive(true);
-                UpdateSettingsVisuals();
-            }
+            if (settingsPanel == null && mainCanvas != null) BuildSettingsPopupPanel(mainCanvas.transform);
+            if (settingsPanel == null) return;
+            settingsPanel.transform.SetAsLastSibling();
+            settingsPanel.SetActive(true);
+            UpdateSettingsVisuals();
+            if (settingsPopRoutine != null) StopCoroutine(settingsPopRoutine);
+            settingsPopRoutine = StartCoroutine(SettingsPopIn());
         }
 
         public void HideZombieSquadSettings()
         {
-            if (settingsPanel != null)
+            if (settingsPanel == null || !settingsPanel.activeSelf) return;
+            if (settingsPopRoutine != null) StopCoroutine(settingsPopRoutine);
+            settingsPopRoutine = StartCoroutine(SettingsPopOut());
+        }
+
+        private IEnumerator SettingsPopIn()
+        {
+            float t = 0f;
+            const float d = 0.22f;
+            while (t < d)
             {
-                settingsPanel.SetActive(false);
+                t += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / d);
+                // ease-out-back for a springy pop
+                float s = 1f + 2.2f * Mathf.Pow(k - 1f, 3f) + 1.2f * Mathf.Pow(k - 1f, 2f);
+                if (settingsDialogRt != null) settingsDialogRt.localScale = Vector3.one * Mathf.LerpUnclamped(0.82f, 1f, s);
+                if (settingsCanvasGroup != null) settingsCanvasGroup.alpha = Mathf.Clamp01(k * 2f);
+                yield return null;
             }
+            if (settingsDialogRt != null) settingsDialogRt.localScale = Vector3.one;
+            if (settingsCanvasGroup != null) settingsCanvasGroup.alpha = 1f;
+            settingsPopRoutine = null;
+        }
+
+        private IEnumerator SettingsPopOut()
+        {
+            float t = 0f;
+            const float d = 0.14f;
+            while (t < d)
+            {
+                t += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / d);
+                if (settingsDialogRt != null) settingsDialogRt.localScale = Vector3.one * Mathf.Lerp(1f, 0.88f, k);
+                if (settingsCanvasGroup != null) settingsCanvasGroup.alpha = 1f - k;
+                yield return null;
+            }
+            if (settingsPanel != null) settingsPanel.SetActive(false);
+            settingsPopRoutine = null;
         }
 
         public void ToggleVibration()
@@ -3330,156 +3206,241 @@ namespace MobControl.UI
                 Handheld.Vibrate();
                 #endif
             }
-            Debug.Log($"[ZombieSquad] Settings -> Vibration toggled to: {next}");
-            UpdateSettingsVisuals();
-        }
-
-        public void ToggleVolume()
-        {
-            bool next = !IsVolumeEnabled;
-            PlayerPrefs.SetInt(PREF_VOLUME, next ? 1 : 0);
-            PlayerPrefs.Save();
-            AudioListener.volume = next ? 1f : 0f;
-            Debug.Log($"[ZombieSquad] Settings -> Volume toggled to: {next}");
             UpdateSettingsVisuals();
         }
 
         private void UpdateSettingsVisuals()
         {
-            if (vibrationToggleText != null && vibrationToggleBg != null)
-            {
-                bool vib = IsVibrationEnabled;
-                vibrationToggleText.text = vib ? "ON" : "OFF";
-                vibrationToggleBg.color = vib ? new Color(0.12f, 0.78f, 0.32f, 1f) : new Color(0.35f, 0.15f, 0.18f, 1f);
-            }
-            if (volumeToggleText != null && volumeToggleBg != null)
-            {
-                bool vol = IsVolumeEnabled;
-                volumeToggleText.text = vol ? "ON" : "OFF";
-                volumeToggleBg.color = vol ? new Color(0.12f, 0.78f, 0.32f, 1f) : new Color(0.35f, 0.15f, 0.18f, 1f);
-            }
+            var snd = MobControl.Audio.ZombieSoundManager.Instance;
+            bool music = snd == null || snd.IsMusicEnabled;
+            bool sfx = snd == null || snd.IsSfxEnabled;
+            bool vib = IsVibrationEnabled;
+
+            SetSettingsToggle(settingsMusicToggle, music);
+            SetSettingsToggle(settingsSfxToggle, sfx);
+            SetSettingsToggle(settingsVibToggle, vib);
+            SetMenuSprite(settingsMusicIcon, music ? "Menu_Btn_Music_On" : "Menu_Btn_Music_Off");
+            SetMenuSprite(settingsSfxIcon, sfx ? "Menu_Btn_Sound_On" : "Menu_Btn_Sound_Off");
+            if (settingsVibIcon != null) settingsVibIcon.color = vib ? Color.white : new Color(0.55f, 0.6f, 0.7f, 1f);
+
+            // keep the in-game pause toggles in sync
+            if (pauseMusicBtnImg != null) RefreshPauseToggles();
+        }
+
+        private void SetSettingsToggle(SettingsToggleRefs r, bool on)
+        {
+            if (r == null) return;
+            SetMenuSprite(r.bg, on ? "Menu_Btn_Green" : "Menu_Btn_Grey");
+            r.label.text = on ? "ON" : "OFF";
+            StyleShopTmp(r.label, on ? new Color(0.03f, 0.25f, 0.07f, 1f) : new Color(0.15f, 0.17f, 0.22f, 1f), 0.26f, false);
+        }
+
+        private class SettingsToggleRefs
+        {
+            public Image bg;
+            public TextMeshProUGUI label;
         }
 
         private void BuildSettingsPopupPanel(Transform canvasRoot)
         {
-            settingsPanel = new GameObject("ZombieSquadSettingsPanel");
+            Transform old = canvasRoot.Find("ZombieSquadSettingsPanel");
+            if (old != null) SafeDestroy(old.gameObject);
+
+            // Migrate the old master "volume" switch (muted the whole AudioListener) into the new music / sfx switches
+            if (PlayerPrefs.GetInt(PREF_VOLUME, 1) == 0)
+            {
+                PlayerPrefs.SetInt(PREF_VOLUME, 1);
+                var s0 = MobControl.Audio.ZombieSoundManager.Instance;
+                if (s0 != null)
+                {
+                    if (s0.IsMusicEnabled) s0.ToggleMusic();
+                    if (s0.IsSfxEnabled) s0.ToggleSFX();
+                }
+            }
+            AudioListener.volume = 1f;
+
+            settingsPanel = new GameObject("ZombieSquadSettingsPanel", typeof(RectTransform));
             settingsPanel.transform.SetParent(canvasRoot, false);
-            RectTransform panelRt = settingsPanel.AddComponent<RectTransform>();
-            panelRt.anchorMin = Vector2.zero;
-            panelRt.anchorMax = Vector2.one;
-            panelRt.offsetMin = Vector2.zero;
-            panelRt.offsetMax = Vector2.zero;
+            RectTransform pr = settingsPanel.GetComponent<RectTransform>();
+            ShopStretch(pr);
+            settingsCanvasGroup = settingsPanel.AddComponent<CanvasGroup>();
 
-            Image bg = settingsPanel.AddComponent<Image>();
-            bg.color = new Color(0.02f, 0.04f, 0.08f, 0.85f);
-            bg.raycastTarget = true;
+            // Dimmed backdrop: tap outside the dialog to close
+            Image dim = settingsPanel.AddComponent<Image>();
+            dim.color = new Color(0.01f, 0.02f, 0.07f, 0.75f);
+            dim.raycastTarget = true;
+            Button dimBtn = settingsPanel.AddComponent<Button>();
+            dimBtn.transition = Selectable.Transition.None;
+            dimBtn.onClick.AddListener(() =>
+            {
+                MobControl.Audio.ZombieSoundManager.Instance?.PlayUIBack();
+                HideZombieSquadSettings();
+            });
 
-            // Center Dialog Card
-            GameObject dialog = new GameObject("SettingsDialog");
-            dialog.transform.SetParent(settingsPanel.transform, false);
-            RectTransform dlgRt = dialog.AddComponent<RectTransform>();
-            dlgRt.sizeDelta = new Vector2(720f, 600f);
-            dlgRt.anchorMin = new Vector2(0.5f, 0.5f);
-            dlgRt.anchorMax = new Vector2(0.5f, 0.5f);
-            dlgRt.pivot = new Vector2(0.5f, 0.5f);
+            RectTransform safe = NewShopRect("SafeArea", pr);
+            ShopStretch(safe);
+            safe.gameObject.AddComponent<ShopSafeArea>();
+            RectTransform body = NewShopRect("Body", safe);
+            ShopStretch(body, 30f, 30f, 30f, 30f);
 
-            Image dlgBg = dialog.AddComponent<Image>();
-            dlgBg.color = new Color(0.07f, 0.11f, 0.18f, 0.98f);
+            RectTransform root = NewShopRect("Dialog", body);
+            ShopResponsiveFitter fit = root.gameObject.AddComponent<ShopResponsiveFitter>();
+            fit.designSize = new Vector2(820f, 960f);
+            fit.maxScale = 1.2f;
+            fit.Apply(true);
+            settingsDialogRt = root;
 
-            Outline dlgOutline = dialog.AddComponent<Outline>();
-            dlgOutline.effectColor = new Color(0.15f, 0.75f, 1f, 0.85f);
-            dlgOutline.effectDistance = new Vector2(3f, -3f);
+            Image frame = NewShopImage("Frame", root, "Shop_Panel_Frame", false, true); // raycast: taps on the card don't close it
+            frame.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(frame.rectTransform, 0f, 60f, 820f, 900f);
 
-            // Header Banner
-            GameObject header = new GameObject("HeaderBanner");
-            header.transform.SetParent(dialog.transform, false);
-            RectTransform hRt = header.AddComponent<RectTransform>();
-            hRt.sizeDelta = new Vector2(680f, 85f);
-            hRt.anchoredPosition = new Vector2(0f, 235f);
-            Image hBg = header.AddComponent<Image>();
-            hBg.color = new Color(0.10f, 0.18f, 0.32f, 1f);
-            TextMeshProUGUI title = CreateText("Title", header.transform, "SETTINGS", 36f, new Color(1f, 0.88f, 0.25f, 1f), TextAlignmentOptions.Center, true);
-            title.GetComponent<RectTransform>().sizeDelta = new Vector2(500f, 80f);
+            Image banner = NewMenuImage("Banner", root, "Menu_Banner", false);
+            banner.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(banner.rectTransform, 140f, 0f, 540f, 120f);
+            TextMeshProUGUI title = CreateText("Title", banner.rectTransform, "SETTINGS", 60f, Color.white, TextAlignmentOptions.Center, true);
+            title.rectTransform.offsetMin = new Vector2(10f, 8f);
+            title.rectTransform.offsetMax = new Vector2(-10f, -8f);
+            title.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(title, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, true);
 
-            // Close (X) button
-            GameObject closeBtnObj = new GameObject("Btn_Close");
-            closeBtnObj.transform.SetParent(dialog.transform, false);
-            RectTransform cRt = closeBtnObj.AddComponent<RectTransform>();
-            cRt.sizeDelta = new Vector2(64f, 64f);
-            cRt.anchoredPosition = new Vector2(305f, 235f);
-            Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.color = new Color(0.85f, 0.20f, 0.25f, 1f);
-            Button closeBtn = closeBtnObj.AddComponent<Button>();
-            closeBtn.onClick.AddListener(() => HideZombieSquadSettings());
-            TextMeshProUGUI cTxt = CreateText("X", closeBtnObj.transform, "✕", 32f, Color.white, TextAlignmentOptions.Center, true);
-            cTxt.GetComponent<RectTransform>().sizeDelta = new Vector2(64f, 64f);
+            // Section caption
+            TextMeshProUGUI cap = CreateText("Caption_Audio", root, "AUDIO & FEEL", 30f, new Color(1f, 0.92f, 0.38f, 1f), TextAlignmentOptions.Left, true);
+            ShopPlaceTopLeft(cap.rectTransform, 80f, 150f, 660f, 44f);
+            cap.characterSpacing = 6f;
+            StyleShopTmp(cap, new Color(0.30f, 0.12f, 0.0f, 1f), 0.24f, false);
 
-            // Option 1: Vibration
-            GameObject vibRow = new GameObject("Row_Vibration");
-            vibRow.transform.SetParent(dialog.transform, false);
-            RectTransform vRt = vibRow.AddComponent<RectTransform>();
-            vRt.sizeDelta = new Vector2(640f, 95f);
-            vRt.anchoredPosition = new Vector2(0f, 85f);
-            Image vBg = vibRow.AddComponent<Image>();
-            vBg.color = new Color(0.05f, 0.08f, 0.14f, 0.9f);
+            float y = 205f;
+            settingsMusicToggle = CreateSettingsRow(root, "Row_Music", y, "MUSIC", "Menu theme & battle tracks", out settingsMusicIcon, "Menu_Btn_Music_On", () =>
+            {
+                MobControl.Audio.ZombieSoundManager.Instance?.ToggleMusic();
+                MobControl.Audio.ZombieSoundManager.Instance?.PlayUIClick();
+                UpdateSettingsVisuals();
+            });
+            y += 150f;
+            settingsSfxToggle = CreateSettingsRow(root, "Row_Sound", y, "SOUND FX", "Guns, zombies & buttons", out settingsSfxIcon, "Menu_Btn_Sound_On", () =>
+            {
+                MobControl.Audio.ZombieSoundManager.Instance?.ToggleSFX();
+                MobControl.Audio.ZombieSoundManager.Instance?.PlayUIClick();
+                UpdateSettingsVisuals();
+            });
+            y += 150f;
+            settingsVibToggle = CreateSettingsRow(root, "Row_Vibration", y, "VIBRATION", "Haptics on hits & deaths", out settingsVibIcon, null, () =>
+            {
+                ToggleVibration();
+                MobControl.Audio.ZombieSoundManager.Instance?.PlayUIClick();
+            });
+            y += 175f;
 
-            TextMeshProUGUI vLabel = CreateText("Label", vibRow.transform, "📳  VIBRATION", 26f, Color.white, TextAlignmentOptions.Left, true);
-            RectTransform vlRt = vLabel.GetComponent<RectTransform>();
-            vlRt.sizeDelta = new Vector2(340f, 80f);
-            vlRt.anchoredPosition = new Vector2(-120f, 0f);
+            // DONE button
+            Image done = NewMenuImage("Btn_Done", root, "Menu_Btn_Green", false, true);
+            RectTransform dRt = done.rectTransform;
+            ShopPlaceTopLeft(dRt, 170f, y, 480f, 128f);
+            Button dBtn = done.gameObject.AddComponent<Button>();
+            dBtn.targetGraphic = done;
+            dBtn.transition = Selectable.Transition.None;
+            dBtn.onClick.AddListener(() =>
+            {
+                MobControl.Audio.ZombieSoundManager.Instance?.PlayUIClick();
+                StartCoroutine(ShopPress(dRt, HideZombieSquadSettings));
+            });
+            TextMeshProUGUI dTxt = CreateText("Label", dRt, "DONE", 52f, Color.white, TextAlignmentOptions.Center, true);
+            dTxt.rectTransform.offsetMin = new Vector2(12f, 22f);
+            dTxt.rectTransform.offsetMax = new Vector2(-12f, -2f);
+            StyleShopTmp(dTxt, new Color(0.03f, 0.25f, 0.07f, 1f), 0.26f, false);
 
-            GameObject vBtnObj = new GameObject("Toggle_Vibration");
-            vBtnObj.transform.SetParent(vibRow.transform, false);
-            RectTransform vbRt = vBtnObj.AddComponent<RectTransform>();
-            vbRt.sizeDelta = new Vector2(170f, 64f);
-            vbRt.anchoredPosition = new Vector2(210f, 0f);
-            vibrationToggleBg = vBtnObj.AddComponent<Image>();
-            vibrationToggleBg.color = new Color(0.12f, 0.78f, 0.32f, 1f);
-            Button vBtn = vBtnObj.AddComponent<Button>();
-            vBtn.onClick.AddListener(() => ToggleVibration());
-            vibrationToggleText = CreateText("Txt", vBtnObj.transform, "ON", 26f, Color.white, TextAlignmentOptions.Center, true);
-            vibrationToggleText.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 64f);
-
-            // Option 2: Volume
-            GameObject volRow = new GameObject("Row_Volume");
-            volRow.transform.SetParent(dialog.transform, false);
-            RectTransform volRt = volRow.AddComponent<RectTransform>();
-            volRt.sizeDelta = new Vector2(640f, 95f);
-            volRt.anchoredPosition = new Vector2(0f, -40f);
-            Image volBg = volRow.AddComponent<Image>();
-            volBg.color = new Color(0.05f, 0.08f, 0.14f, 0.9f);
-
-            TextMeshProUGUI volLabel = CreateText("Label", volRow.transform, "🔊  SOUND / VOLUME", 26f, Color.white, TextAlignmentOptions.Left, true);
-            RectTransform vollRt = volLabel.GetComponent<RectTransform>();
-            vollRt.sizeDelta = new Vector2(340f, 80f);
-            vollRt.anchoredPosition = new Vector2(-120f, 0f);
-
-            GameObject volBtnObj = new GameObject("Toggle_Volume");
-            volBtnObj.transform.SetParent(volRow.transform, false);
-            RectTransform volbRt = volBtnObj.AddComponent<RectTransform>();
-            volbRt.sizeDelta = new Vector2(170f, 64f);
-            volbRt.anchoredPosition = new Vector2(210f, 0f);
-            volumeToggleBg = volBtnObj.AddComponent<Image>();
-            volumeToggleBg.color = new Color(0.12f, 0.78f, 0.32f, 1f);
-            Button volBtn = volBtnObj.AddComponent<Button>();
-            volBtn.onClick.AddListener(() => ToggleVolume());
-            volumeToggleText = CreateText("Txt", volBtnObj.transform, "ON", 26f, Color.white, TextAlignmentOptions.Center, true);
-            volumeToggleText.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 64f);
-
-            // Bottom OK button
-            GameObject okBtnObj = new GameObject("Btn_OK");
-            okBtnObj.transform.SetParent(dialog.transform, false);
-            RectTransform okRt = okBtnObj.AddComponent<RectTransform>();
-            okRt.sizeDelta = new Vector2(260f, 70f);
-            okRt.anchoredPosition = new Vector2(0f, -195f);
-            Image okBg = okBtnObj.AddComponent<Image>();
-            okBg.color = new Color(0.15f, 0.60f, 0.95f, 1f);
-            Button okBtn = okBtnObj.AddComponent<Button>();
-            okBtn.onClick.AddListener(() => HideZombieSquadSettings());
-            TextMeshProUGUI okTxt = CreateText("OK", okBtnObj.transform, "CONFIRM", 28f, Color.white, TextAlignmentOptions.Center, true);
-            okTxt.GetComponent<RectTransform>().sizeDelta = new Vector2(260f, 70f);
+            // Footer
+            TextMeshProUGUI ver = CreateText("Version", root, $"ZOMBIE RAGE  •  v{Application.version}", 24f, new Color(0.75f, 0.85f, 1f, 0.75f), TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(ver.rectTransform, 60f, y + 150f, 700f, 36f);
+            ver.characterSpacing = 4f;
 
             settingsPanel.SetActive(false);
+        }
+
+        private SettingsToggleRefs CreateSettingsRow(RectTransform root, string name, float y, string label, string sub,
+                                                     out Image icon, string iconSprite, System.Action onToggle)
+        {
+            // Row card
+            RectTransform row = NewShopRect(name, root);
+            ShopPlaceTopLeft(row, 60f, y, 700f, 130f);
+            Image rowBg = row.gameObject.AddComponent<Image>();
+            rowBg.color = new Color(0.04f, 0.10f, 0.26f, 0.55f);
+            rowBg.raycastTarget = true;
+            Outline ol = row.gameObject.AddComponent<Outline>();
+            ol.effectColor = new Color(0.45f, 0.75f, 1f, 0.35f);
+            ol.effectDistance = new Vector2(2f, -2f);
+
+            // Icon
+            if (!string.IsNullOrEmpty(iconSprite))
+            {
+                icon = NewMenuImage("Icon", row, iconSprite, true, false);
+                ShopPlaceTopLeft(icon.rectTransform, 18f, 15f, 100f, 100f);
+            }
+            else
+            {
+                icon = BuildVibrationIcon(row);
+            }
+
+            // Labels
+            TextMeshProUGUI t = CreateText("Label", row, label, 40f, Color.white, TextAlignmentOptions.Left, true);
+            ShopPlaceTopLeft(t.rectTransform, 140f, 18f, 300f, 54f);
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(t, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, false);
+            TextMeshProUGUI s = CreateText("Sub", row, sub, 22f, new Color(0.78f, 0.88f, 1f, 0.85f), TextAlignmentOptions.Left, false);
+            ShopPlaceTopLeft(s.rectTransform, 142f, 74f, 320f, 34f);
+            s.textWrappingMode = TextWrappingModes.NoWrap;
+
+            // ON/OFF pill (whole row is tappable too)
+            Image pill = NewMenuImage("Toggle", row, "Menu_Btn_Green", false, true);
+            RectTransform pRt = pill.rectTransform;
+            ShopPlaceTopLeft(pRt, 470f, 24f, 210f, 82f);
+            TextMeshProUGUI pTxt = CreateText("State", pRt, "ON", 38f, Color.white, TextAlignmentOptions.Center, true);
+            pTxt.rectTransform.offsetMin = new Vector2(8f, 14f);
+            pTxt.rectTransform.offsetMax = new Vector2(-8f, -2f);
+
+            System.Action press = () => StartCoroutine(ShopPress(pRt, onToggle));
+            Button pBtn = pill.gameObject.AddComponent<Button>();
+            pBtn.targetGraphic = pill;
+            pBtn.transition = Selectable.Transition.None;
+            pBtn.onClick.AddListener(() => press());
+            Button rowBtn = row.gameObject.AddComponent<Button>();
+            rowBtn.targetGraphic = rowBg;
+            rowBtn.transition = Selectable.Transition.None;
+            rowBtn.onClick.AddListener(() => press());
+
+            return new SettingsToggleRefs { bg = pill, label = pTxt };
+        }
+
+        /// <summary>Simple phone-with-buzz-lines icon built from UI rects (no sprite needed).</summary>
+        private Image BuildVibrationIcon(RectTransform row)
+        {
+            RectTransform holder = NewShopRect("Icon", row);
+            ShopPlaceTopLeft(holder, 18f, 15f, 100f, 100f);
+            Image disc = holder.gameObject.AddComponent<Image>();
+            Sprite discSprite = LoadSpriteFromUI(MenuHDPath + "Menu_Node_Disc");
+            if (discSprite != null) { disc.sprite = discSprite; disc.preserveAspect = true; }
+            disc.color = new Color(1f, 0.62f, 0.12f, 1f);
+            disc.raycastTarget = false;
+
+            RectTransform phone = NewShopRect("Phone", holder);
+            ShopPlaceTopLeft(phone, 36f, 22f, 28f, 54f);
+            Image ph = phone.gameObject.AddComponent<Image>();
+            ph.color = Color.white; ph.raycastTarget = false;
+            RectTransform screen = NewShopRect("Screen", phone);
+            ShopPlaceTopLeft(screen, 4f, 6f, 20f, 36f);
+            Image sc = screen.gameObject.AddComponent<Image>();
+            sc.color = new Color(0.10f, 0.16f, 0.35f, 1f); sc.raycastTarget = false;
+            for (int i = 0; i < 2; i++)
+            {
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    RectTransform line = NewShopRect("Buzz", holder);
+                    float x = 50f + side * (24f + i * 9f);
+                    ShopPlaceTopLeft(line, x - 2.5f, 34f - i * 5f, 5f, 30f + i * 10f);
+                    Image li = line.gameObject.AddComponent<Image>();
+                    li.color = Color.white; li.raycastTarget = false;
+                }
+            }
+            return disc;
         }
 
         private void SetupAmbientSceneryCover(GameObject panel, Sprite scenerySprite, float fallbackAspect)
@@ -3718,6 +3679,10 @@ namespace MobControl.UI
         #endregion
 
         #region Zombie Squad Characters Screen
+        // ===================== RESPONSIVE HD CHARACTERS SCREEN =====================
+        private readonly Dictionary<string, Image> charCardPriceIcons = new Dictionary<string, Image>();
+        private Image charPreviewEquipBtnIcon;
+
         private void BuildZombieSquadCharactersScreenPanel(Transform canvasRoot)
         {
             if (charactersPanel != null) SafeDestroy(charactersPanel);
@@ -3725,390 +3690,150 @@ namespace MobControl.UI
             if (oldChars != null) SafeDestroy(oldChars.gameObject);
 
             charactersPanel = CreateFullPanel("ZombieSquadCharactersPanel", canvasRoot, new Color(0.01f, 0.03f, 0.08f, 1f));
+            RectTransform root = BuildHDScreenScaffold(charactersPanel, "CHARACTERS", () => ShowZombieSquadHomeScreen(), out charactersBackBtnRect);
 
-            // 0. Clean Atmospheric Night Scenery Background (EnvelopeParent fills 100% of any phone/tablet display - zero black bars, zero baked UI!)
-            Sprite nightBattlefield = LoadSpriteFromUI("UI/Scenery_NightBattlefield_Clean");
-            SetupAmbientSceneryCover(charactersPanel, nightBattlefield, 1080f / 1920f);
+            // Mascot + logo (soldier sits behind the showcase so its cut base is hidden)
+            Image soldierImg = NewShopImage("HeaderSoldier", root, "Shop_Soldier");
+            ShopPlaceTopLeft(soldierImg.rectTransform, 160f, 2f, 230f, 157f);
 
-            // Semi-transparent cinematic dark vignette over scenery for crisp UI contrast
-            GameObject vig = new GameObject("CharactersVignette");
-            vig.transform.SetParent(charactersPanel.transform, false);
-            RectTransform vigRt = vig.AddComponent<RectTransform>();
-            vigRt.anchorMin = Vector2.zero; vigRt.anchorMax = Vector2.one;
-            vigRt.offsetMin = Vector2.zero; vigRt.offsetMax = Vector2.zero;
-            Image vigImg = vig.AddComponent<Image>();
-            vigImg.color = new Color(0.01f, 0.03f, 0.08f, 0.15f);
-            vigImg.raycastTarget = false;
+            // Showcase chamber
+            const float scX = 40f, scY = 140f, scW = 920f, scH = 540f;
+            Image scImg = NewMenuImage("ShowcaseChamber", root, "Menu_Showcase_Frame", false);
+            ShopPlaceTopLeft(scImg.rectTransform, scX, scY, scW, scH);
+            RectTransform scRt = scImg.rectTransform;
 
-            // 1. Top HUD Header (Back, "CHARACTERS", Coins Pill, Diamonds Pill)
-            CreateModularTopHeader(charactersPanel.transform, "CHARACTERS", () => ShowZombieSquadHomeScreen());
+            Image logoImg = NewShopImage("ZombieSquadLogo", root, "Shop_Logo");
+            ShopPlaceTopLeft(logoImg.rectTransform, 350f, 0f, 360f, 190f);
 
-            // 2. Central Responsive Content Container
-            GameObject contentContainer = new GameObject("CharactersContainer");
-            contentContainer.transform.SetParent(charactersPanel.transform, false);
-            RectTransform ccRt = contentContainer.AddComponent<RectTransform>();
-            ccRt.anchorMin = new Vector2(0.5f, 0.5f);
-            ccRt.anchorMax = new Vector2(0.5f, 0.5f);
-            ccRt.pivot = new Vector2(0.5f, 0.5f);
-            ccRt.anchoredPosition = new Vector2(0f, -40f);
-            ccRt.sizeDelta = new Vector2(980f, 1420f);
+            charPreviewNameText = CreateText("HeroName", scRt, "SOLDIER", 52f, Color.white, TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(charPreviewNameText.rectTransform, 120f, 64f, scW - 240f, 66f);
+            charPreviewNameText.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(charPreviewNameText, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, true);
 
-            // 3. Top Mascot & Logo on Characters Modal (Clean transparent alpha cutout, zero black boxes)
-            Sprite mascotCleanSp = LoadSpriteFromUI(
-                "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/00_header_mascot_clean",
-                "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/01_zombie_squad_logo"
-            );
+            charPreviewRoleText = CreateText("HeroRole", scRt, "ASSAULT SPECIALIST", 28f, new Color(0.45f, 0.93f, 1f, 1f), TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(charPreviewRoleText.rectTransform, 120f, 128f, scW - 240f, 40f);
+            charPreviewRoleText.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(charPreviewRoleText, new Color(0.01f, 0.06f, 0.25f, 1f), 0.25f, false);
 
-            GameObject logoHeader = new GameObject("LogoHeaderBanner");
-            logoHeader.transform.SetParent(contentContainer.transform, false);
-            RectTransform lhRt = logoHeader.AddComponent<RectTransform>();
-            lhRt.anchorMin = new Vector2(0.5f, 1f);
-            lhRt.anchorMax = new Vector2(0.5f, 1f);
-            lhRt.pivot = new Vector2(0.5f, 1f);
-            lhRt.anchoredPosition = new Vector2(0f, -8f);
-            lhRt.sizeDelta = new Vector2(540f, 135f);
-
-            if (mascotCleanSp != null)
-            {
-                Image mascotImg = logoHeader.AddComponent<Image>();
-                mascotImg.sprite = mascotCleanSp;
-                mascotImg.preserveAspect = true;
-                mascotImg.raycastTarget = false;
-            }
-
-            // 4. Center Showcase Chamber (Pedestal + Active Hero + Arrows)
-            GameObject showcaseChamber = new GameObject("ShowcaseChamber");
-            showcaseChamber.transform.SetParent(contentContainer.transform, false);
-            RectTransform scRt = showcaseChamber.AddComponent<RectTransform>();
-            scRt.anchorMin = new Vector2(0.5f, 1f);
-            scRt.anchorMax = new Vector2(0.5f, 1f);
-            scRt.pivot = new Vector2(0.5f, 1f);
-            scRt.anchoredPosition = new Vector2(0f, -140f);
-            scRt.sizeDelta = new Vector2(920f, 490f);
-
-            // Frame (12_main_showcase_panel.png)
-            Image scImg = showcaseChamber.AddComponent<Image>();
-            Sprite scSp = LoadSpriteFromUI("UI/CharactersDynamic/12_main_showcase_panel_clean", "UI/CharactersDynamic/12_main_showcase_panel");
-            if (scSp != null) scImg.sprite = scSp;
-            scImg.type = Image.Type.Sliced;
-            scImg.color = Color.white;
-            scImg.raycastTarget = false;
-
-            // Hero Name & Role TextMeshPro
-            charPreviewNameText = CreateText("HeroName", showcaseChamber.transform, "SOLDIER", 34f, Color.white, TextAlignmentOptions.Center, true);
-            RectTransform nameRt = charPreviewNameText.GetComponent<RectTransform>();
-            nameRt.anchorMin = new Vector2(0.15f, 0.82f);
-            nameRt.anchorMax = new Vector2(0.85f, 0.96f);
-            nameRt.offsetMin = Vector2.zero; nameRt.offsetMax = Vector2.zero;
-            Outline nameOutl = charPreviewNameText.gameObject.AddComponent<Outline>();
-            nameOutl.effectColor = new Color(0.01f, 0.08f, 0.28f, 1f);
-            nameOutl.effectDistance = new Vector2(2f, -2f);
-
-            charPreviewRoleText = CreateText("HeroRole", showcaseChamber.transform, "ASSAULT SPECIALIST", 18f, new Color(0.35f, 0.90f, 1f, 1f), TextAlignmentOptions.Center, true);
-            RectTransform roleRt = charPreviewRoleText.GetComponent<RectTransform>();
-            roleRt.anchorMin = new Vector2(0.15f, 0.70f);
-            roleRt.anchorMax = new Vector2(0.85f, 0.82f);
-            roleRt.offsetMin = Vector2.zero; roleRt.offsetMax = Vector2.zero;
-
-            // Glowing Pedestal (14_glow_platform.png) - Clean, ZERO baked characters
-            GameObject pedObj = new GameObject("GlowPedestal");
-            pedObj.transform.SetParent(showcaseChamber.transform, false);
-            RectTransform pRt = pedObj.AddComponent<RectTransform>();
-            pRt.anchorMin = new Vector2(0.5f, 0f);
-            pRt.anchorMax = new Vector2(0.5f, 0f);
-            pRt.pivot = new Vector2(0.5f, 0f);
-            pRt.anchoredPosition = new Vector2(0f, 20f);
-            pRt.sizeDelta = new Vector2(520f, 110f);
-            Image pedImg = pedObj.AddComponent<Image>();
+            Image pedImg = NewShopRect("GlowPedestal", scRt).gameObject.AddComponent<Image>();
             Sprite pedSp = LoadSpriteFromUI("UI/CharactersDynamic/14_glow_platform_clean", "UI/CharactersDynamic/14_glow_platform");
             if (pedSp != null) pedImg.sprite = pedSp;
             pedImg.preserveAspect = true;
             pedImg.raycastTarget = false;
+            ShopPlaceTopLeft(pedImg.rectTransform, (scW - 470f) * 0.5f, scH - 160f, 470f, 138f);
 
-            // Selected Hero Avatar (Standing directly on top of pedestal)
-            // Only ONE hero avatar exists in hierarchy - NO baked soldier, NO double character!
-            GameObject avatarObj = new GameObject("HeroAvatar");
-            avatarObj.transform.SetParent(showcaseChamber.transform, false);
-            RectTransform aRt = avatarObj.AddComponent<RectTransform>();
-            aRt.anchorMin = new Vector2(0.5f, 0f);
-            aRt.anchorMax = new Vector2(0.5f, 0f);
-            aRt.pivot = new Vector2(0.5f, 0.12f);
-            aRt.anchoredPosition = new Vector2(0f, 30f);
-            aRt.sizeDelta = new Vector2(380f, 430f);
-
-            charPreviewHeroImage = avatarObj.AddComponent<Image>();
+            // Hero stands on the pedestal, always below the name/role text (no overlap)
+            RectTransform avRt = NewShopRect("HeroAvatar", scRt);
+            // Tight-cropped hero sprite, height-fitted and horizontally centred; feet land on the pedestal centre
+            ShopPlaceBottomCenter(avRt, (scW - 460f) * 0.5f, 168f, 460f, scH - 168f - 84f);
+            charPreviewHeroImage = avRt.gameObject.AddComponent<Image>();
             charPreviewHeroImage.preserveAspect = true;
             charPreviewHeroImage.raycastTarget = false;
 
-            Shadow avShadow = avatarObj.AddComponent<Shadow>();
-            avShadow.effectColor = new Color(0.01f, 0.05f, 0.15f, 0.95f);
-            avShadow.effectDistance = new Vector2(3f, -4f);
+            CreateMenuArrow(scRt, "Btn_Prev_Hero", "Menu_Arrow_Left", 30f, scH * 0.55f, () => CycleHero(-1));
+            CreateMenuArrow(scRt, "Btn_Next_Hero", "Menu_Arrow_Right", scW - 30f - 96f, scH * 0.55f, () => CycleHero(1));
 
-            // Carousel Navigation Arrows (< and >)
-            Sprite leftArrowSp = LoadSpriteFromUI("UI/CharactersDynamic/15_left_arrow");
-            Sprite rightArrowSp = LoadSpriteFromUI("UI/CharactersDynamic/16_right_arrow");
-
-            GameObject leftArrowObj = new GameObject("Btn_Prev_Hero");
-            leftArrowObj.transform.SetParent(showcaseChamber.transform, false);
-            RectTransform laRt = leftArrowObj.AddComponent<RectTransform>();
-            laRt.anchorMin = new Vector2(0f, 0.5f);
-            laRt.anchorMax = new Vector2(0f, 0.5f);
-            laRt.pivot = new Vector2(0f, 0.5f);
-            laRt.anchoredPosition = new Vector2(25f, -20f);
-            laRt.sizeDelta = new Vector2(75f, 110f);
-            Image laImg = leftArrowObj.AddComponent<Image>();
-            if (leftArrowSp != null) laImg.sprite = leftArrowSp;
-            laImg.preserveAspect = true;
-            laImg.raycastTarget = true;
-            Button laBtn = leftArrowObj.AddComponent<Button>();
-            laBtn.targetGraphic = laImg;
-            laBtn.onClick.AddListener(() =>
-            {
-                StartCoroutine(PunchScale(leftArrowObj.transform, 0.10f, () => CycleHero(-1)));
-            });
-
-            GameObject rightArrowObj = new GameObject("Btn_Next_Hero");
-            rightArrowObj.transform.SetParent(showcaseChamber.transform, false);
-            RectTransform raRt = rightArrowObj.AddComponent<RectTransform>();
-            raRt.anchorMin = new Vector2(1f, 0.5f);
-            raRt.anchorMax = new Vector2(1f, 0.5f);
-            raRt.pivot = new Vector2(1f, 0.5f);
-            raRt.anchoredPosition = new Vector2(-25f, -20f);
-            raRt.sizeDelta = new Vector2(75f, 110f);
-            Image raImg = rightArrowObj.AddComponent<Image>();
-            if (rightArrowSp != null) raImg.sprite = rightArrowSp;
-            raImg.preserveAspect = true;
-            raImg.raycastTarget = true;
-            Button raBtn = rightArrowObj.AddComponent<Button>();
-            raBtn.targetGraphic = raImg;
-            raBtn.onClick.AddListener(() =>
-            {
-                StartCoroutine(PunchScale(rightArrowObj.transform, 0.10f, () => CycleHero(1)));
-            });
-
-            // 5. Action / Equip Button below chamber
-            GameObject actBtnObj = new GameObject("Btn_EquipHero");
-            actBtnObj.transform.SetParent(contentContainer.transform, false);
-            RectTransform abRt = actBtnObj.AddComponent<RectTransform>();
-            abRt.anchorMin = new Vector2(0.5f, 1f);
-            abRt.anchorMax = new Vector2(0.5f, 1f);
-            abRt.pivot = new Vector2(0.5f, 1f);
-            abRt.anchoredPosition = new Vector2(0f, -645f);
-            abRt.sizeDelta = new Vector2(440f, 95f);
-
-            charPreviewEquipBtnBg = actBtnObj.AddComponent<Image>();
-            charPreviewEquipBtnBg.type = Image.Type.Sliced;
-            charPreviewEquipBtnBg.raycastTarget = true;
-
-            charPreviewEquipBtn = actBtnObj.AddComponent<Button>();
+            // Equip / unlock action button
+            charPreviewEquipBtnBg = NewMenuImage("Btn_EquipHero", root, "Menu_Btn_Green", false, true);
+            RectTransform abRt = charPreviewEquipBtnBg.rectTransform;
+            ShopPlaceTopLeft(abRt, 270f, scY + scH + 18f, 460f, 128f);
+            abRt.pivot = new Vector2(0.5f, 0.5f);
+            abRt.anchoredPosition = new Vector2(500f, -(scY + scH + 18f + 64f));
+            charPreviewEquipBtn = charPreviewEquipBtnBg.gameObject.AddComponent<Button>();
             charPreviewEquipBtn.targetGraphic = charPreviewEquipBtnBg;
-            charPreviewEquipBtn.onClick.AddListener(() =>
-            {
-                StartCoroutine(PunchScale(actBtnObj.transform, 0.12f, () => EquipSelectedCharacter()));
-            });
+            charPreviewEquipBtn.transition = Selectable.Transition.None;
+            charPreviewEquipBtn.onClick.AddListener(() => StartCoroutine(ShopPress(abRt, () => EquipSelectedCharacter())));
+            BuildIconLabelRow(abRt, 52f, 50f, out charPreviewEquipBtnIcon, out charPreviewEquipBtnText, 20f);
 
-            charPreviewEquipBtnText = CreateText("Txt", actBtnObj.transform, "EQUIPPED", 28f, Color.white, TextAlignmentOptions.Center, true);
-            RectTransform abtRt = charPreviewEquipBtnText.GetComponent<RectTransform>();
-            abtRt.anchorMin = Vector2.zero; abtRt.anchorMax = Vector2.one;
-            abtRt.offsetMin = Vector2.zero; abtRt.offsetMax = Vector2.zero;
-
-            Outline abOutl = charPreviewEquipBtnText.gameObject.AddComponent<Outline>();
-            abOutl.effectColor = new Color(0.04f, 0.20f, 0.08f, 1f);
-            abOutl.effectDistance = new Vector2(2f, -2f);
-
-            // 6. 5 Hero Cards (Row 1: Soldier, Ranger, Heavy; Row 2: Sniper, Medic)
+            // Hero cards: 3 + 2 rows
             charCardPriceTexts.Clear();
             charCardPriceBgs.Clear();
+            charCardSelectionBorders.Clear();
+            charCardPriceIcons.Clear();
 
-            // Row 1 (3 cards)
-            GameObject row1 = new GameObject("HeroCards_Row1");
-            row1.transform.SetParent(contentContainer.transform, false);
-            RectTransform r1Rt = row1.AddComponent<RectTransform>();
-            r1Rt.anchorMin = new Vector2(0.5f, 1f);
-            r1Rt.anchorMax = new Vector2(0.5f, 1f);
-            r1Rt.pivot = new Vector2(0.5f, 1f);
-            r1Rt.anchoredPosition = new Vector2(0f, -755f);
-            r1Rt.sizeDelta = new Vector2(920f, 290f);
-
-            HorizontalLayoutGroup hlg1 = row1.AddComponent<HorizontalLayoutGroup>();
-            hlg1.spacing = 20f;
-            hlg1.childAlignment = TextAnchor.MiddleCenter;
-            hlg1.childControlWidth = false;
-            hlg1.childControlHeight = false;
-            hlg1.childForceExpandWidth = false;
-            hlg1.childForceExpandHeight = false;
-
-            CreateModularHeroCard(row1.transform, "Soldier",
-                "UI/CharactersDynamic/17_equipped_character_card",
-                "UI/CharactersDynamic/22_green_soldier_portrait");
-
-            CreateModularHeroCard(row1.transform, "Ranger",
-                "UI/CharactersDynamic/18_red_character_card",
-                "UI/CharactersDynamic/23_red_soldier_portrait");
-
-            CreateModularHeroCard(row1.transform, "Heavy",
-                "UI/CharactersDynamic/19_yellow_character_card",
-                "UI/CharactersDynamic/24_yellow_soldier_portrait");
-
-            // Row 2 (2 cards)
-            GameObject row2 = new GameObject("HeroCards_Row2");
-            row2.transform.SetParent(contentContainer.transform, false);
-            RectTransform r2Rt = row2.AddComponent<RectTransform>();
-            r2Rt.anchorMin = new Vector2(0.5f, 1f);
-            r2Rt.anchorMax = new Vector2(0.5f, 1f);
-            r2Rt.pivot = new Vector2(0.5f, 1f);
-            r2Rt.anchoredPosition = new Vector2(0f, -1060f);
-            r2Rt.sizeDelta = new Vector2(920f, 290f);
-
-            HorizontalLayoutGroup hlg2 = row2.AddComponent<HorizontalLayoutGroup>();
-            hlg2.spacing = 30f;
-            hlg2.childAlignment = TextAnchor.MiddleCenter;
-            hlg2.childControlWidth = false;
-            hlg2.childControlHeight = false;
-            hlg2.childForceExpandWidth = false;
-            hlg2.childForceExpandHeight = false;
-
-            CreateModularHeroCard(row2.transform, "Sniper",
-                "UI/CharactersDynamic/20_purple_character_card",
-                "UI/CharactersDynamic/25_purple_soldier_portrait");
-
-            CreateModularHeroCard(row2.transform, "Medic",
-                "UI/CharactersDynamic/21_pink_medic_card",
-                "UI/CharactersDynamic/26_pink_medic_portrait");
-
-            // 7. Bottom Decorative Metal Trim & Rocks
-            Sprite cTrimSp = LoadSpriteFromUI("UI/CharactersDynamic/30_bottom_metal_trim", "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/26_bottom_metal_trim");
-            Sprite cLeftRock = LoadSpriteFromUI("UI/CharactersDynamic/31_left_rock_grass", "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/27_left_rock_grass_decoration");
-            Sprite cRightRock = LoadSpriteFromUI("UI/CharactersDynamic/32_right_rock_grass", "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/28_right_rock_grass_decoration");
-
-            if (cTrimSp != null)
+            const float cw = 280f, ch = 300f, gap = 30f;
+            float row1Y = scY + scH + 166f;
+            float row2Y = row1Y + ch + gap;
+            float row1X = (ShopDesignSize.x - (cw * 3f + gap * 2f)) * 0.5f;
+            float row2X = (ShopDesignSize.x - (cw * 2f + gap)) * 0.5f;
+            string[] keys = { "Soldier", "Ranger", "Heavy", "Sniper", "Medic" };
+            for (int i = 0; i < keys.Length; i++)
             {
-                GameObject trimObj = new GameObject("BottomTrim");
-                trimObj.transform.SetParent(contentContainer.transform, false);
-                RectTransform tRt = trimObj.AddComponent<RectTransform>();
-                tRt.anchorMin = new Vector2(0f, 0f);
-                tRt.anchorMax = new Vector2(1f, 0f);
-                tRt.pivot = new Vector2(0.5f, 0f);
-                tRt.anchoredPosition = new Vector2(0f, 10f);
-                tRt.sizeDelta = new Vector2(0f, 90f);
-                Image trimImg = trimObj.AddComponent<Image>();
-                trimImg.sprite = cTrimSp;
-                trimImg.preserveAspect = false;
-                trimImg.raycastTarget = false;
-            }
-
-            if (cLeftRock != null)
-            {
-                GameObject lrObj = new GameObject("LeftRock");
-                lrObj.transform.SetParent(contentContainer.transform, false);
-                RectTransform lrRt = lrObj.AddComponent<RectTransform>();
-                lrRt.anchorMin = new Vector2(0f, 0f);
-                lrRt.anchorMax = new Vector2(0f, 0f);
-                lrRt.pivot = new Vector2(0f, 0f);
-                lrRt.anchoredPosition = new Vector2(-20f, 5f);
-                lrRt.sizeDelta = new Vector2(140f, 120f);
-                Image lrImg = lrObj.AddComponent<Image>();
-                lrImg.sprite = cLeftRock;
-                lrImg.preserveAspect = true;
-                lrImg.raycastTarget = false;
-            }
-
-            if (cRightRock != null)
-            {
-                GameObject rrObj = new GameObject("RightRock");
-                rrObj.transform.SetParent(contentContainer.transform, false);
-                RectTransform rrRt = rrObj.AddComponent<RectTransform>();
-                rrRt.anchorMin = new Vector2(1f, 0f);
-                rrRt.anchorMax = new Vector2(1f, 0f);
-                rrRt.pivot = new Vector2(1f, 0f);
-                rrRt.anchoredPosition = new Vector2(20f, 5f);
-                rrRt.sizeDelta = new Vector2(140f, 120f);
-                Image rrImg = rrObj.AddComponent<Image>();
-                rrImg.sprite = cRightRock;
-                rrImg.preserveAspect = true;
-                rrImg.raycastTarget = false;
+                float x = i < 3 ? row1X + i * (cw + gap) : row2X + (i - 3) * (cw + gap);
+                float y = i < 3 ? row1Y : row2Y;
+                CreateHDHeroCard(root, keys[i], x, y, cw, ch);
             }
 
             UpdateCharactersScreenVisuals();
         }
 
-        private GameObject CreateModularHeroCard(Transform parent, string heroKey, string cardSpritePath, string portraitSpritePath)
+        private void CreateMenuArrow(RectTransform parent, string name, string sprite, float x, float centerY, System.Action onClick)
         {
-            GameObject cardObj = new GameObject($"Card_{heroKey}");
-            cardObj.transform.SetParent(parent, false);
-            RectTransform cRt = cardObj.AddComponent<RectTransform>();
-            cRt.sizeDelta = new Vector2(280f, 280f);
+            Image img = NewMenuImage(name, parent, sprite, true, true);
+            RectTransform rt = img.rectTransform;
+            ShopPlaceTopLeft(rt, x, centerY - 64f, 96f, 128f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(x + 48f, -centerY);
+            Button b = img.gameObject.AddComponent<Button>();
+            b.targetGraphic = img;
+            b.transition = Selectable.Transition.None;
+            b.onClick.AddListener(() => StartCoroutine(ShopPress(rt, onClick)));
+        }
 
-            // Selection Glow Border (Enabled when this hero is selected)
-            GameObject selBorder = new GameObject("SelectionBorder");
-            selBorder.transform.SetParent(cardObj.transform, false);
-            RectTransform sbRt = selBorder.AddComponent<RectTransform>();
-            sbRt.anchorMin = Vector2.zero;
-            sbRt.anchorMax = Vector2.one;
-            sbRt.offsetMin = new Vector2(-6f, -6f);
-            sbRt.offsetMax = new Vector2(6f, 6f);
-            Image sbImg = selBorder.AddComponent<Image>();
-            sbImg.color = new Color(0f, 0.95f, 1f, 0.85f);
-            sbImg.raycastTarget = false;
-            Outline sbOutl = selBorder.AddComponent<Outline>();
-            sbOutl.effectColor = new Color(0.1f, 1f, 0.5f, 0.95f);
-            sbOutl.effectDistance = new Vector2(3f, -3f);
-            charCardSelectionBorders[heroKey] = selBorder;
-            selBorder.SetActive(heroKey == selectedCharacterKey);
+        // Centered [icon][label] row on a 3D button (the button face is the top ~80% of the art).
+        private void BuildIconLabelRow(RectTransform btnRt, float iconSize, float fontSize, out Image icon, out TextMeshProUGUI label, float bottomInset)
+        {
+            RectTransform rowRt = NewShopRect("Row", btnRt);
+            ShopStretch(rowRt, 12f, bottomInset, 12f, 2f);
+            HorizontalLayoutGroup hlg = rowRt.gameObject.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 10f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
 
-            // Card frame
-            Image cardBg = cardObj.AddComponent<Image>();
-            Sprite cardSp = LoadSpriteFromUI(cardSpritePath);
-            if (cardSp != null) cardBg.sprite = cardSp;
-            cardBg.type = Image.Type.Sliced;
-            cardBg.color = Color.white;
-            cardBg.raycastTarget = true;
+            icon = NewShopRect("Icon", rowRt).gameObject.AddComponent<Image>();
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            LayoutElement ile = icon.gameObject.AddComponent<LayoutElement>();
+            ile.preferredWidth = iconSize;
+            ile.preferredHeight = iconSize;
 
-            Button cardBtn = cardObj.AddComponent<Button>();
-            cardBtn.targetGraphic = cardBg;
-            cardBtn.onClick.AddListener(() =>
-            {
-                StartCoroutine(PunchScale(cardObj.transform, 0.12f, () => SelectCharacter(heroKey)));
-            });
+            label = CreateText("Label", rowRt, "", fontSize, Color.white, TextAlignmentOptions.Center, true);
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(label, new Color(0.03f, 0.18f, 0.06f, 1f), 0.26f, false);
+            LayoutElement lle = label.gameObject.AddComponent<LayoutElement>();
+            lle.preferredHeight = fontSize * 1.3f;
+        }
 
-            // Hero Portrait
-            Sprite portSp = LoadSpriteFromUI(portraitSpritePath);
-            GameObject portObj = new GameObject("Portrait");
-            portObj.transform.SetParent(cardObj.transform, false);
-            RectTransform pRt = portObj.AddComponent<RectTransform>();
-            pRt.anchorMin = new Vector2(0.10f, 0.28f);
-            pRt.anchorMax = new Vector2(0.90f, 0.94f);
-            pRt.offsetMin = Vector2.zero; pRt.offsetMax = Vector2.zero;
-            Image portImg = portObj.AddComponent<Image>();
-            if (portSp != null) portImg.sprite = portSp;
-            portImg.preserveAspect = true;
-            portImg.raycastTarget = false;
+        private void CreateHDHeroCard(RectTransform parent, string heroKey, float x, float y, float w, float h)
+        {
+            Image cardImg = NewMenuImage("Card_" + heroKey, parent, "Menu_Card_Frame", false, true);
+            RectTransform cRt = cardImg.rectTransform;
+            ShopPlaceTopLeft(cRt, x, y, w, h);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
+            cRt.anchoredPosition = new Vector2(x + w * 0.5f, -(y + h * 0.5f));
+            Button cardBtn = cardImg.gameObject.AddComponent<Button>();
+            cardBtn.targetGraphic = cardImg;
+            cardBtn.transition = Selectable.Transition.None;
+            cardBtn.onClick.AddListener(() => StartCoroutine(ShopPress(cRt, () => SelectCharacter(heroKey))));
 
-            // Status / Price Button Pill at bottom of card
-            GameObject pillObj = new GameObject("PricePill");
-            pillObj.transform.SetParent(cardObj.transform, false);
-            RectTransform pillRt = pillObj.AddComponent<RectTransform>();
-            pillRt.anchorMin = new Vector2(0.08f, 0.06f);
-            pillRt.anchorMax = new Vector2(0.92f, 0.28f);
-            pillRt.offsetMin = Vector2.zero; pillRt.offsetMax = Vector2.zero;
+            // Selected state: green glowing frame drawn over the base frame
+            Image sel = NewMenuImage("SelectionBorder", cRt, "Menu_Card_Frame_Selected", false);
+            ShopStretch(sel.rectTransform, -4f, -4f, -4f, -4f);
+            charCardSelectionBorders[heroKey] = sel.gameObject;
+            sel.gameObject.SetActive(heroKey == selectedCharacterKey);
 
-            Image pillBg = pillObj.AddComponent<Image>();
-            pillBg.type = Image.Type.Sliced;
-            pillBg.raycastTarget = false;
-            charCardPriceBgs[heroKey] = pillBg;
+            Image port = NewMenuImage("Portrait", cRt, "Menu_Portrait_" + heroKey);
+            ShopPlaceTopLeft(port.rectTransform, 22f, 20f, w - 44f, 196f);
 
-            TextMeshProUGUI pillTxt = CreateText("Txt", pillObj.transform, "", 20f, Color.white, TextAlignmentOptions.Center, true);
-            RectTransform ptRt = pillTxt.GetComponent<RectTransform>();
-            ptRt.anchorMin = Vector2.zero; ptRt.anchorMax = Vector2.one;
-            ptRt.offsetMin = Vector2.zero; ptRt.offsetMax = Vector2.zero;
-
-            Outline ptOutl = pillTxt.gameObject.AddComponent<Outline>();
-            ptOutl.effectColor = new Color(0.01f, 0.05f, 0.15f, 1f);
-            ptOutl.effectDistance = new Vector2(1.5f, -1.5f);
-
-            charCardPriceTexts[heroKey] = pillTxt;
-
-            return cardObj;
+            Image pill = NewMenuImage("PricePill", cRt, "Menu_Btn_Gold", false);
+            ShopPlaceTopLeft(pill.rectTransform, 16f, h - 22f - 70f, w - 32f, 70f);
+            charCardPriceBgs[heroKey] = pill;
+            BuildIconLabelRow(pill.rectTransform, 34f, 30f, out Image icon, out TextMeshProUGUI txt, 12f);
+            charCardPriceIcons[heroKey] = icon;
+            charCardPriceTexts[heroKey] = txt;
         }
 
         public void CycleHero(int direction)
@@ -4182,125 +3907,87 @@ namespace MobControl.UI
             if (string.IsNullOrEmpty(selectedCharacterKey)) selectedCharacterKey = "Soldier";
             string currentEquipped = PlayerPrefs.GetString("ZombieSquad_SelectedHero", "Soldier");
 
-            bool isSoldier = (selectedCharacterKey == "Soldier");
-
-            // 1. Showcase Hero Figure and Name/Role
+            // 1. Showcase hero + name/role
             if (charPreviewHeroImage != null)
             {
-                charPreviewHeroImage.gameObject.SetActive(true);
-                if (charPreviewNameText != null) charPreviewNameText.gameObject.SetActive(true);
-                if (charPreviewRoleText != null) charPreviewRoleText.gameObject.SetActive(true);
-
-                Sprite charSpr = LoadSpriteFromFile($"Resources/UI/Hero_{selectedCharacterKey}_Full.png")
+                Sprite charSpr = LoadSpriteFromUI(MenuHDPath + "Menu_Hero_" + selectedCharacterKey)
+                              ?? LoadSpriteFromFile($"Resources/UI/Hero_{selectedCharacterKey}_Full.png")
                               ?? Resources.Load<Sprite>($"UI/Hero_{selectedCharacterKey}_Full")
                               ?? LoadSpriteFromFile($"Resources/UI/Hero_{selectedCharacterKey}_Icon.png")
                               ?? Resources.Load<Sprite>($"UI/Hero_{selectedCharacterKey}_Icon");
                 if (charSpr != null) charPreviewHeroImage.sprite = charSpr;
-
-                if (heroes.TryGetValue(selectedCharacterKey, out HeroData hData))
-                {
-                    if (charPreviewNameText != null) charPreviewNameText.text = hData.name.ToUpper();
-                    if (charPreviewRoleText != null) charPreviewRoleText.text = hData.role.ToUpper();
-                }
             }
-
-            // 2. Action Button State (Equipped / Equip / Unlock)
-            bool isCurrentHeroUnlocked = isSoldier || PlayerPrefs.GetInt("HeroUnlocked_" + selectedCharacterKey, 0) == 1;
-            bool isEquipped = (selectedCharacterKey == currentEquipped);
+            if (heroes.TryGetValue(selectedCharacterKey, out HeroData selData))
+            {
+                if (charPreviewNameText != null) charPreviewNameText.text = selData.name.ToUpper();
+                if (charPreviewRoleText != null) charPreviewRoleText.text = selData.role.ToUpper();
+            }
 
             foreach (var kvp in charCardSelectionBorders)
             {
-                if (kvp.Value != null)
-                {
-                    kvp.Value.SetActive(kvp.Key == selectedCharacterKey);
-                }
+                if (kvp.Value != null) kvp.Value.SetActive(kvp.Key == selectedCharacterKey);
             }
 
-            if (charPreviewEquipBtnText != null && charPreviewEquipBtnBg != null)
-            {
-                Outline btnOutline = charPreviewEquipBtnText.GetComponent<Outline>();
+            // 2. Main action button
+            bool selUnlocked = selectedCharacterKey == "Soldier" || PlayerPrefs.GetInt("HeroUnlocked_" + selectedCharacterKey, 0) == 1;
+            bool selEquipped = selectedCharacterKey == currentEquipped;
+            ApplyHeroButtonState(charPreviewEquipBtnBg, charPreviewEquipBtnIcon, charPreviewEquipBtnText,
+                selectedCharacterKey, selEquipped, selUnlocked, true);
 
-                if (isEquipped)
-                {
-                    charPreviewEquipBtnBg.sprite = LoadSpriteFromUI("UI/CharactersDynamic/27_equipped_button", "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/13_green_purchase_button_blank", "UI/Btn_3D_Green");
-                    charPreviewEquipBtnBg.color = Color.white;
-                    charPreviewEquipBtnText.text = "✔ EQUIPPED";
-                    if (btnOutline != null) btnOutline.effectColor = new Color(0.04f, 0.22f, 0.08f, 1f);
-                }
-                else if (!isCurrentHeroUnlocked && heroes.TryGetValue(selectedCharacterKey, out HeroData lData))
-                {
-                    charPreviewEquipBtnBg.color = Color.white;
-                    if (lData.priceCoins > 0)
-                    {
-                        charPreviewEquipBtnBg.sprite = LoadSpriteFromUI("UI/CharactersDynamic/28_coin_button_blank_base", "UI/Btn_3D_Gold");
-                        charPreviewEquipBtnText.text = $"UNLOCK ({lData.priceCoins:N0} COINS)";
-                        if (btnOutline != null) btnOutline.effectColor = new Color(0.24f, 0.09f, 0.02f, 1f);
-                    }
-                    else
-                    {
-                        charPreviewEquipBtnBg.sprite = LoadSpriteFromUI("UI/CharactersDynamic/29_gem_button_blank_base", "UI/Btn_3D_Cyan");
-                        charPreviewEquipBtnText.text = $"UNLOCK ({lData.priceDiamonds} 💎)";
-                        if (btnOutline != null) btnOutline.effectColor = new Color(0.02f, 0.12f, 0.25f, 1f);
-                    }
-                }
-                else
-                {
-                    charPreviewEquipBtnBg.color = Color.white;
-                    charPreviewEquipBtnBg.sprite = LoadSpriteFromUI("UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/14_blue_action_button_blank", "UI/Btn_3D_Blue");
-                    charPreviewEquipBtnText.text = "EQUIP HERO";
-                    if (btnOutline != null) btnOutline.effectColor = new Color(0.04f, 0.12f, 0.32f, 1f);
-                }
-            }
-
-            // 3. Update All 5 Card Price Labels
+            // 3. Card pills
             foreach (var kvp in heroes)
             {
                 string hKey = kvp.Key;
-                HeroData hd = kvp.Value;
-                if (!charCardPriceTexts.TryGetValue(hKey, out TextMeshProUGUI pillTxt) || pillTxt == null) continue;
-                charCardPriceBgs.TryGetValue(hKey, out Image pillBg);
-
-                bool heroUnlocked = (hKey == "Soldier") || PlayerPrefs.GetInt("HeroUnlocked_" + hKey, 0) == 1;
-
-                if (hKey == currentEquipped)
-                {
-                    if (pillBg != null)
-                    {
-                        pillBg.sprite = LoadSpriteFromUI("UI/CharactersDynamic/27_equipped_button", "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/13_green_purchase_button_blank", "UI/Btn_3D_Green");
-                        pillBg.color = Color.white;
-                    }
-                    pillTxt.text = "EQUIPPED";
-                    pillTxt.color = Color.white;
-                }
-                else if (heroUnlocked)
-                {
-                    if (pillBg != null)
-                    {
-                        pillBg.sprite = LoadSpriteFromUI("UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/14_blue_action_button_blank", "UI/Btn_3D_Blue");
-                        pillBg.color = Color.white;
-                    }
-                    pillTxt.text = "READY";
-                    pillTxt.color = Color.white;
-                }
-                else
-                {
-                    if (pillBg != null)
-                    {
-                        if (hd.priceCoins > 0)
-                        {
-                            pillBg.sprite = LoadSpriteFromUI("UI/CharactersDynamic/28_coin_button_blank_base", "UI/Btn_3D_Gold");
-                            pillTxt.text = $"{hd.priceCoins:N0}";
-                        }
-                        else
-                        {
-                            pillBg.sprite = LoadSpriteFromUI("UI/CharactersDynamic/29_gem_button_blank_base", "UI/Btn_3D_Cyan");
-                            pillTxt.text = $"{hd.priceDiamonds} 💎";
-                        }
-                        pillBg.color = Color.white;
-                    }
-                    pillTxt.color = Color.white;
-                }
+                if (!charCardPriceTexts.TryGetValue(hKey, out TextMeshProUGUI txt) || txt == null) continue;
+                charCardPriceBgs.TryGetValue(hKey, out Image bg);
+                charCardPriceIcons.TryGetValue(hKey, out Image icon);
+                bool unlocked = hKey == "Soldier" || PlayerPrefs.GetInt("HeroUnlocked_" + hKey, 0) == 1;
+                ApplyHeroButtonState(bg, icon, txt, hKey, hKey == currentEquipped, unlocked, false);
             }
+        }
+
+        private void ApplyHeroButtonState(Image bg, Image icon, TextMeshProUGUI txt, string heroKey, bool equipped, bool unlocked, bool isMainButton)
+        {
+            if (txt == null) return;
+            string btnSprite;
+            string iconSprite = null;
+            string label;
+            Color outline;
+
+            if (equipped)
+            {
+                btnSprite = "Menu_Btn_Green"; iconSprite = "Menu_Icon_Check"; label = "EQUIPPED";
+                outline = new Color(0.03f, 0.25f, 0.07f, 1f);
+            }
+            else if (unlocked)
+            {
+                btnSprite = "Menu_Btn_Blue"; label = isMainButton ? "EQUIP HERO" : "EQUIP";
+                outline = new Color(0.03f, 0.10f, 0.35f, 1f);
+            }
+            else if (heroes.TryGetValue(heroKey, out HeroData hd) && hd.priceCoins > 0)
+            {
+                btnSprite = "Menu_Btn_Gold"; iconSprite = "Shop_CoinIcon";
+                label = isMainButton ? $"UNLOCK  {hd.priceCoins:N0}" : hd.priceCoins.ToString("N0");
+                outline = new Color(0.40f, 0.18f, 0.02f, 1f);
+            }
+            else
+            {
+                int gems = heroes.TryGetValue(heroKey, out HeroData gd) ? gd.priceDiamonds : 0;
+                btnSprite = "Menu_Btn_Cyan"; iconSprite = "Shop_DiamondIcon";
+                label = isMainButton ? $"UNLOCK  {gems:N0}" : gems.ToString("N0");
+                outline = new Color(0.02f, 0.18f, 0.40f, 1f);
+            }
+
+            SetMenuSprite(bg, btnSprite);
+            if (bg != null) bg.color = Color.white;
+            if (icon != null)
+            {
+                icon.gameObject.SetActive(iconSprite != null);
+                if (iconSprite != null) SetMenuSprite(icon, iconSprite);
+            }
+            txt.text = label;
+            txt.color = Color.white;
+            txt.outlineColor = outline;
         }
         #endregion
 
@@ -4345,130 +4032,85 @@ namespace MobControl.UI
             return null;
         }
 
+        // ===================== RESPONSIVE HD SQUAD UPGRADE SCREEN =====================
+        private static readonly string[] s_upgKeys = { "Count", "Health", "Damage", "Speed" };
+        private static readonly string[] s_upgLabels = { "SOLDIER COUNT", "SOLDIER HEALTH", "SOLDIER DAMAGE", "SOLDIER SPEED" };
+        private static readonly string[] s_upgIcons = { "Menu_Upg_count", "Menu_Upg_health", "Menu_Upg_damage", "Menu_Upg_speed" };
+        private static readonly int[] s_upgBaseCosts = { 200, 150, 180, 5 };
+        private static readonly bool[] s_upgIsDiamonds = { false, false, false, true };
+        private readonly Image[] upgradeStatBtnBgs = new Image[4];
+        private readonly Image[] upgradeStatCostIcons = new Image[4];
+
         private void BuildZombieSquadUpgradeScreenPanel(Transform canvasRoot)
         {
-            upgradePanel = CreateFullPanel("ZombieSquadUpgradePanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+            upgradePanel = CreateFullPanel("ZombieSquadUpgradePanel", canvasRoot, new Color(0.01f, 0.03f, 0.08f, 1f));
+            RectTransform root = BuildHDScreenScaffold(upgradePanel, "SQUAD UPGRADE", () => ShowZombieSquadHomeScreen(), out RectTransform _);
 
-            Sprite upgSprite = LoadZombieSquadUpgradeScreenSprite();
-            float upgAspect = (upgSprite != null && upgSprite.rect.height > 0)
-                ? (upgSprite.rect.width / upgSprite.rect.height)
-                : (576f / 1024f);
-
-            // Ambient Scenery Cover (EnvelopeParent fills 100% of any tall/wide mobile display - zero black bars!)
-            SetupAmbientSceneryCover(upgradePanel, upgSprite, 576f / 1024f);
-
-            // Master Responsive ArtContainer (FitInParent: ZERO horizontal crop, ZERO stretch)
-            GameObject artContainer = new GameObject("ArtContainer");
-            artContainer.transform.SetParent(upgradePanel.transform, false);
-            RectTransform artRt = artContainer.AddComponent<RectTransform>();
-            artRt.anchorMin = Vector2.zero; artRt.anchorMax = Vector2.one;
-            artRt.offsetMin = Vector2.zero; artRt.offsetMax = Vector2.zero;
-
-            AspectRatioFitter upgArf = artContainer.AddComponent<AspectRatioFitter>();
-            upgArf.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            upgArf.aspectRatio = upgAspect;
-
-            GameObject upgImgObj = new GameObject("ArtworkImage");
-            upgImgObj.transform.SetParent(artContainer.transform, false);
-            RectTransform uiRt = upgImgObj.AddComponent<RectTransform>();
-            uiRt.anchorMin = Vector2.zero; uiRt.anchorMax = Vector2.one;
-            uiRt.offsetMin = Vector2.zero; uiRt.offsetMax = Vector2.zero;
-            Image upgImg = upgImgObj.AddComponent<Image>();
-            if (upgSprite != null) upgImg.sprite = upgSprite;
-            upgImg.raycastTarget = true; upgImg.preserveAspect = false;
-
-            Shadow upgShadowB = upgImgObj.AddComponent<Shadow>();
-            upgShadowB.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            upgShadowB.effectDistance = new Vector2(0f, -8f);
-
-            Shadow upgShadowT = upgImgObj.AddComponent<Shadow>();
-            upgShadowT.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            upgShadowT.effectDistance = new Vector2(0f, 8f);
-
-            // Top Header: Back + Currency HUD
-            CreateTopCurrencyHeader(artContainer.transform, "SQUAD UPGRADE", () => ShowZombieSquadHomeScreen());
-
-            // 4 Upgrade Cards Dynamic Overlays:
-            // 1. Soldier Count (Top-Left)
-            SetupSquadUpgradeCard(artContainer.transform, 0, "Count", "Soldier Count", 200, false,
-                new Vector2(0.075f, 0.643f), new Vector2(0.435f, 0.681f),
-                new Vector2(0.060f, 0.560f), new Vector2(0.445f, 0.624f));
-
-            // 2. Soldier Health (Top-Right)
-            SetupSquadUpgradeCard(artContainer.transform, 1, "Health", "Soldier Health", 150, false,
-                new Vector2(0.569f, 0.643f), new Vector2(0.929f, 0.681f),
-                new Vector2(0.557f, 0.560f), new Vector2(0.938f, 0.624f));
-
-            // 3. Soldier Damage (Bottom-Left)
-            SetupSquadUpgradeCard(artContainer.transform, 2, "Damage", "Soldier Damage", 180, false,
-                new Vector2(0.075f, 0.241f), new Vector2(0.435f, 0.279f),
-                new Vector2(0.060f, 0.158f), new Vector2(0.445f, 0.222f));
-
-            // 4. Soldier Speed (Bottom-Right)
-            SetupSquadUpgradeCard(artContainer.transform, 3, "Speed", "Soldier Speed", 5, true,
-                new Vector2(0.569f, 0.241f), new Vector2(0.929f, 0.279f),
-                new Vector2(0.557f, 0.158f), new Vector2(0.938f, 0.222f));
+            const float cw = 450f, ch = 640f, gx = 40f, gy = 40f;
+            float x0 = (ShopDesignSize.x - (cw * 2f + gx)) * 0.5f;
+            float y0 = (ShopDesignSize.y - (ch * 2f + gy)) * 0.5f - 40f;
+            for (int i = 0; i < 4; i++)
+            {
+                float x = x0 + (i % 2) * (cw + gx);
+                float y = y0 + (i / 2) * (ch + gy);
+                CreateHDUpgradeCard(root, i, x, y, cw, ch);
+            }
 
             UpdateUpgradeScreenVisuals();
         }
 
-        private void SetupSquadUpgradeCard(Transform parent, int idx, string key, string label, int baseCost, bool isDiamonds, Vector2 barMin, Vector2 barMax, Vector2 btnMin, Vector2 btnMax)
+        private void CreateHDUpgradeCard(RectTransform parent, int idx, float x, float y, float w, float h)
         {
-            // Bar container
-            GameObject barObj = new GameObject($"Upg_Bar_{key}");
-            barObj.transform.SetParent(parent, false);
-            RectTransform bRt = barObj.AddComponent<RectTransform>();
-            bRt.anchorMin = barMin;
-            bRt.anchorMax = barMax;
-            bRt.offsetMin = Vector2.zero;
-            bRt.offsetMax = Vector2.zero;
+            string key = s_upgKeys[idx];
+            Image frame = NewShopImage("UpgradeCard_" + key, parent, "Shop_Card_Frame", false);
+            ShopPlaceTopLeft(frame.rectTransform, x, y, w, h);
+            RectTransform cRt = frame.rectTransform;
 
-            // Rounded Progress Fill inside capsule
-            GameObject fillObj = new GameObject("Fill");
-            fillObj.transform.SetParent(barObj.transform, false);
-            RectTransform fRt = fillObj.AddComponent<RectTransform>();
-            fRt.anchorMin = Vector2.zero;
-            fRt.anchorMax = new Vector2(0.1f, 1f);
-            fRt.offsetMin = new Vector2(3f, 3f);
-            fRt.offsetMax = new Vector2(-3f, -3f);
-            Image fImg = fillObj.AddComponent<Image>();
-            fImg.sprite = CreateRoundedRectSprite(180, 32, 10, isDiamonds ? new Color(0.10f, 0.75f, 0.95f, 0.95f) : new Color(0.18f, 0.85f, 0.35f, 0.95f), new Color(0.5f, 1f, 0.6f, 0.4f), 1);
-            fImg.type = Image.Type.Simple;
-            fImg.raycastTarget = false;
-            upgradeStatFills[idx] = fImg;
+            Image icon = NewMenuImage("Icon", cRt, s_upgIcons[idx]);
+            ShopPlaceTopLeft(icon.rectTransform, 45f, 36f, w - 90f, 262f);
 
-            // Centered Level text inside capsule
-            upgradeStatLevelTexts[idx] = CreateText("LevelTxt", barObj.transform, "LEVEL 1", 16f, Color.white, TextAlignmentOptions.Center, true);
-            RectTransform ltRt = upgradeStatLevelTexts[idx].GetComponent<RectTransform>();
-            ltRt.anchorMin = Vector2.zero;
-            ltRt.anchorMax = Vector2.one;
-            ltRt.offsetMin = Vector2.zero;
-            ltRt.offsetMax = Vector2.zero;
-            Outline lvlOutl = upgradeStatLevelTexts[idx].gameObject.AddComponent<Outline>();
-            lvlOutl.effectColor = new Color(0.01f, 0.05f, 0.15f, 0.9f);
-            lvlOutl.effectDistance = new Vector2(1.2f, -1.2f);
+            TextMeshProUGUI title = CreateText("Title", cRt, s_upgLabels[idx], 44f, Color.white, TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(title.rectTransform, 20f, 310f, w - 40f, 64f);
+            title.textWrappingMode = TextWrappingModes.NoWrap;
+            title.enableAutoSizing = true;
+            title.fontSizeMin = 28f;
+            title.fontSizeMax = 44f;
+            StyleShopTmp(title, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, true);
 
-            // Button label (centered in the right portion of the green button next to emblem)
-            GameObject btnLabelObj = new GameObject($"Upg_BtnLabel_{key}");
-            btnLabelObj.transform.SetParent(parent, false);
-            RectTransform blRt = btnLabelObj.AddComponent<RectTransform>();
-            float btnWidth = btnMax.x - btnMin.x;
-            blRt.anchorMin = new Vector2(btnMin.x + btnWidth * 0.35f, btnMin.y);
-            blRt.anchorMax = new Vector2(btnMax.x - btnWidth * 0.05f, btnMax.y);
-            blRt.offsetMin = Vector2.zero;
-            blRt.offsetMax = Vector2.zero;
-            upgradeStatCostTexts[idx] = CreateText("CostTxt", btnLabelObj.transform, $"{baseCost}", 24f, Color.white, TextAlignmentOptions.Center, true);
-            RectTransform ctRt = upgradeStatCostTexts[idx].GetComponent<RectTransform>();
-            ctRt.anchorMin = Vector2.zero;
-            ctRt.anchorMax = Vector2.one;
-            ctRt.offsetMin = Vector2.zero;
-            ctRt.offsetMax = Vector2.zero;
-            Outline costOutl = upgradeStatCostTexts[idx].gameObject.AddComponent<Outline>();
-            costOutl.effectColor = new Color(0.08f, 0.35f, 0.15f, 1f);
-            costOutl.effectDistance = new Vector2(1.5f, -1.5f);
+            Image track = NewMenuImage("Upg_Bar_" + key, cRt, "Menu_Bar_Track", false);
+            track.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(track.rectTransform, 40f, 392f, w - 80f, 56f);
+            RectTransform fillRt = NewShopRect("Fill", track.rectTransform);
+            fillRt.anchorMin = Vector2.zero;
+            fillRt.anchorMax = new Vector2(0.1f, 1f);
+            fillRt.offsetMin = Vector2.zero;
+            fillRt.offsetMax = Vector2.zero;
+            Image fill = fillRt.gameObject.AddComponent<Image>();
+            Sprite fillSp = LoadSpriteFromUI(MenuHDPath + "Menu_Bar_Fill");
+            if (fillSp != null) fill.sprite = fillSp;
+            fill.type = Image.Type.Sliced;
+            fill.raycastTarget = false;
+            upgradeStatFills[idx] = fill;
 
-            // Button click
-            CreateTransparentButton($"Btn_Upg_{key}", parent, btnMin, btnMax, () => UpgradeSquadStat(key, idx, baseCost, isDiamonds));
+            upgradeStatLevelTexts[idx] = CreateText("LevelTxt", track.rectTransform, "LEVEL 1 / 10", 28f, Color.white, TextAlignmentOptions.Center, true);
+            upgradeStatLevelTexts[idx].textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(upgradeStatLevelTexts[idx], new Color(0.01f, 0.05f, 0.18f, 1f), 0.3f, false);
+
+            Image btn = NewMenuImage("Btn_Upg_" + key, cRt, "Menu_Btn_Green", false, true);
+            RectTransform bRt = btn.rectTransform;
+            ShopPlaceTopLeft(bRt, 34f, h - 40f - 124f, w - 68f, 124f);
+            Button b = btn.gameObject.AddComponent<Button>();
+            b.targetGraphic = btn;
+            b.transition = Selectable.Transition.None;
+            int capturedIdx = idx;
+            b.onClick.AddListener(() => StartCoroutine(ShopPress(bRt, () =>
+                UpgradeSquadStat(s_upgKeys[capturedIdx], capturedIdx, s_upgBaseCosts[capturedIdx], s_upgIsDiamonds[capturedIdx]))));
+            upgradeStatBtnBgs[idx] = btn;
+
+            BuildIconLabelRow(bRt, 54f, 48f, out Image costIcon, out TextMeshProUGUI costTxt, 22f);
+            SetMenuSprite(costIcon, s_upgIsDiamonds[idx] ? "Shop_DiamondIcon" : "Shop_CoinIcon");
+            upgradeStatCostIcons[idx] = costIcon;
+            upgradeStatCostTexts[idx] = costTxt;
         }
 
         public void UpgradeSquadStat(string key, int idx, int baseCost, bool isDiamonds)
@@ -4489,6 +4131,7 @@ namespace MobControl.UI
                 PlayerPrefs.SetInt(prefKey, currentLevel);
                 PlayerPrefs.Save();
                 Debug.Log($"[ZombieSquad] Upgraded {key} to Level {currentLevel}!");
+                UpdateAllCurrencyDisplays();
                 UpdateUpgradeScreenVisuals();
 
                 if (MobControl.Audio.ZombieSoundManager.Instance != null)
@@ -4506,33 +4149,28 @@ namespace MobControl.UI
 
         public void UpdateUpgradeScreenVisuals()
         {
-            string[] keys = new string[] { "Count", "Health", "Damage", "Speed" };
-            int[] baseCosts = new int[] { 200, 150, 180, 5 };
-            bool[] isDias = new bool[] { false, false, false, true };
-
+            int coins = GetPlayerCoins();
+            int gems = GetPlayerDiamonds();
             for (int i = 0; i < 4; i++)
             {
-                int lvl = PlayerPrefs.GetInt($"ZombieSquad_Upgrade_{keys[i]}", 1);
-                float progress = Mathf.Clamp01(lvl / 10f);
+                int lvl = PlayerPrefs.GetInt($"ZombieSquad_Upgrade_{s_upgKeys[i]}", 1);
+                bool max = lvl >= 10;
+                int cost = s_upgBaseCosts[i] * lvl;
+                bool affordable = s_upgIsDiamonds[i] ? gems >= cost : coins >= cost;
+
                 if (upgradeStatFills[i] != null)
-                {
-                    upgradeStatFills[i].rectTransform.anchorMax = new Vector2(Mathf.Max(0.1f, progress), 1f);
-                }
+                    upgradeStatFills[i].rectTransform.anchorMax = new Vector2(Mathf.Max(0.1f, Mathf.Clamp01(lvl / 10f)), 1f);
                 if (upgradeStatLevelTexts[i] != null)
-                {
-                    upgradeStatLevelTexts[i].text = (lvl >= 10) ? "MAX LEVEL" : $"LEVEL {lvl}";
-                }
+                    upgradeStatLevelTexts[i].text = max ? "MAX LEVEL" : $"LEVEL {lvl} / 10";
                 if (upgradeStatCostTexts[i] != null)
+                    upgradeStatCostTexts[i].text = max ? "MAX" : cost.ToString("N0");
+                if (upgradeStatCostIcons[i] != null)
+                    upgradeStatCostIcons[i].gameObject.SetActive(!max);
+                if (upgradeStatBtnBgs[i] != null)
                 {
-                    if (lvl >= 10)
-                    {
-                        upgradeStatCostTexts[i].text = "MAX";
-                    }
-                    else
-                    {
-                        int cost = baseCosts[i] * lvl;
-                        upgradeStatCostTexts[i].text = $"{cost:N0}";
-                    }
+                    // Grey when maxed; slightly dimmed when the player can't afford it yet
+                    SetMenuSprite(upgradeStatBtnBgs[i], max ? "Menu_Btn_Grey" : "Menu_Btn_Green");
+                    upgradeStatBtnBgs[i].color = (!max && !affordable) ? new Color(0.78f, 0.78f, 0.78f, 1f) : Color.white;
                 }
             }
         }
@@ -4612,176 +4250,200 @@ namespace MobControl.UI
         }
 
 
+        // ===================== RESPONSIVE HD WEAPONS SCREEN =====================
+        private readonly Dictionary<string, GameObject> weaponCardSelectedOverlays = new Dictionary<string, GameObject>();
+        private readonly Image[] weaponStatUpgradeBgs = new Image[4];
+        private readonly Image[] weaponStatCostIcons = new Image[4];
+
+        private static string WeaponDisplayName(string key)
+        {
+            switch (key)
+            {
+                case "AssaultRifle": return "ASSAULT RIFLE";
+                case "Shotgun": return "SHOTGUN";
+                case "Sniper": return "SNIPER";
+                case "Minigun": return "MINIGUN";
+            }
+            return key.ToUpper();
+        }
+
+        private Sprite LoadWeaponSpriteHD(string key)
+        {
+            return LoadSpriteFromUI(MenuHDPath + "Menu_Weapon_" + key) ?? LoadWeaponSprite(key);
+        }
+
         private void BuildZombieSquadWeaponsScreenPanel(Transform canvasRoot)
         {
-            weaponsPanel = CreateFullPanel("ZombieSquadWeaponsPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+            Transform oldWep = canvasRoot.Find("ZombieSquadWeaponsPanel");
+            if (oldWep != null && (weaponsPanel == null || oldWep.gameObject != weaponsPanel)) SafeDestroy(oldWep.gameObject);
+            if (weaponsPanel != null) SafeDestroy(weaponsPanel);
 
-            Sprite wepSprite = LoadZombieSquadWeaponsScreenSprite();
-            float wepAspect = (wepSprite != null && wepSprite.rect.height > 0)
-                ? (wepSprite.rect.width / wepSprite.rect.height)
-                : (576f / 1024f);
+            weaponsPanel = CreateFullPanel("ZombieSquadWeaponsPanel", canvasRoot, new Color(0.01f, 0.03f, 0.08f, 1f));
+            RectTransform root = BuildHDScreenScaffold(weaponsPanel, "WEAPONS", () => ShowZombieSquadHomeScreen(), out weaponsBackBtnRect);
+            weaponCardSelectionHighlightRt = null;
 
-            // Ambient Scenery Cover (EnvelopeParent fills 100% of any tall/wide mobile display - zero black bars!)
-            SetupAmbientSceneryCover(weaponsPanel, wepSprite, 576f / 1024f);
+            // 1. Showcase chamber with weapon on glowing pedestal
+            const float scX = 40f, scY = 0f, scW = 920f, scH = 460f;
+            Image scImg = NewMenuImage("WeaponShowcase", root, "Menu_Showcase_Frame", false);
+            ShopPlaceTopLeft(scImg.rectTransform, scX, scY, scW, scH);
+            RectTransform scRt = scImg.rectTransform;
 
-            // Master Responsive ArtContainer (FitInParent: ZERO horizontal crop, ZERO stretch)
-            GameObject artContainer = new GameObject("ArtContainer");
-            artContainer.transform.SetParent(weaponsPanel.transform, false);
-            RectTransform artRt = artContainer.AddComponent<RectTransform>();
-            artRt.anchorMin = Vector2.zero; artRt.anchorMax = Vector2.one;
-            artRt.offsetMin = Vector2.zero; artRt.offsetMax = Vector2.zero;
+            Image pedImg = NewShopRect("GlowPedestal", scRt).gameObject.AddComponent<Image>();
+            Sprite pedSp = LoadSpriteFromUI("UI/CharactersDynamic/14_glow_platform_clean", "UI/CharactersDynamic/14_glow_platform");
+            if (pedSp != null) pedImg.sprite = pedSp;
+            pedImg.preserveAspect = true;
+            pedImg.raycastTarget = false;
+            ShopPlaceTopLeft(pedImg.rectTransform, (scW - 500f) * 0.5f, scH - 150f, 500f, 130f);
 
-            AspectRatioFitter wepArf = artContainer.AddComponent<AspectRatioFitter>();
-            wepArf.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            wepArf.aspectRatio = wepAspect;
-
-            GameObject wepImgObj = new GameObject("ArtworkImage");
-            wepImgObj.transform.SetParent(artContainer.transform, false);
-            RectTransform wiRt = wepImgObj.AddComponent<RectTransform>();
-            wiRt.anchorMin = Vector2.zero; wiRt.anchorMax = Vector2.one;
-            wiRt.offsetMin = Vector2.zero; wiRt.offsetMax = Vector2.zero;
-            Image wepImg = wepImgObj.AddComponent<Image>();
-            if (wepSprite != null) wepImg.sprite = wepSprite;
-            wepImg.raycastTarget = true; wepImg.preserveAspect = false;
-
-            Shadow wepShadowB = wepImgObj.AddComponent<Shadow>();
-            wepShadowB.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            wepShadowB.effectDistance = new Vector2(0f, -8f);
-
-            Shadow wepShadowT = wepImgObj.AddComponent<Shadow>();
-            wepShadowT.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            wepShadowT.effectDistance = new Vector2(0f, 8f);
-
-            // Top Header: Back + Currency HUD
-            CreateTopCurrencyHeader(artContainer.transform, "WEAPONS", () => ShowZombieSquadHomeScreen());
-
-            // Top Chamber Weapon Preview Display (Floats on Pedestal!)
-            GameObject chamberWeaponObj = new GameObject("ChamberWeaponDisplay");
-            chamberWeaponObj.transform.SetParent(artContainer.transform, false);
-            RectTransform cwRt = chamberWeaponObj.AddComponent<RectTransform>();
-            cwRt.anchorMin = new Vector2(0.18f, 0.58f);
-            cwRt.anchorMax = new Vector2(0.82f, 0.82f);
-            cwRt.offsetMin = Vector2.zero;
-            cwRt.offsetMax = Vector2.zero;
-            weaponChamberImg = chamberWeaponObj.AddComponent<Image>();
+            RectTransform wRt = NewShopRect("ChamberWeaponDisplay", scRt);
+            ShopPlaceTopLeft(wRt, (scW - 600f) * 0.5f, 40f, 600f, scH - 150f);
+            weaponChamberImg = wRt.gameObject.AddComponent<Image>();
             weaponChamberImg.preserveAspect = true;
             weaponChamberImg.raycastTarget = false;
 
-            // Carousel navigation arrows
-            CreateTransparentButton("Btn_Prev_Weapon", artContainer.transform, new Vector2(0.010f, 0.700f), new Vector2(0.100f, 0.790f), () => CycleWeapon(-1));
-            CreateTransparentButton("Btn_Next_Weapon", artContainer.transform, new Vector2(0.900f, 0.700f), new Vector2(0.990f, 0.790f), () => CycleWeapon(1));
+            CreateMenuArrow(scRt, "Btn_Prev_Weapon", "Menu_Arrow_Left", 30f, scH * 0.5f, () => CycleWeapon(-1));
+            CreateMenuArrow(scRt, "Btn_Next_Weapon", "Menu_Arrow_Right", scW - 30f - 96f, scH * 0.5f, () => CycleWeapon(1));
 
-            // Weapon Title (Directly inside clean banner frame on background)
-            weaponTitleText = CreateText("WepTitle", artContainer.transform, "ASSAULT RIFLE", 34f, Color.white, TextAlignmentOptions.MidlineLeft, true);
-            RectTransform wtRt = weaponTitleText.GetComponent<RectTransform>();
-            wtRt.anchorMin = new Vector2(0.080f, 0.525f);
-            wtRt.anchorMax = new Vector2(0.690f, 0.582f);
-            wtRt.offsetMin = Vector2.zero;
-            wtRt.offsetMax = Vector2.zero;
-            weaponTitleText.raycastTarget = false;
+            // 2. Title banner: name + level badge
+            Image banner = NewMenuImage("TitleBanner", root, "Menu_Banner", false);
+            banner.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(banner.rectTransform, scX, scY + scH + 20f, scW, 110f);
+            weaponTitleText = CreateText("WepTitle", banner.rectTransform, "ASSAULT RIFLE", 50f, Color.white, TextAlignmentOptions.Left, true);
+            ShopPlaceTopLeft(weaponTitleText.rectTransform, 40f, 12f, 560f, 86f);
+            weaponTitleText.textWrappingMode = TextWrappingModes.NoWrap;
+            weaponTitleText.enableAutoSizing = true;
+            weaponTitleText.fontSizeMin = 30f;
+            weaponTitleText.fontSizeMax = 50f;
+            StyleShopTmp(weaponTitleText, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, true);
 
-            // Overall Weapon Level Badge (Right side of banner)
-            weaponLevelText = CreateText("WepLevel", artContainer.transform, "LV. 1", 26f, new Color(1f, 0.88f, 0.25f, 1f), TextAlignmentOptions.Center, true);
-            RectTransform wlRt = weaponLevelText.GetComponent<RectTransform>();
-            wlRt.anchorMin = new Vector2(0.725f, 0.525f);
-            wlRt.anchorMax = new Vector2(0.940f, 0.582f);
-            wlRt.offsetMin = Vector2.zero;
-            wlRt.offsetMax = Vector2.zero;
-            weaponLevelText.raycastTarget = false;
+            Image lvBadge = NewMenuImage("LevelBadge", banner.rectTransform, "Menu_Btn_Gold", false);
+            ShopPlaceTopLeft(lvBadge.rectTransform, scW - 40f - 210f, 16f, 210f, 80f);
+            weaponLevelText = CreateText("WepLevel", lvBadge.rectTransform, "LV. 1", 38f, Color.white, TextAlignmentOptions.Center, true);
+            weaponLevelText.rectTransform.offsetMin = new Vector2(8f, 12f);
+            weaponLevelText.rectTransform.offsetMax = new Vector2(-8f, -2f);
+            weaponLevelText.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(weaponLevelText, new Color(0.40f, 0.18f, 0.02f, 1f), 0.26f, false);
 
-            // 4 Stat Rows: Damage, Fire Rate, Range, Magazine
-            // Exact Slot Bounds (does NOT overlap text "Damage", "Fire Rate", "Range", "Magazine"):
-            float[] slotYMin = new float[] { 0.450f, 0.370f, 0.292f, 0.214f };
-            float[] slotYMax = new float[] { 0.473f, 0.394f, 0.315f, 0.237f };
-            float[] btnYMin  = new float[] { 0.445f, 0.367f, 0.288f, 0.210f };
-            float[] btnYMax  = new float[] { 0.505f, 0.425f, 0.346f, 0.268f };
-            string[] statNames = new string[] { "Damage", "FireRate", "Range", "Magazine" };
+            // 3. Stats panel (4 upgrade rows)
+            const float stY = scY + scH + 150f, stH = 540f;
+            Image statsPanel = NewShopImage("StatsPanel", root, "Shop_Panel_Frame", false);
+            statsPanel.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(statsPanel.rectTransform, scX, stY, scW, stH);
+            RectTransform spRt = statsPanel.rectTransform;
 
+            string[] statNames = { "Damage", "FireRate", "Range", "Magazine" };
+            string[] statLabels = { "DAMAGE", "FIRE RATE", "RANGE", "MAGAZINE" };
+            string[] statIcons = { "Menu_Stat_damage", "Menu_Stat_firerate", "Menu_Stat_range", "Menu_Stat_magazine" };
+            const float rowH = 118f, rowTop = 34f;
             for (int i = 0; i < 4; i++)
             {
                 string sName = statNames[i];
-                float sMin = slotYMin[i];
-                float sMax = slotYMax[i];
-                float bMin = btnYMin[i];
-                float bMax = btnYMax[i];
+                float ry = rowTop + i * rowH;
 
-                // Progress Bar Container (Fitted precisely inside the dark blue slot on background)
-                GameObject barObj = new GameObject($"Wep_StatBar_{sName}");
-                barObj.transform.SetParent(artContainer.transform, false);
-                RectTransform bRt = barObj.AddComponent<RectTransform>();
-                bRt.anchorMin = new Vector2(0.185f, sMin);
-                bRt.anchorMax = new Vector2(0.625f, sMax);
-                bRt.offsetMin = Vector2.zero;
-                bRt.offsetMax = Vector2.zero;
+                Image ic = NewMenuImage("Icon_" + sName, spRt, statIcons[i]);
+                ShopPlaceTopLeft(ic.rectTransform, 40f, ry + 22f, 74f, 74f);
 
-                // Track Background (Covers static baked text inside slot)
-                GameObject trackBgObj = new GameObject("TrackBg");
-                trackBgObj.transform.SetParent(barObj.transform, false);
-                RectTransform trRt = trackBgObj.AddComponent<RectTransform>();
-                trRt.anchorMin = Vector2.zero;
-                trRt.anchorMax = Vector2.one;
-                trRt.offsetMin = Vector2.zero;
-                trRt.offsetMax = Vector2.zero;
-                Image trackBgImg = trackBgObj.AddComponent<Image>();
-                trackBgImg.color = new Color(0.01f, 0.08f, 0.22f, 0.95f);
-                trackBgImg.raycastTarget = false;
+                TextMeshProUGUI lbl = CreateText("Label_" + sName, spRt, statLabels[i], 34f, Color.white, TextAlignmentOptions.Left, true);
+                ShopPlaceTopLeft(lbl.rectTransform, 134f, ry + 6f, 300f, 48f);
+                lbl.textWrappingMode = TextWrappingModes.NoWrap;
+                StyleShopTmp(lbl, new Color(0.02f, 0.08f, 0.32f, 1f), 0.22f, false);
 
-                // Dynamic Glowing Neon Green Fill
-                GameObject fillObj = new GameObject("Fill");
-                fillObj.transform.SetParent(barObj.transform, false);
-                RectTransform fRt = fillObj.AddComponent<RectTransform>();
-                fRt.anchorMin = Vector2.zero;
-                fRt.anchorMax = new Vector2(0.15f, 1f);
-                fRt.offsetMin = Vector2.zero;
-                fRt.offsetMax = Vector2.zero;
-                weaponStatFills[i] = fillObj.AddComponent<Image>();
-                weaponStatFills[i].color = new Color(0.15f, 0.88f, 0.45f, 1f);
-                weaponStatFills[i].raycastTarget = false;
+                Image track = NewMenuImage("Wep_StatBar_" + sName, spRt, "Menu_Bar_Track", false);
+                track.type = Image.Type.Sliced;
+                ShopPlaceTopLeft(track.rectTransform, 134f, ry + 58f, 460f, 44f);
 
-                // Value / Level Label inside the slot
-                weaponStatValTexts[i] = CreateText("ValTxt", barObj.transform, "LV. 1 / 10", 14f, Color.white, TextAlignmentOptions.Center, true);
-                RectTransform vRt = weaponStatValTexts[i].GetComponent<RectTransform>();
-                vRt.anchorMin = Vector2.zero;
-                vRt.anchorMax = Vector2.one;
-                vRt.offsetMin = Vector2.zero;
-                vRt.offsetMax = Vector2.zero;
-                weaponStatValTexts[i].raycastTarget = false;
+                RectTransform fillRt = NewShopRect("Fill", track.rectTransform);
+                fillRt.anchorMin = Vector2.zero;
+                fillRt.anchorMax = new Vector2(0.15f, 1f);
+                fillRt.offsetMin = Vector2.zero;
+                fillRt.offsetMax = Vector2.zero;
+                Image fill = fillRt.gameObject.AddComponent<Image>();
+                Sprite fillSp = LoadSpriteFromUI(MenuHDPath + "Menu_Bar_Fill");
+                if (fillSp != null) fill.sprite = fillSp;
+                fill.type = Image.Type.Sliced;
+                fill.raycastTarget = false;
+                weaponStatFills[i] = fill;
 
-                // Green Upgrade Arrow Button (Exact bounds, reliable click registration)
-                Button upgBtn = CreateTransparentButton($"Btn_Upg_{sName}", artContainer.transform, new Vector2(0.765f, bMin), new Vector2(0.950f, bMax), () => UpgradeWeaponStat(sName));
+                weaponStatValTexts[i] = CreateText("ValTxt", track.rectTransform, "LV. 1 / 10", 26f, Color.white, TextAlignmentOptions.Center, true);
+                weaponStatValTexts[i].textWrappingMode = TextWrappingModes.NoWrap;
+                StyleShopTmp(weaponStatValTexts[i], new Color(0.01f, 0.05f, 0.18f, 1f), 0.3f, false);
 
-                // Cost label directly as a child of the button with raycastTarget = false
-                weaponStatCostTexts[i] = CreateText("CostTxt", upgBtn.transform, "100", 15f, Color.white, TextAlignmentOptions.Bottom, true);
-                RectTransform cRt = weaponStatCostTexts[i].GetComponent<RectTransform>();
-                cRt.anchorMin = Vector2.zero;
-                cRt.anchorMax = Vector2.one;
-                cRt.offsetMin = Vector2.zero;
-                cRt.offsetMax = Vector2.zero;
-                cRt.anchoredPosition = new Vector2(0f, 6f);
-                weaponStatCostTexts[i].raycastTarget = false;
+                // Upgrade button: [up arrow] cost [coin]
+                Image up = NewMenuImage("Btn_Upg_" + sName, spRt, "Menu_Btn_Green", false, true);
+                RectTransform upRt = up.rectTransform;
+                ShopPlaceTopLeft(upRt, 620f, ry + 14f, 260f, 92f);
+                upRt.pivot = new Vector2(0.5f, 0.5f);
+                upRt.anchoredPosition = new Vector2(620f + 130f, -(ry + 14f + 46f));
+                Button upBtn = up.gameObject.AddComponent<Button>();
+                upBtn.targetGraphic = up;
+                upBtn.transition = Selectable.Transition.None;
+                upBtn.onClick.AddListener(() => StartCoroutine(ShopPress(upRt, () => UpgradeWeaponStat(sName))));
+                weaponStatUpgradeBgs[i] = up;
+
+                RectTransform rowRt = NewShopRect("Row", upRt);
+                ShopStretch(rowRt, 10f, 16f, 10f, 2f);
+                HorizontalLayoutGroup hlg = rowRt.gameObject.AddComponent<HorizontalLayoutGroup>();
+                hlg.childAlignment = TextAnchor.MiddleCenter;
+                hlg.spacing = 8f;
+                hlg.childControlWidth = true;
+                hlg.childControlHeight = true;
+                hlg.childForceExpandWidth = false;
+                hlg.childForceExpandHeight = false;
+
+                Image coin = NewShopImage("CoinIcon", rowRt, "Shop_CoinIcon");
+                LayoutElement cle = coin.gameObject.AddComponent<LayoutElement>();
+                cle.preferredWidth = 40f; cle.preferredHeight = 40f;
+                weaponStatCostIcons[i] = coin;
+
+                weaponStatCostTexts[i] = CreateText("CostTxt", rowRt, "100", 36f, Color.white, TextAlignmentOptions.Center, true);
+                weaponStatCostTexts[i].textWrappingMode = TextWrappingModes.NoWrap;
+                StyleShopTmp(weaponStatCostTexts[i], new Color(0.03f, 0.25f, 0.07f, 1f), 0.26f, false);
+                LayoutElement tle = weaponStatCostTexts[i].gameObject.AddComponent<LayoutElement>();
+                tle.preferredHeight = 46f;
+
+                Image arrow = NewMenuImage("UpIcon", rowRt, "Menu_Icon_Up");
+                LayoutElement ale = arrow.gameObject.AddComponent<LayoutElement>();
+                ale.preferredWidth = 34f; ale.preferredHeight = 38f;
             }
 
+            // 4. Weapon selection cards
+            weaponCardSelectedOverlays.Clear();
+            const float cw = 215f, chh = 260f, cgap = 20f;
+            float cy = stY + stH + 24f;
+            for (int i = 0; i < s_weaponKeys.Length; i++)
+            {
+                string key = s_weaponKeys[i];
+                float cx = scX + i * (cw + cgap);
+                Image card = NewMenuImage("Btn_Weapon_" + key, root, "Menu_Card_Frame", false, true);
+                RectTransform cRt = card.rectTransform;
+                ShopPlaceTopLeft(cRt, cx, cy, cw, chh);
+                cRt.pivot = new Vector2(0.5f, 0.5f);
+                cRt.anchoredPosition = new Vector2(cx + cw * 0.5f, -(cy + chh * 0.5f));
+                Button cb = card.gameObject.AddComponent<Button>();
+                cb.targetGraphic = card;
+                cb.transition = Selectable.Transition.None;
+                cb.onClick.AddListener(() => StartCoroutine(ShopPress(cRt, () => SelectWeapon(key))));
 
-            // Selection Highlight Border Frame that moves to the active card
-            GameObject highlightObj = new GameObject("WeaponCardHighlight");
-            highlightObj.transform.SetParent(artContainer.transform, false);
-            weaponCardSelectionHighlightRt = highlightObj.AddComponent<RectTransform>();
-            weaponCardSelectionHighlightRt.anchorMin = new Vector2(0.018f, 0.022f);
-            weaponCardSelectionHighlightRt.anchorMax = new Vector2(0.262f, 0.162f);
-            weaponCardSelectionHighlightRt.offsetMin = Vector2.zero;
-            weaponCardSelectionHighlightRt.offsetMax = Vector2.zero;
+                Image sel = NewMenuImage("Selected", cRt, "Menu_Card_Frame_Gold", false);
+                ShopStretch(sel.rectTransform, -4f, -4f, -4f, -4f);
+                weaponCardSelectedOverlays[key] = sel.gameObject;
 
-            // 4 Yellow Border lines around the selected card
-            CreateBorderLine(highlightObj.transform, new Vector2(0f, 0.94f), new Vector2(1f, 1f), new Color(1f, 0.85f, 0.10f, 1f));
-            CreateBorderLine(highlightObj.transform, new Vector2(0f, 0f), new Vector2(1f, 0.06f), new Color(1f, 0.85f, 0.10f, 1f));
-            CreateBorderLine(highlightObj.transform, new Vector2(0f, 0f), new Vector2(0.06f, 1f), new Color(1f, 0.85f, 0.10f, 1f));
-            CreateBorderLine(highlightObj.transform, new Vector2(0.94f, 0f), new Vector2(1f, 1f), new Color(1f, 0.85f, 0.10f, 1f));
+                RectTransform wr = NewShopRect("WeaponArt", cRt);
+                ShopPlaceTopLeft(wr, 16f, 24f, cw - 32f, 150f);
+                Image wimg = wr.gameObject.AddComponent<Image>();
+                Sprite wsp = LoadWeaponSpriteHD(key);
+                if (wsp != null) wimg.sprite = wsp;
+                wimg.preserveAspect = true;
+                wimg.raycastTarget = false;
 
-            // 4 Bottom Weapon Selection Cards Buttons
-            CreateTransparentButton("Btn_Weapon_AssaultRifle", artContainer.transform, new Vector2(0.018f, 0.022f), new Vector2(0.262f, 0.162f), () => SelectWeapon("AssaultRifle"));
-            CreateTransparentButton("Btn_Weapon_Shotgun",      artContainer.transform, new Vector2(0.263f, 0.022f), new Vector2(0.507f, 0.162f), () => SelectWeapon("Shotgun"));
-            CreateTransparentButton("Btn_Weapon_Sniper",       artContainer.transform, new Vector2(0.508f, 0.022f), new Vector2(0.752f, 0.162f), () => SelectWeapon("Sniper"));
-            CreateTransparentButton("Btn_Weapon_Minigun",      artContainer.transform, new Vector2(0.753f, 0.022f), new Vector2(0.982f, 0.162f), () => SelectWeapon("Minigun"));
+                TextMeshProUGUI nm = CreateText("Name", cRt, WeaponDisplayName(key), 28f, Color.white, TextAlignmentOptions.Center, true);
+                ShopPlaceTopLeft(nm.rectTransform, 10f, 182f, cw - 20f, 56f);
+                nm.textWrappingMode = TextWrappingModes.NoWrap;
+                nm.enableAutoSizing = true;
+                nm.fontSizeMin = 18f;
+                nm.fontSizeMax = 28f;
+                StyleShopTmp(nm, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, false);
+            }
 
             UpdateWeaponsScreenVisuals();
         }
@@ -4862,18 +4524,23 @@ namespace MobControl.UI
             // 1. Update Title
             if (weaponTitleText != null)
             {
-                weaponTitleText.text = currentWeapon.Replace("AssaultRifle", "ASSAULT RIFLE").ToUpper();
+                weaponTitleText.text = WeaponDisplayName(currentWeapon);
             }
 
             // 2. Update Chamber Weapon Display Sprite
             if (weaponChamberImg != null)
             {
-                weaponChamberImg.sprite = LoadWeaponSprite(currentWeapon);
+                weaponChamberImg.sprite = LoadWeaponSpriteHD(currentWeapon);
             }
 
             // 3. Update Bottom Selection Highlight Border
             int wepIdx = System.Array.IndexOf(s_weaponKeys, currentWeapon);
             if (wepIdx < 0) wepIdx = 0;
+
+            foreach (var kvp in weaponCardSelectedOverlays)
+            {
+                if (kvp.Value != null) kvp.Value.SetActive(kvp.Key == currentWeapon);
+            }
 
             if (weaponCardSelectionHighlightRt != null)
             {
@@ -4911,12 +4578,19 @@ namespace MobControl.UI
                 }
                 if (weaponStatValTexts[i] != null)
                 {
-                    weaponStatValTexts[i].text = lvl >= 10 ? "MAX (LV. 10)" : $"LV. {lvl} / 10";
+                    weaponStatValTexts[i].text = lvl >= 10 ? "MAX" : $"LV. {lvl} / 10";
                 }
                 if (weaponStatCostTexts[i] != null)
                 {
-                    weaponStatCostTexts[i].text = lvl >= 10 ? "MAX" : $"{100 * lvl}";
+                    weaponStatCostTexts[i].text = lvl >= 10 ? "MAX" : $"{100 * lvl:N0}";
                 }
+                if (weaponStatCostIcons[i] != null) weaponStatCostIcons[i].gameObject.SetActive(lvl < 10);
+                if (weaponStatCostIcons[i] != null)
+                {
+                    Transform upIcon = weaponStatCostIcons[i].transform.parent.Find("UpIcon");
+                    if (upIcon != null) upIcon.gameObject.SetActive(lvl < 10);
+                }
+                if (weaponStatUpgradeBgs[i] != null) SetMenuSprite(weaponStatUpgradeBgs[i], lvl >= 10 ? "Menu_Btn_Grey" : "Menu_Btn_Green");
             }
             if (weaponLevelText != null) weaponLevelText.text = $"LV. {wepTotalLvl}";
         }
@@ -5013,181 +4687,410 @@ namespace MobControl.UI
             return null;
         }
 
+        // ===================== RESPONSIVE HD SHOP SCREEN =====================
+        // Fully modular layout (no baked full-screen artwork):
+        //  - SafeArea aware header (back, title, live coin/diamond pills)
+        //  - Fixed 1000x1490 design root, uniformly scaled to fit every aspect ratio
+        //  - HD sprites from Resources/UI/ShopHD (uncompressed, clean alpha)
+        private const string ShopHDPath = "UI/ShopHD/";
+        private const string MenuHDPath = "UI/MenuHD/";
+        private static readonly Vector2 ShopDesignSize = new Vector2(1000f, 1490f);
+
+        private static RectTransform NewShopRect(string name, Transform parent)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return go.GetComponent<RectTransform>();
+        }
+
+        private static void ShopStretch(RectTransform rt, float left = 0f, float bottom = 0f, float right = 0f, float top = 0f)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.offsetMin = new Vector2(left, bottom);
+            rt.offsetMax = new Vector2(-right, -top);
+        }
+
+        // Places a rect inside its parent using top-left design coordinates.
+        // Uses a centre pivot: Unity aligns preserveAspect images to the pivot, so this keeps art centred in its box.
+        private static void ShopPlaceTopLeft(RectTransform rt, float x, float y, float w, float h)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(x + w * 0.5f, -(y + h * 0.5f));
+            rt.sizeDelta = new Vector2(w, h);
+        }
+
+        // Bottom-centre pivot: preserveAspect art (heroes) sits horizontally centred with its feet on the box bottom.
+        private static void ShopPlaceBottomCenter(RectTransform rt, float x, float y, float w, float h)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(x + w * 0.5f, -(y + h));
+            rt.sizeDelta = new Vector2(w, h);
+        }
+
+        private Image NewShopImage(string name, Transform parent, string spriteName, bool preserveAspect = true, bool raycast = false)
+        {
+            RectTransform rt = NewShopRect(name, parent);
+            Image img = rt.gameObject.AddComponent<Image>();
+            Sprite sp = LoadSpriteFromUI(ShopHDPath + spriteName);
+            if (sp != null) img.sprite = sp;
+            img.preserveAspect = preserveAspect;
+            img.raycastTarget = raycast;
+            return img;
+        }
+
+        // The project's "Fredoka-Bold.ttf" is actually a variable font that defaults to the Light (300) weight,
+        // which is why text looked thin. The shop uses a true static Bold instance (Resources/Fonts/ShopHD).
+        private static TMP_FontAsset s_shopBoldFont;
+        private static bool s_shopBoldFontTried;
+
+        private static TMP_FontAsset GetShopBoldFont()
+        {
+            if (s_shopBoldFont != null || s_shopBoldFontTried) return s_shopBoldFont;
+            s_shopBoldFontTried = true;
+            try
+            {
+                Font f = Resources.Load<Font>("Fonts/ShopHD/Fredoka-BoldStatic");
+                if (f != null)
+                {
+                    s_shopBoldFont = TMP_FontAsset.CreateFontAsset(f, 72, 10,
+                        UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA, 1024, 1024);
+                    if (s_shopBoldFont != null) s_shopBoldFont.name = "Fredoka-BoldStatic SDF (Runtime)";
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("[ZombieRunnerUIManager] Shop bold font: " + ex.Message);
+            }
+            return s_shopBoldFont;
+        }
+
+        private static void StyleShopTmp(TextMeshProUGUI t, Color outline, float outlineWidth, bool dropShadow)
+        {
+            if (t == null) return;
+            TMP_FontAsset bold = GetShopBoldFont();
+            if (bold != null)
+            {
+                t.font = bold;
+                t.fontStyle = FontStyles.Normal; // real Bold glyphs, no faux-bold smearing
+            }
+            t.outlineColor = outline;
+            t.outlineWidth = outlineWidth;
+            if (dropShadow)
+            {
+                Material m = t.fontMaterial;
+                m.EnableKeyword(ShaderUtilities.Keyword_Underlay);
+                m.SetColor(ShaderUtilities.ID_UnderlayColor, new Color(0f, 0.02f, 0.10f, 0.65f));
+                m.SetFloat(ShaderUtilities.ID_UnderlayOffsetX, 0.35f);
+                m.SetFloat(ShaderUtilities.ID_UnderlayOffsetY, -0.65f);
+                m.SetFloat(ShaderUtilities.ID_UnderlaySoftness, 0.15f);
+            }
+        }
+
+        // Press feedback that always returns to scale 1 (safe against rapid double taps).
+        private IEnumerator ShopPress(Transform tr, System.Action onComplete)
+        {
+            const float duration = 0.14f;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float s = 1f - 0.07f * Mathf.Sin(Mathf.Clamp01(t / duration) * Mathf.PI);
+                if (tr != null) tr.localScale = new Vector3(s, s, 1f);
+                yield return null;
+            }
+            if (tr != null) tr.localScale = Vector3.one;
+            onComplete?.Invoke();
+        }
+
         private void BuildZombieSquadShopScreenPanel(Transform canvasRoot)
         {
             if (shopPanel != null) SafeDestroy(shopPanel);
             Transform oldShop = canvasRoot.Find("ZombieSquadShopPanel");
             if (oldShop != null) SafeDestroy(oldShop.gameObject);
+            shopCheckoutModalObj = null; // modal lives inside the panel -> always rebuild it with the panel
 
             shopPanel = CreateFullPanel("ZombieSquadShopPanel", canvasRoot, new Color(0.01f, 0.03f, 0.08f, 1f));
 
-            // 1. Ambient Scenery Cover (100% full screen night battlefield cover, ZERO daytime sky bleed, ZERO gaps)
-            Sprite nightScenerySprite = LoadSpriteFromUI("UI/Scenery_NightBattlefield_Clean");
+            // 1. Full-screen night battlefield cover (envelope, never stretched) + soft dim for focus
+            Sprite nightScenerySprite = LoadSpriteFromUI(MenuHDPath + "Menu_Scenery_Night", "UI/Scenery_NightBattlefield_Clean");
             SetupAmbientSceneryCover(shopPanel, nightScenerySprite, 1080f / 1920f);
 
-            // 2. Master Responsive ArtContainer (Bottom-anchored: 100% flush with bottom edge, ZERO floating gap)
-            Sprite shopMasterSprite = LoadSpriteFromUI(
-                "UI/ZombieSquad_ShopScreen_Master_HD",
-                "UI/ZombieSquad_ShopScreen"
-            );
+            RectTransform dimRt = NewShopRect("BackdropDim", shopPanel.transform);
+            ShopStretch(dimRt);
+            Image dimImg = dimRt.gameObject.AddComponent<Image>();
+            dimImg.color = new Color(0.01f, 0.02f, 0.07f, 0.30f);
+            dimImg.raycastTarget = false;
+            shopScreenBgImage = dimImg;
 
-            GameObject artContainer = new GameObject("ArtContainer");
-            artContainer.transform.SetParent(shopPanel.transform, false);
-            RectTransform artRt = artContainer.AddComponent<RectTransform>();
-            artRt.anchorMin = new Vector2(0.5f, 0f);
-            artRt.anchorMax = new Vector2(0.5f, 0f);
-            artRt.pivot = new Vector2(0.5f, 0f);
-            artRt.anchoredPosition = Vector2.zero;
-            artRt.sizeDelta = new Vector2(1080f, 1920f);
+            // 2. Safe area root (notch / punch-hole safe)
+            RectTransform safeRt = NewShopRect("SafeArea", shopPanel.transform);
+            ShopStretch(safeRt);
+            safeRt.gameObject.AddComponent<ShopSafeArea>();
 
-            // Artwork Image (Pristine 1080x1920 HD Master Artwork with uncompressed art, complete glowing chests & round coins)
-            GameObject artImgObj = new GameObject("ArtworkImage");
-            artImgObj.transform.SetParent(artContainer.transform, false);
-            RectTransform miRt = artImgObj.AddComponent<RectTransform>();
-            miRt.anchorMin = Vector2.zero;
-            miRt.anchorMax = Vector2.one;
-            miRt.offsetMin = Vector2.zero;
-            miRt.offsetMax = Vector2.zero;
+            // 3. Header
+            BuildShopHeader(safeRt);
 
-            Image shopImg = artImgObj.AddComponent<Image>();
-            if (shopMasterSprite != null) shopImg.sprite = shopMasterSprite;
-            shopImg.raycastTarget = false;
-            shopImg.preserveAspect = false;
-            shopScreenBgImage = shopImg;
+            // 4. Body: fixed design root scaled uniformly to fit the remaining space
+            RectTransform bodyRt = NewShopRect("Body", safeRt);
+            ShopStretch(bodyRt, 24f, 28f, 24f, 160f);
 
-            shopCoinsContainer = artContainer; // Cache for health check
+            RectTransform rootRt = NewShopRect("ShopContent", bodyRt);
+            ShopResponsiveFitter fitter = rootRt.gameObject.AddComponent<ShopResponsiveFitter>();
+            fitter.designSize = ShopDesignSize;
+            fitter.maxScale = 1.25f;
+            fitter.Apply(true);
 
-            // 3. Interactive Navigation
-            // Top Back Button (Click target directly over the visible [<-] Back button)
-            GameObject backBtnObj = new GameObject("Btn_Back");
-            backBtnObj.transform.SetParent(artContainer.transform, false);
-            RectTransform bRt = backBtnObj.AddComponent<RectTransform>();
-            bRt.anchorMin = new Vector2(0.120f, 0.760f);
-            bRt.anchorMax = new Vector2(0.250f, 0.830f);
-            bRt.offsetMin = Vector2.zero;
-            bRt.offsetMax = Vector2.zero;
-            shopBackBtnRect = bRt;
+            const float panelTop = 120f;
+            const float panelHeight = 1370f;
 
-            Image bImg = backBtnObj.AddComponent<Image>();
-            bImg.color = new Color(1f, 1f, 1f, 0.001f);
-            bImg.raycastTarget = true;
-            Button bBtn = backBtnObj.AddComponent<Button>();
-            bBtn.targetGraphic = bImg;
-            bBtn.onClick.AddListener(() =>
-            {
-                StartCoroutine(PunchScale(backBtnObj.transform, 0.10f, () => ShowZombieSquadHomeScreen()));
-            });
+            // Soldier mascot sits *behind* the panel so its cut-off base is hidden by the frame
+            Image soldierImg = NewShopImage("HeaderSoldier", rootRt, "Shop_Soldier");
+            ShopPlaceTopLeft(soldierImg.rectTransform, 160f, panelTop - 135f, 230f, 157f);
 
-            // Currency Plus Buttons
-            CreateTransparentTouchButton(artContainer.transform, "Btn_Plus_Coins",
-                new Vector2(0.600f, 0.775f), new Vector2(0.665f, 0.815f), () => OpenShopCheckoutModal("1,000 COINS", 80, () => AddPlayerCoins(1000)));
-            CreateTransparentTouchButton(artContainer.transform, "Btn_Plus_Diamonds",
-                new Vector2(0.775f, 0.775f), new Vector2(0.840f, 0.815f), () => OpenShopCheckoutModal("5,000 COINS", 200, () => AddPlayerCoins(5000)));
+            // Main glowing panel (9-sliced, crisp corners at any size)
+            Image panelImg = NewShopImage("ShopPanelFrame", rootRt, "Shop_Panel_Frame", false);
+            panelImg.type = Image.Type.Sliced;
+            panelImg.pixelsPerUnitMultiplier = 1f;
+            ShopPlaceTopLeft(panelImg.rectTransform, 0f, panelTop, ShopDesignSize.x, panelHeight);
 
-            // Dynamic Live Currency Numbers inside header capsules
-            TextMeshProUGUI liveCoinsTmp = CreateText(
-                "LiveCoinsText",
-                artContainer.transform,
-                GetPlayerCoins().ToString("N0"),
-                24f,
-                new Color(1f, 0.95f, 0.40f, 1f),
-                TextAlignmentOptions.Right,
-                true
-            );
-            RectTransform lcRt = liveCoinsTmp.rectTransform;
-            lcRt.anchorMin = new Vector2(0.520f, 0.780f);
-            lcRt.anchorMax = new Vector2(0.605f, 0.815f);
-            lcRt.offsetMin = Vector2.zero;
-            lcRt.offsetMax = Vector2.zero;
-            if (!allCoinsDisplays.Contains(liveCoinsTmp)) allCoinsDisplays.Add(liveCoinsTmp);
+            // Logo overlapping panel top edge
+            Image logoImg = NewShopImage("ZombieSquadLogo", rootRt, "Shop_Logo");
+            ShopPlaceTopLeft(logoImg.rectTransform, 350f, 10f, 380f, 200f);
 
-            TextMeshProUGUI liveDiamondsTmp = CreateText(
-                "LiveDiamondsText",
-                artContainer.transform,
-                GetPlayerDiamonds().ToString("N0"),
-                24f,
-                new Color(0.60f, 0.92f, 1f, 1f),
-                TextAlignmentOptions.Right,
-                true
-            );
-            RectTransform ldRt = liveDiamondsTmp.rectTransform;
-            ldRt.anchorMin = new Vector2(0.700f, 0.780f);
-            ldRt.anchorMax = new Vector2(0.780f, 0.815f);
-            ldRt.offsetMin = Vector2.zero;
-            ldRt.offsetMax = Vector2.zero;
-            if (!allDiamondsDisplays.Contains(liveDiamondsTmp)) allDiamondsDisplays.Add(liveDiamondsTmp);
+            // 5. 2x2 product grid
+            RectTransform gridRt = NewShopRect("CardGrid", rootRt);
+            ShopStretch(gridRt);
+            shopCoinsContainer = gridRt.gameObject; // Cache for health check (Card_1000 lives directly under it)
 
-            // 4. Four Dynamic Product Card Touch Targets & Buy CTAs
-            // Card 1: 1,000 Coins (₹ 80)
-            CreateShopProductTouchArea(artContainer.transform, "Card_1000", "Btn_Buy_1000_Coins",
-                new Vector2(0.115f, 0.485f), new Vector2(0.470f, 0.760f),
-                1000, 80);
+            const string artDir = "UI/ShopDynamic/Zombie_Squad_Dynamic_Shop_Assets/";
+            const float cardW = 420f, cardH = 560f, gapX = 44f, gapY = 40f;
+            float gridLeft = (ShopDesignSize.x - (cardW * 2f + gapX)) * 0.5f;
+            float gridTop = panelTop + 140f;
 
-            // Card 2: 5,000 Coins (₹ 200)
-            CreateShopProductTouchArea(artContainer.transform, "Card_5000", "Btn_Buy_5000_Coins",
-                new Vector2(0.530f, 0.485f), new Vector2(0.885f, 0.760f),
-                5000, 200);
+            CreateShopCard(gridRt, 0, "1000", gridLeft, gridTop, cardW, cardH, 1000, 80, artDir + "10_coin_stack_product_art_clean");
+            CreateShopCard(gridRt, 1, "5000", gridLeft + cardW + gapX, gridTop, cardW, cardH, 5000, 200, artDir + "10_coin_stack_product_art_clean");
+            CreateShopCard(gridRt, 2, "20000", gridLeft, gridTop + cardH + gapY, cardW, cardH, 20000, 1000, artDir + "11_treasure_chest_product_art_clean");
+            CreateShopCard(gridRt, 3, "50000", gridLeft + cardW + gapX, gridTop + cardH + gapY, cardW, cardH, 50000, 2000, artDir + "12_large_treasure_chest_product_art_clean");
 
-            // Card 3: 20,000 Coins (₹ 1,000)
-            CreateShopProductTouchArea(artContainer.transform, "Card_20000", "Btn_Buy_20000_Coins",
-                new Vector2(0.115f, 0.200f), new Vector2(0.470f, 0.480f),
-                20000, 1000);
-
-            // Card 4: 50,000 Coins (₹ 2,000)
-            CreateShopProductTouchArea(artContainer.transform, "Card_50000", "Btn_Buy_50000_Coins",
-                new Vector2(0.530f, 0.200f), new Vector2(0.885f, 0.480f),
-                50000, 2000);
-
-            // 5. Checkout Modal
+            // 6. Checkout modal (scaled up so it reads well on 1080p canvases)
             BuildShopCheckoutModal(shopPanel.transform);
+            if (shopCheckoutDialogRt != null) shopCheckoutDialogRt.localScale = new Vector3(2.2f, 2.2f, 1f);
         }
 
-        private GameObject CreateShopProductTouchArea(
-            Transform parent,
-            string cardName,
-            string buttonName,
-            Vector2 cardAnchorMin,
-            Vector2 cardAnchorMax,
-            int coinsAmount,
-            int inrPrice)
+        private void BuildShopHeader(RectTransform parent)
         {
-            // Container representing Card (satisfies Find("Card_1000"))
-            GameObject cardObj = new GameObject(cardName);
-            cardObj.transform.SetParent(parent, false);
-            RectTransform cRt = cardObj.AddComponent<RectTransform>();
-            cRt.anchorMin = cardAnchorMin;
-            cRt.anchorMax = cardAnchorMax;
-            cRt.offsetMin = Vector2.zero;
-            cRt.offsetMax = Vector2.zero;
+            shopBackBtnRect = BuildHDHeader(parent, "SHOP", () => ShowZombieSquadHomeScreen(),
+                () => OpenShopCheckoutModal("1,000 COINS", 80, () => AddPlayerCoins(1000)),
+                () => OpenShopCheckoutModal("5,000 COINS", 200, () => AddPlayerCoins(5000)));
+        }
 
-            // Clickable Buy Button directly under parent (satisfies Find("Btn_Buy_1000_Coins"))
-            GameObject btnObj = new GameObject(buttonName);
-            btnObj.transform.SetParent(parent, false);
-            RectTransform bRt = btnObj.AddComponent<RectTransform>();
-            bRt.anchorMin = cardAnchorMin;
-            bRt.anchorMax = cardAnchorMax;
-            bRt.offsetMin = Vector2.zero;
-            bRt.offsetMax = Vector2.zero;
+        // Shared HD header: back button, bold title, live coin + diamond pills. Returns the back button rect.
+        private RectTransform BuildHDHeader(RectTransform parent, string titleStr, System.Action onBack, System.Action onCoinPlus, System.Action onDiamondPlus)
+        {
+            RectTransform headerRt = NewShopRect("HDHeader", parent);
+            headerRt.anchorMin = new Vector2(0f, 1f);
+            headerRt.anchorMax = new Vector2(1f, 1f);
+            headerRt.pivot = new Vector2(0.5f, 1f);
+            headerRt.anchoredPosition = new Vector2(0f, -12f);
+            headerRt.sizeDelta = new Vector2(0f, 140f);
 
-            Image btnImg = btnObj.AddComponent<Image>();
-            btnImg.color = new Color(1f, 1f, 1f, 0.001f); // Invisible touch target over the pre-rendered 3D button
-            btnImg.raycastTarget = true;
+            Image backImg = NewShopImage("Btn_Back", headerRt, "Shop_BackButton", true, true);
+            RectTransform bRt = backImg.rectTransform;
+            bRt.anchorMin = bRt.anchorMax = new Vector2(0f, 0.5f);
+            bRt.pivot = new Vector2(0f, 0.5f);
+            bRt.anchoredPosition = new Vector2(30f, 0f);
+            bRt.sizeDelta = new Vector2(108f, 110f);
+            Button backBtn = backImg.gameObject.AddComponent<Button>();
+            backBtn.targetGraphic = backImg;
+            backBtn.transition = Selectable.Transition.None;
+            backBtn.onClick.AddListener(() => StartCoroutine(ShopPress(bRt, onBack)));
 
-            Button btn = btnObj.AddComponent<Button>();
-            btn.targetGraphic = btnImg;
-            btn.onClick.AddListener(() =>
+            TextMeshProUGUI title = CreateText("Title_" + titleStr, headerRt, titleStr, 58f, Color.white, TextAlignmentOptions.Left, true);
+            // Title stretches between the back button and the currency pills, auto-shrinking so it never overlaps them
+            RectTransform tRt = title.rectTransform;
+            tRt.anchorMin = new Vector2(0f, 0.5f);
+            tRt.anchorMax = new Vector2(1f, 0.5f);
+            tRt.pivot = new Vector2(0f, 0.5f);
+            tRt.offsetMin = new Vector2(156f, -43f);
+            tRt.offsetMax = new Vector2(-(26f + 250f + 22f + 250f + 34f), 47f);
+            title.enableAutoSizing = true;
+            title.fontSizeMin = 34f;
+            title.fontSizeMax = 58f;
+            title.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(title, new Color(0.02f, 0.08f, 0.32f, 1f), 0.22f, true);
+
+            const float pillW = 250f, pillH = 84f, pillGap = 22f;
+            CreateShopCurrencyPill(headerRt, "CoinPill", "Shop_CoinIcon", 86f, -(26f + pillW + pillGap), pillW, pillH,
+                GetPlayerCoins().ToString("N0"), new Color(1f, 0.92f, 0.38f, 1f), allCoinsDisplays, onCoinPlus);
+            CreateShopCurrencyPill(headerRt, "DiamondPill", "Shop_DiamondIcon", 76f, -26f, pillW, pillH,
+                GetPlayerDiamonds().ToString("N0"), new Color(0.62f, 0.92f, 1f, 1f), allDiamondsDisplays, onDiamondPlus);
+            return bRt;
+        }
+
+        // Shared HD screen scaffold: night cover + dim + safe area + header + uniformly scaled design root.
+        private RectTransform BuildHDScreenScaffold(GameObject panel, string titleStr, System.Action onBack, out RectTransform backRt)
+        {
+            SetupAmbientSceneryCover(panel, LoadSpriteFromUI(MenuHDPath + "Menu_Scenery_Night", "UI/Scenery_NightBattlefield_Clean"), 1080f / 1920f);
+
+            RectTransform dimRt = NewShopRect("BackdropDim", panel.transform);
+            ShopStretch(dimRt);
+            Image dimImg = dimRt.gameObject.AddComponent<Image>();
+            dimImg.color = new Color(0.01f, 0.02f, 0.07f, 0.34f);
+            dimImg.raycastTarget = false;
+
+            RectTransform safeRt = NewShopRect("SafeArea", panel.transform);
+            ShopStretch(safeRt);
+            safeRt.gameObject.AddComponent<ShopSafeArea>();
+
+            backRt = BuildHDHeader(safeRt, titleStr, onBack,
+                () => ShowZombieSquadShopScreen(),
+                () => ShowZombieSquadShopScreen());
+
+            RectTransform bodyRt = NewShopRect("Body", safeRt);
+            ShopStretch(bodyRt, 24f, 28f, 24f, 160f);
+
+            RectTransform rootRt = NewShopRect("Content", bodyRt);
+            ShopResponsiveFitter fitter = rootRt.gameObject.AddComponent<ShopResponsiveFitter>();
+            fitter.designSize = ShopDesignSize;
+            fitter.maxScale = 1.25f;
+            fitter.Apply(true);
+            return rootRt;
+        }
+
+        private Image NewMenuImage(string name, Transform parent, string spriteName, bool preserveAspect = true, bool raycast = false)
+        {
+            RectTransform rt = NewShopRect(name, parent);
+            Image img = rt.gameObject.AddComponent<Image>();
+            Sprite sp = LoadSpriteFromUI(MenuHDPath + spriteName);
+            if (sp != null) img.sprite = sp;
+            img.preserveAspect = preserveAspect;
+            img.raycastTarget = raycast;
+            return img;
+        }
+
+        private void SetMenuSprite(Image img, string spriteName)
+        {
+            if (img == null) return;
+            Sprite sp = LoadSpriteFromUI(MenuHDPath + spriteName, ShopHDPath + spriteName);
+            if (sp != null) img.sprite = sp;
+        }
+
+        private void CreateShopCurrencyPill(
+            RectTransform parent, string name, string iconSprite, float iconSize,
+            float rightX, float w, float h, string value, Color valueColor,
+            List<TextMeshProUGUI> registerList, System.Action onPlus)
+        {
+            Image pillImg = NewShopImage(name, parent, "Shop_Currency_Pill", false);
+            RectTransform pRt = pillImg.rectTransform;
+            pRt.anchorMin = pRt.anchorMax = new Vector2(1f, 0.5f);
+            pRt.pivot = new Vector2(1f, 0.5f);
+            pRt.anchoredPosition = new Vector2(rightX, 0f);
+            pRt.sizeDelta = new Vector2(w, h);
+
+            Image icon = NewShopImage("Icon", pRt, iconSprite);
+            RectTransform iRt = icon.rectTransform;
+            iRt.anchorMin = iRt.anchorMax = new Vector2(0f, 0.5f);
+            iRt.pivot = new Vector2(0.5f, 0.5f);
+            iRt.anchoredPosition = new Vector2(24f, 0f);
+            iRt.sizeDelta = new Vector2(iconSize, iconSize);
+
+            TextMeshProUGUI val = CreateText("ValueText", pRt, value, 38f, valueColor, TextAlignmentOptions.Center, true);
+            val.enableAutoSizing = true;
+            val.fontSizeMin = 22f;
+            val.fontSizeMax = 40f;
+            val.textWrappingMode = TextWrappingModes.NoWrap;
+            val.rectTransform.offsetMin = new Vector2(72f, 6f);
+            val.rectTransform.offsetMax = new Vector2(-72f, -6f);
+            StyleShopTmp(val, new Color(0.01f, 0.04f, 0.16f, 1f), 0.2f, false);
+            if (registerList != null && !registerList.Contains(val)) registerList.Add(val);
+
+            Image plus = NewShopImage("Btn_Plus", pRt, "Shop_PlusIcon", true, true);
+            RectTransform plRt = plus.rectTransform;
+            plRt.anchorMin = plRt.anchorMax = new Vector2(1f, 0.5f);
+            plRt.pivot = new Vector2(1f, 0.5f);
+            plRt.anchoredPosition = new Vector2(-10f, 0f);
+            plRt.sizeDelta = new Vector2(62f, 64f);
+            Button plusBtn = plus.gameObject.AddComponent<Button>();
+            plusBtn.targetGraphic = plus;
+            plusBtn.transition = Selectable.Transition.None;
+            plusBtn.onClick.AddListener(() => StartCoroutine(ShopPress(plRt, onPlus)));
+        }
+
+        private void CreateShopCard(
+            RectTransform parent, int index, string key,
+            float x, float y, float w, float h,
+            int coinsAmount, int inrPrice, string artPath)
+        {
+            System.Action buy = () => OpenShopCheckoutModal($"{coinsAmount:N0} COINS", inrPrice, () =>
             {
-                StartCoroutine(PunchScale(cardObj.transform, 0.12f, () =>
-                {
-                    OpenShopCheckoutModal($"{coinsAmount:N0} COINS", inrPrice, () =>
-                    {
-                        AddPlayerCoins(coinsAmount);
-                        ShowMultiplierPop($"🎉 +{coinsAmount:N0} COINS!");
-                    });
-                }));
+                AddPlayerCoins(coinsAmount);
+                ShowMultiplierPop($"🎉 +{coinsAmount:N0} COINS!");
             });
 
-            return cardObj;
+            // Card frame (2x HD art, drawn at exact aspect -> no stretching)
+            Image cardImg = NewShopImage("Card_" + key, parent, "Shop_Card_Frame", false, true);
+            RectTransform cRt = cardImg.rectTransform;
+            ShopPlaceTopLeft(cRt, x, y, w, h);
+            // Scale around the card centre for press feedback
+            cRt.pivot = new Vector2(0.5f, 0.5f);
+            cRt.anchoredPosition = new Vector2(x + w * 0.5f, -(y + h * 0.5f));
+
+            Button cardBtn = cardImg.gameObject.AddComponent<Button>();
+            cardBtn.targetGraphic = cardImg;
+            cardBtn.transition = Selectable.Transition.None;
+            cardBtn.onClick.AddListener(() => StartCoroutine(ShopPress(cRt, buy)));
+
+            // Quantity label
+            TextMeshProUGUI qty = CreateText("QuantityLabel", cRt, coinsAmount.ToString("N0"), 54f, Color.white, TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(qty.rectTransform, 20f, 28f, w - 40f, 80f);
+            qty.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(qty, new Color(0.02f, 0.07f, 0.30f, 1f), 0.24f, true);
+
+            // Product art
+            RectTransform artRt = NewShopRect("ProductArt", cRt);
+            ShopPlaceTopLeft(artRt, 25f, 108f, w - 50f, 290f);
+            Image artImg = artRt.gameObject.AddComponent<Image>();
+            Sprite artSp = LoadSpriteFromUI(artPath);
+            if (artSp != null) artImg.sprite = artSp;
+            artImg.preserveAspect = true;
+            artImg.raycastTarget = false;
+
+            // Green buy button
+            Image btnImg = NewShopImage("Btn_Buy_" + key + "_Coins", cRt, "Shop_Buy_Button", false, true);
+            RectTransform bRt = btnImg.rectTransform;
+            ShopPlaceTopLeft(bRt, 30f, h - 34f - 100f, w - 60f, 100f);
+            bRt.pivot = new Vector2(0.5f, 0.5f);
+            bRt.anchoredPosition = new Vector2(w * 0.5f, -(h - 34f - 50f));
+            Button buyBtn = btnImg.gameObject.AddComponent<Button>();
+            buyBtn.targetGraphic = btnImg;
+            buyBtn.transition = Selectable.Transition.None;
+            buyBtn.onClick.AddListener(() => StartCoroutine(ShopPress(bRt, buy)));
+
+            // Price row: [₹ icon][price] centred on the button face (face is the top ~80% of the art)
+            RectTransform rowRt = NewShopRect("PriceRow", bRt);
+            ShopStretch(rowRt, 10f, 16f, 10f, 0f);
+            HorizontalLayoutGroup hlg = rowRt.gameObject.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 10f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            Image rupee = NewShopImage("RupeeIcon", rowRt, "Shop_Rupee");
+            LayoutElement rle = rupee.gameObject.AddComponent<LayoutElement>();
+            rle.preferredWidth = 34f;
+            rle.preferredHeight = 43f;
+
+            TextMeshProUGUI price = CreateText("PriceText", rowRt, inrPrice.ToString("N0"), 48f, Color.white, TextAlignmentOptions.Center, true);
+            price.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(price, new Color(0.05f, 0.30f, 0.09f, 1f), 0.26f, false);
+            LayoutElement ple = price.gameObject.AddComponent<LayoutElement>();
+            ple.preferredHeight = 60f;
         }
 
         private GameObject CreateTransparentTouchButton(
@@ -5807,165 +5710,295 @@ namespace MobControl.UI
             return null;
         }
 
+        // ===================== RESPONSIVE HD DAILY SCREEN =====================
+        private static readonly int[] s_dailyAmounts = { 10, 20, 30, 40, 50, 60, 100 };
+        private readonly Image[] dailyDayFrames = new Image[7];
+        private readonly GameObject[] dailyDayTodayGlows = new GameObject[7];
+        private readonly GameObject[] dailyDayClaimedBadges = new GameObject[7];
+        private readonly Image[] dailyDayArts = new Image[7];
+        private Image dailyClaimBtnIcon;
+
         private void BuildZombieSquadDailyScreenPanel(Transform canvasRoot)
         {
-            dailyPanel = CreateFullPanel("ZombieSquadDailyPanel", canvasRoot, new Color(0.04f, 0.06f, 0.10f, 1f));
+            Transform oldDaily = canvasRoot.Find("ZombieSquadDailyPanel");
+            if (oldDaily != null && (dailyPanel == null || oldDaily.gameObject != dailyPanel)) SafeDestroy(oldDaily.gameObject);
+            if (dailyPanel != null) SafeDestroy(dailyPanel);
 
-            Sprite dailySprite = LoadZombieSquadDailyScreenSprite();
-            float dailyAspect = (dailySprite != null && dailySprite.rect.height > 0)
-                ? (dailySprite.rect.width / dailySprite.rect.height)
-                : (576f / 1024f);
+            dailyPanel = CreateFullPanel("ZombieSquadDailyPanel", canvasRoot, new Color(0.01f, 0.03f, 0.08f, 1f));
+            RectTransform root = BuildHDScreenScaffold(dailyPanel, "DAILY", () => ShowZombieSquadHomeScreen(), out RectTransform _);
 
-            // Ambient Scenery Cover (EnvelopeParent fills 100% of any tall/wide mobile display - zero black bars!)
-            SetupAmbientSceneryCover(dailyPanel, dailySprite, 576f / 1024f);
+            // 1. Hero on glowing pedestal
+            Image ped = NewShopRect("GlowPedestal", root).gameObject.AddComponent<Image>();
+            Sprite pedSp = LoadSpriteFromUI("UI/CharactersDynamic/14_glow_platform_clean", "UI/CharactersDynamic/14_glow_platform");
+            if (pedSp != null) ped.sprite = pedSp;
+            ped.preserveAspect = true;
+            ped.raycastTarget = false;
+            ShopPlaceTopLeft(ped.rectTransform, 260f, 380f, 480f, 135f);
 
-            // Master Responsive ArtContainer (FitInParent: ZERO horizontal crop, ZERO stretch)
-            GameObject artContainer = new GameObject("ArtContainer");
-            artContainer.transform.SetParent(dailyPanel.transform, false);
-            RectTransform artRt = artContainer.AddComponent<RectTransform>();
-            artRt.anchorMin = Vector2.zero; artRt.anchorMax = Vector2.one;
-            artRt.offsetMin = Vector2.zero; artRt.offsetMax = Vector2.zero;
+            string heroKey = PlayerPrefs.GetString("ZombieSquad_SelectedHero", "Soldier");
+            Image hero = NewShopRect("DailyHero", root).gameObject.AddComponent<Image>();
+            Sprite heroSp = LoadSpriteFromUI(MenuHDPath + "Menu_Hero_" + heroKey, MenuHDPath + "Menu_Hero_Soldier", "UI/Hero_Soldier_Full");
+            if (heroSp != null) hero.sprite = heroSp;
+            hero.preserveAspect = true;
+            hero.raycastTarget = false;
+            ShopPlaceBottomCenter(hero.rectTransform, 280f, 10f, 440f, 438f);
 
-            AspectRatioFitter dailyArf = artContainer.AddComponent<AspectRatioFitter>();
-            dailyArf.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            dailyArf.aspectRatio = dailyAspect;
+            // 2. Rewards panel
+            const float pY = 560f, pH = 650f;
+            Image panel = NewShopImage("RewardsPanel", root, "Shop_Panel_Frame", false);
+            panel.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(panel.rectTransform, 30f, pY, 940f, pH);
 
-            GameObject dailyImgObj = new GameObject("ArtworkImage");
-            dailyImgObj.transform.SetParent(artContainer.transform, false);
-            RectTransform diRt = dailyImgObj.AddComponent<RectTransform>();
-            diRt.anchorMin = Vector2.zero; diRt.anchorMax = Vector2.one;
-            diRt.offsetMin = Vector2.zero; diRt.offsetMax = Vector2.zero;
-            Image dailyImg = dailyImgObj.AddComponent<Image>();
-            if (dailySprite != null) dailyImg.sprite = dailySprite;
-            dailyImg.raycastTarget = true; dailyImg.preserveAspect = false;
+            Image banner = NewMenuImage("RewardsBanner", root, "Menu_Banner", false);
+            banner.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(banner.rectTransform, 220f, pY - 46f, 560f, 108f);
+            TextMeshProUGUI bTxt = CreateText("Title", banner.rectTransform, "DAILY REWARDS", 50f, Color.white, TextAlignmentOptions.Center, true);
+            bTxt.rectTransform.offsetMin = new Vector2(20f, 8f);
+            bTxt.rectTransform.offsetMax = new Vector2(-20f, -8f);
+            bTxt.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(bTxt, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, true);
 
-            Shadow dailyShadowB = dailyImgObj.AddComponent<Shadow>();
-            dailyShadowB.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            dailyShadowB.effectDistance = new Vector2(0f, -8f);
-
-            Shadow dailyShadowT = dailyImgObj.AddComponent<Shadow>();
-            dailyShadowT.effectColor = new Color(0.005f, 0.015f, 0.05f, 0.85f);
-            dailyShadowT.effectDistance = new Vector2(0f, 8f);
-
-            // Top Header: Back + Currency HUD
-            CreateTopCurrencyHeader(artContainer.transform, "DAILY", () => ShowZombieSquadHomeScreen());
-
-            // 7 Days Columns & Status Overlays
-            int[] dailyAmounts = new int[] { 10, 20, 30, 40, 50, 60, 100 };
-            float[] colStarts = new float[] { 0.020f, 0.155f, 0.292f, 0.429f, 0.566f, 0.703f, 0.840f };
-            float[] colEnds = new float[] { 0.155f, 0.292f, 0.429f, 0.566f, 0.703f, 0.840f, 0.980f };
-
+            // 3. Day cards: 4 on top, then day 5, 6 and a wide day 7
+            const float cw = 200f, ch = 250f, gap = 20f;
+            float rowW = cw * 4f + gap * 3f;
+            float x0 = (ShopDesignSize.x - rowW) * 0.5f;
+            float r1 = pY + 88f, r2 = r1 + ch + gap;
             for (int i = 0; i < 7; i++)
             {
-                int day = i + 1;
-                int rewardCoins = dailyAmounts[i];
-                Vector2 min = new Vector2(colStarts[i], 0.300f);
-                Vector2 max = new Vector2(colEnds[i], 0.530f);
-
-                // Click button for today
-                CreateTransparentButton($"Btn_Day_{day}", artContainer.transform, min, max, () => ClaimDailyReward(day, rewardCoins));
-
-                // Status text at bottom of day card
-                GameObject statusObj = new GameObject($"DayStatus_{day}");
-                statusObj.transform.SetParent(artContainer.transform, false);
-                RectTransform sRt = statusObj.AddComponent<RectTransform>();
-                sRt.anchorMin = new Vector2(colStarts[i], 0.305f);
-                sRt.anchorMax = new Vector2(colEnds[i], 0.355f);
-                sRt.offsetMin = Vector2.zero;
-                sRt.offsetMax = Vector2.zero;
-                dailyDayStatusTexts[i] = CreateText("StatusTxt", statusObj.transform, $"+{rewardCoins}", 17f, new Color(1f, 0.88f, 0.25f, 1f), TextAlignmentOptions.Center, true);
-                dailyDayStatusTexts[i].GetComponent<RectTransform>().sizeDelta = new Vector2(120f, 35f);
+                float x, y, w = cw;
+                if (i < 4) { x = x0 + i * (cw + gap); y = r1; }
+                else if (i < 6) { x = x0 + (i - 4) * (cw + gap); y = r2; }
+                else { x = x0 + 2f * (cw + gap); y = r2; w = cw * 2f + gap; }
+                CreateDailyDayCard(root, i, x, y, w, ch);
             }
 
-            // Big Central Claim Button for today (AAA rounded gradient styling)
-            GameObject claimBtnObj = new GameObject("Btn_ClaimDailyToday");
-            claimBtnObj.transform.SetParent(artContainer.transform, false);
-            RectTransform cbRt = claimBtnObj.AddComponent<RectTransform>();
-            cbRt.anchorMin = new Vector2(0.180f, 0.215f);
-            cbRt.anchorMax = new Vector2(0.820f, 0.280f);
-            cbRt.offsetMin = Vector2.zero;
-            cbRt.offsetMax = Vector2.zero;
-            dailyClaimBtnBg = claimBtnObj.AddComponent<Image>();
-            dailyClaimBtnBg.sprite = CreateRoundedRectSprite(360, 68, 18, new Color(0.12f, 0.78f, 0.35f, 1f), new Color(0.40f, 0.95f, 0.50f, 1f), 3);
-            dailyClaimBtnBg.type = Image.Type.Simple;
-            dailyClaimBtn = claimBtnObj.AddComponent<Button>();
-            dailyClaimBtn.onClick.AddListener(() =>
-            {
-                int currentDay = PlayerPrefs.GetInt("ZombieSquad_DailyCurrentDay", 1);
-                int reward = (currentDay <= 7) ? dailyAmounts[currentDay - 1] : 50;
-                ClaimDailyReward(currentDay, reward);
-            });
-            dailyClaimBtnText = CreateText("ClaimTxt", claimBtnObj.transform, "COLLECT DAILY REWARD", 22f, Color.white, TextAlignmentOptions.Center, true);
-            dailyClaimBtnText.GetComponent<RectTransform>().sizeDelta = new Vector2(400f, 60f);
+            // 4. Claim button
+            dailyClaimBtnBg = NewMenuImage("Btn_ClaimDailyToday", root, "Menu_Btn_Green", false, true);
+            RectTransform cbRt = dailyClaimBtnBg.rectTransform;
+            ShopPlaceTopLeft(cbRt, 200f, pY + pH + 24f, 600f, 134f);
+            cbRt.pivot = new Vector2(0.5f, 0.5f);
+            cbRt.anchoredPosition = new Vector2(500f, -(pY + pH + 24f + 67f));
+            dailyClaimBtn = dailyClaimBtnBg.gameObject.AddComponent<Button>();
+            dailyClaimBtn.targetGraphic = dailyClaimBtnBg;
+            dailyClaimBtn.transition = Selectable.Transition.None;
+            dailyClaimBtn.onClick.AddListener(() => StartCoroutine(ShopPress(cbRt, ClaimTodayDailyReward)));
+            BuildIconLabelRow(cbRt, 54f, 46f, out dailyClaimBtnIcon, out dailyClaimBtnText, 22f);
 
             UpdateDailyScreenVisuals();
         }
 
-        public void ClaimDailyReward(int day, int coinsReward)
+        private void CreateDailyDayCard(RectTransform parent, int i, float x, float y, float w, float h)
         {
-            string prefKey = $"ZombieSquad_DailyClaimed_Day_{day}";
-            if (PlayerPrefs.GetInt(prefKey, 0) == 1)
+            int day = i + 1;
+            Image frame = NewMenuImage("Day_" + day, parent, "Menu_Card_Frame", false, true);
+            RectTransform cRt = frame.rectTransform;
+            ShopPlaceTopLeft(cRt, x, y, w, h);
+            cRt.pivot = new Vector2(0.5f, 0.5f);
+            cRt.anchoredPosition = new Vector2(x + w * 0.5f, -(y + h * 0.5f));
+            dailyDayFrames[i] = frame;
+            Button b = frame.gameObject.AddComponent<Button>();
+            b.targetGraphic = frame;
+            b.transition = Selectable.Transition.None;
+            b.onClick.AddListener(() =>
             {
-                Debug.Log($"[ZombieSquad] Day {day} reward already claimed!");
+                // Only today's reward can be collected from its card
+                DailyState st = GetDailyState();
+                if (st.canClaim && day == st.claimDay) StartCoroutine(ShopPress(cRt, ClaimTodayDailyReward));
+            });
+
+            Image glow = NewMenuImage("TodayGlow", cRt, "Menu_Card_Frame_Gold", false);
+            ShopStretch(glow.rectTransform, -4f, -4f, -4f, -4f);
+            dailyDayTodayGlows[i] = glow.gameObject;
+
+            TextMeshProUGUI dayTxt = CreateText("DayLabel", cRt, "DAY " + day, 36f, Color.white, TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(dayTxt.rectTransform, 10f, 14f, w - 20f, 50f);
+            dayTxt.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(dayTxt, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, false);
+
+            string art = day == 7 ? "Menu_Daily_Chest" : (day <= 2 ? "Menu_Daily_CoinPile" : "Menu_Daily_CoinStack");
+            Image artImg = NewMenuImage("RewardArt", cRt, art);
+            ShopPlaceTopLeft(artImg.rectTransform, 18f, 66f, w - 36f, 116f);
+            dailyDayArts[i] = artImg;
+
+            // Amount (+ optional diamond bonus on day 7)
+            RectTransform amtRow = NewShopRect("AmountRow", cRt);
+            ShopPlaceTopLeft(amtRow, 8f, 186f, w - 16f, 52f);
+            HorizontalLayoutGroup hlg = amtRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 8f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            Image coin = NewShopImage("Coin", amtRow, "Shop_CoinIcon");
+            LayoutElement cle = coin.gameObject.AddComponent<LayoutElement>();
+            cle.preferredWidth = 34f; cle.preferredHeight = 34f;
+            dailyDayStatusTexts[i] = CreateText("Amount", amtRow, "+" + s_dailyAmounts[i], 38f, new Color(1f, 0.92f, 0.38f, 1f), TextAlignmentOptions.Center, true);
+            dailyDayStatusTexts[i].textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(dailyDayStatusTexts[i], new Color(0.25f, 0.10f, 0.0f, 1f), 0.28f, false);
+            dailyDayStatusTexts[i].gameObject.AddComponent<LayoutElement>().preferredHeight = 48f;
+            if (day == 7)
+            {
+                Image gem = NewShopImage("Gem", amtRow, "Shop_DiamondIcon");
+                LayoutElement gle = gem.gameObject.AddComponent<LayoutElement>();
+                gle.preferredWidth = 32f; gle.preferredHeight = 32f;
+                TextMeshProUGUI gTxt = CreateText("GemAmount", amtRow, "+10", 38f, new Color(0.62f, 0.92f, 1f, 1f), TextAlignmentOptions.Center, true);
+                gTxt.textWrappingMode = TextWrappingModes.NoWrap;
+                StyleShopTmp(gTxt, new Color(0.01f, 0.08f, 0.25f, 1f), 0.28f, false);
+                gTxt.gameObject.AddComponent<LayoutElement>().preferredHeight = 48f;
+            }
+
+            Image badge = NewMenuImage("ClaimedBadge", cRt, "Menu_Badge_Check");
+            ShopPlaceTopLeft(badge.rectTransform, (w - 96f) * 0.5f, 76f, 96f, 96f);
+            dailyDayClaimedBadges[i] = badge.gameObject;
+        }
+
+        // ---------------- Daily reward logic (real calendar days) ----------------
+        // Rules:
+        //  * One claim per local calendar day.
+        //  * Claims build a 7-day streak (Day 1..7). After Day 7 the cycle restarts at Day 1.
+        //  * Missing a full day resets the streak to Day 1.
+        //  * Day 7 also grants +10 diamonds.
+        private const string DailyStreakKey = "ZombieSquad_DailyStreak";        // days claimed in current cycle (0..7)
+        private const string DailyLastClaimKey = "ZombieSquad_DailyLastClaim";  // yyyyMMdd of last claim
+        private float dailyCountdownTimer;
+
+        private struct DailyState
+        {
+            public int claimedInCycle;  // how many cards show as claimed (0..7)
+            public bool canClaim;
+            public int claimDay;        // 1..7, the day that is (or will next be) claimable
+        }
+
+        private static System.DateTime? GetDailyLastClaimDate()
+        {
+            string s = PlayerPrefs.GetString(DailyLastClaimKey, "");
+            if (System.DateTime.TryParseExact(s, "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out System.DateTime d))
+                return d.Date;
+            return null;
+        }
+
+        private static DailyState GetDailyState()
+        {
+            int streak = Mathf.Clamp(PlayerPrefs.GetInt(DailyStreakKey, 0), 0, 7);
+            System.DateTime today = System.DateTime.Now.Date;
+            System.DateTime? last = GetDailyLastClaimDate();
+
+            DailyState st = new DailyState();
+            if (last == null)
+            {
+                st.claimedInCycle = 0; st.canClaim = true; st.claimDay = 1;
+            }
+            else if (last.Value >= today)
+            {
+                // Already claimed today (or device clock moved backwards): wait for tomorrow
+                st.claimedInCycle = streak; st.canClaim = false;
+                st.claimDay = streak >= 7 ? 1 : streak + 1;
+            }
+            else if ((today - last.Value).TotalDays <= 1.0)
+            {
+                // Claimed yesterday: continue the streak (restart cycle after day 7)
+                int done = streak >= 7 ? 0 : streak;
+                st.claimedInCycle = done; st.canClaim = true; st.claimDay = done + 1;
+            }
+            else
+            {
+                // Missed a day: streak resets
+                st.claimedInCycle = 0; st.canClaim = true; st.claimDay = 1;
+            }
+            return st;
+        }
+
+        private static string GetDailyTimeUntilReset()
+        {
+            System.TimeSpan left = System.DateTime.Now.Date.AddDays(1) - System.DateTime.Now;
+            if (left.TotalSeconds < 0) left = System.TimeSpan.Zero;
+            return $"{(int)left.TotalHours:00}:{left.Minutes:00}:{left.Seconds:00}";
+        }
+
+        private void ClaimTodayDailyReward()
+        {
+            DailyState st = GetDailyState();
+            if (!st.canClaim)
+            {
+                Debug.Log("[ZombieSquad] Daily reward already claimed today. Next in " + GetDailyTimeUntilReset());
                 return;
             }
 
-            PlayerPrefs.SetInt(prefKey, 1);
-            int nextDay = Mathf.Min(7, day + 1);
-            PlayerPrefs.SetInt("ZombieSquad_DailyCurrentDay", nextDay);
+            int day = st.claimDay;
+            int coins = s_dailyAmounts[day - 1];
+            PlayerPrefs.SetInt(DailyStreakKey, day);
+            PlayerPrefs.SetString(DailyLastClaimKey, System.DateTime.Now.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture));
             PlayerPrefs.Save();
 
-            AddPlayerCoins(coinsReward);
+            AddPlayerCoins(coins);
             if (day == 7) AddPlayerDiamonds(10);
+            UpdateAllCurrencyDisplays();
 
             if (MobControl.Audio.ZombieSoundManager.Instance != null)
-            {
                 MobControl.Audio.ZombieSoundManager.Instance.PlayCoinSpend();
-            }
 
-            Debug.Log($"[ZombieSquad] Claimed Day {day} Reward: +{coinsReward} Coins! New Balance: {GetPlayerCoins()}");
+            ShowMultiplierPop(day == 7 ? $"+{coins} COINS  +10 GEMS" : $"+{coins} COINS");
+            Debug.Log($"[ZombieSquad] Claimed Daily Day {day}: +{coins} coins. Balance: {GetPlayerCoins()}");
+            UpdateDailyScreenVisuals();
+        }
+
+        // Kept for compatibility with older callers: always claims today's reward (if available).
+        public void ClaimDailyReward(int day, int coinsReward)
+        {
+            ClaimTodayDailyReward();
+        }
+
+        public bool IsDailyRewardAvailable()
+        {
+            return GetDailyState().canClaim;
+        }
+
+        // Called from Update(): refresh the "NEXT IN" countdown once per second and roll over at midnight.
+        private void TickDailyCountdown()
+        {
+            if (dailyPanel == null || !dailyPanel.activeInHierarchy) return;
+            dailyCountdownTimer -= Time.unscaledDeltaTime;
+            if (dailyCountdownTimer > 0f) return;
+            dailyCountdownTimer = 1f;
             UpdateDailyScreenVisuals();
         }
 
         public void UpdateDailyScreenVisuals()
         {
-            int currentDay = PlayerPrefs.GetInt("ZombieSquad_DailyCurrentDay", 1);
-            int[] dailyAmounts = new int[] { 10, 20, 30, 40, 50, 60, 100 };
+            DailyState st = GetDailyState();
+            Color dim = new Color(0.55f, 0.60f, 0.72f, 1f);
 
             for (int i = 0; i < 7; i++)
             {
                 int day = i + 1;
-                bool isClaimed = PlayerPrefs.GetInt($"ZombieSquad_DailyClaimed_Day_{day}", 0) == 1;
-                if (dailyDayStatusTexts[i] != null)
-                {
-                    if (isClaimed)
-                    {
-                        dailyDayStatusTexts[i].text = "✓ DONE";
-                        dailyDayStatusTexts[i].color = new Color(0.35f, 1f, 0.5f, 0.95f);
-                    }
-                    else
-                    {
-                        // Clean: Keep blank so artwork's native crisp labels (+10, +20, etc.) are fully visible
-                        dailyDayStatusTexts[i].text = "";
-                    }
-                }
+                bool claimed = day <= st.claimedInCycle;
+                bool isToday = st.canClaim && day == st.claimDay;
+                if (dailyDayFrames[i] != null) dailyDayFrames[i].color = claimed ? dim : Color.white;
+                if (dailyDayArts[i] != null) dailyDayArts[i].color = claimed ? new Color(1f, 1f, 1f, 0.35f) : Color.white;
+                if (dailyDayTodayGlows[i] != null) dailyDayTodayGlows[i].SetActive(isToday);
+                if (dailyDayClaimedBadges[i] != null) dailyDayClaimedBadges[i].SetActive(claimed);
+                if (dailyDayStatusTexts[i] != null) dailyDayStatusTexts[i].text = "+" + s_dailyAmounts[i];
             }
 
-            bool todayClaimed = PlayerPrefs.GetInt($"ZombieSquad_DailyClaimed_Day_{currentDay}", 0) == 1;
-            if (dailyClaimBtnText != null && dailyClaimBtnBg != null)
+            if (dailyClaimBtnText == null || dailyClaimBtnBg == null) return;
+            if (st.canClaim)
             {
-                if (todayClaimed)
-                {
-                    dailyClaimBtnText.text = "✓ ALL REWARDS CLAIMED";
-                    dailyClaimBtnBg.sprite = CreateRoundedRectSprite(360, 68, 18, new Color(0.28f, 0.32f, 0.40f, 1f), new Color(0.40f, 0.45f, 0.55f, 1f), 2);
-                    dailyClaimBtn.interactable = false;
-                }
-                else
-                {
-                    dailyClaimBtnText.text = $"COLLECT DAY {currentDay} (+{dailyAmounts[currentDay - 1]} COINS)";
-                    dailyClaimBtnBg.sprite = CreateRoundedRectSprite(360, 68, 18, new Color(0.12f, 0.78f, 0.35f, 1f), new Color(0.40f, 0.95f, 0.50f, 1f), 3);
-                    dailyClaimBtn.interactable = true;
-                }
+                SetMenuSprite(dailyClaimBtnBg, "Menu_Btn_Green");
+                if (dailyClaimBtnIcon != null) { dailyClaimBtnIcon.gameObject.SetActive(true); SetMenuSprite(dailyClaimBtnIcon, "Shop_CoinIcon"); }
+                dailyClaimBtnText.text = $"COLLECT +{s_dailyAmounts[st.claimDay - 1]}";
+                dailyClaimBtnText.outlineColor = new Color(0.03f, 0.25f, 0.07f, 1f);
+                if (dailyClaimBtn != null) dailyClaimBtn.interactable = true;
+            }
+            else
+            {
+                SetMenuSprite(dailyClaimBtnBg, "Menu_Btn_Grey");
+                if (dailyClaimBtnIcon != null) dailyClaimBtnIcon.gameObject.SetActive(false);
+                dailyClaimBtnText.text = "NEXT IN " + GetDailyTimeUntilReset();
+                dailyClaimBtnText.outlineColor = new Color(0.15f, 0.17f, 0.22f, 1f);
+                if (dailyClaimBtn != null) dailyClaimBtn.interactable = false;
             }
         }
         #endregion
@@ -5984,7 +6017,7 @@ namespace MobControl.UI
             cRt.anchoredPosition = Vector2.zero;
 
             // Game Title
-            TextMeshProUGUI titleText = CreateText("GameTitle", container.transform, "ZOMBIE RUNNER", 54, new Color(0.2f, 0.95f, 0.42f, 1f), TextAlignmentOptions.Center, true);
+            TextMeshProUGUI titleText = CreateText("GameTitle", container.transform, "ZOMBIE RAGE", 54, new Color(0.2f, 0.95f, 0.42f, 1f), TextAlignmentOptions.Center, true);
             RectTransform titleRt = titleText.GetComponent<RectTransform>();
             titleRt.sizeDelta = new Vector2(850, 70);
             titleRt.anchoredPosition = new Vector2(0, 300);
@@ -6114,181 +6147,372 @@ namespace MobControl.UI
             levelGridContainer = grid.transform;
         }
 
+        // ===================== HD GAMEPLAY EXTRAS: HEALTH + PAUSE =====================
+        private bool isGamePaused;
+        public bool IsGamePaused => isGamePaused;
+        private GameObject pauseMenuPanel;
+        private RectTransform pauseDialogRt;
+        private Image pauseMusicBtnImg;
+        private Image pauseSfxBtnImg;
+        private TextMeshProUGUI pauseLevelText;
+        private Image hudHealthFill;
+        private RectTransform hudHeartRt;
+        private int hudLastHealth = -1;
+
+        private RectTransform hudProgressHDFillRt;
+
+        // Clean, safe-area aware top HUD:
+        //   Row 1: [Pause] [LEVEL n]                       [heart | HP bar]
+        //   Row 2: [=========== level progress ===========[flag]] (boss skull)
+        private void BuildHDGameplayExtras(Transform canvasRoot)
+        {
+            RectTransform safe = NewShopRect("HDSafeArea", gameplayHudPanel.transform);
+            ShopStretch(safe);
+            safe.gameObject.AddComponent<ShopSafeArea>();
+
+            RectTransform top = NewShopRect("TopHud", safe);
+            top.anchorMin = new Vector2(0f, 1f);
+            top.anchorMax = new Vector2(1f, 1f);
+            top.pivot = new Vector2(0.5f, 1f);
+            top.anchoredPosition = new Vector2(0f, -18f);
+            top.sizeDelta = new Vector2(-56f, 210f); // 28px side margins
+
+            // ---- Row 1 ----
+            Image pauseImg = NewMenuImage("Btn_Pause", top, "Menu_Btn_Pause", true, true);
+            RectTransform pbRt = pauseImg.rectTransform;
+            pbRt.anchorMin = pbRt.anchorMax = new Vector2(0f, 1f);
+            pbRt.pivot = new Vector2(0.5f, 0.5f);
+            pbRt.anchoredPosition = new Vector2(46f, -46f);
+            pbRt.sizeDelta = new Vector2(92f, 92f);
+            Button pb = pauseImg.gameObject.AddComponent<Button>();
+            pb.targetGraphic = pauseImg;
+            pb.transition = Selectable.Transition.None;
+            pb.onClick.AddListener(() => StartCoroutine(ShopPress(pbRt, PauseGame)));
+
+            Image lvlPill = NewMenuImage("LevelPill", top, "Menu_Hud_Pill", false, true);
+            lvlPill.type = Image.Type.Sliced;
+            RectTransform lpRt = lvlPill.rectTransform;
+            lpRt.anchorMin = lpRt.anchorMax = new Vector2(0f, 1f);
+            lpRt.pivot = new Vector2(0f, 0.5f);
+            lpRt.anchoredPosition = new Vector2(108f, -46f);
+            lpRt.sizeDelta = new Vector2(230f, 78f);
+            Button lpBtn = lvlPill.gameObject.AddComponent<Button>();
+            lpBtn.targetGraphic = lvlPill;
+            lpBtn.transition = Selectable.Transition.None;
+            lpBtn.onClick.AddListener(PauseGame); // tapping the level badge also opens the pause menu
+            hudLevelText = CreateText("LevelText", lpRt, $"LEVEL {activeLevel}", 38f, Color.white, TextAlignmentOptions.Center, true);
+            hudLevelText.rectTransform.offsetMin = new Vector2(12f, 4f);
+            hudLevelText.rectTransform.offsetMax = new Vector2(-12f, -4f);
+            hudLevelText.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(hudLevelText, new Color(0.02f, 0.08f, 0.32f, 1f), 0.22f, false);
+
+            Image hpPill = NewMenuImage("HealthPill", top, "Menu_Hud_Pill", false);
+            hpPill.type = Image.Type.Sliced;
+            RectTransform hpRt = hpPill.rectTransform;
+            hpRt.anchorMin = hpRt.anchorMax = new Vector2(1f, 1f);
+            hpRt.pivot = new Vector2(1f, 0.5f);
+            hpRt.anchoredPosition = new Vector2(0f, -46f);
+            hpRt.sizeDelta = new Vector2(360f, 78f);
+
+            Image hpTrack = NewMenuImage("HealthTrack", hpRt, "Menu_Bar_Track", false);
+            hpTrack.type = Image.Type.Sliced;
+            RectTransform htRt = hpTrack.rectTransform;
+            htRt.anchorMin = new Vector2(0f, 0.5f);
+            htRt.anchorMax = new Vector2(1f, 0.5f);
+            htRt.pivot = new Vector2(0.5f, 0.5f);
+            htRt.offsetMin = new Vector2(78f, -21f);
+            htRt.offsetMax = new Vector2(-16f, 21f);
+            RectTransform hfRt = NewShopRect("Fill", htRt);
+            hfRt.anchorMin = Vector2.zero; hfRt.anchorMax = Vector2.one;
+            hfRt.offsetMin = Vector2.zero; hfRt.offsetMax = Vector2.zero;
+            hudHealthFill = hfRt.gameObject.AddComponent<Image>();
+            Sprite redFill = LoadSpriteFromUI(MenuHDPath + "Menu_Bar_Fill_Red");
+            if (redFill != null) hudHealthFill.sprite = redFill;
+            hudHealthFill.type = Image.Type.Sliced;
+            hudHealthFill.raycastTarget = false;
+            hudHealthText = CreateText("HealthText", htRt, "HP 18 / 18", 26f, Color.white, TextAlignmentOptions.Center, true);
+            hudHealthText.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(hudHealthText, new Color(0.25f, 0.02f, 0.05f, 1f), 0.3f, false);
+
+            Image heart = NewMenuImage("HeartIcon", hpRt, "Menu_Icon_Heart");
+            hudHeartRt = heart.rectTransform;
+            hudHeartRt.anchorMin = hudHeartRt.anchorMax = new Vector2(0f, 0.5f);
+            hudHeartRt.pivot = new Vector2(0.5f, 0.5f);
+            hudHeartRt.anchoredPosition = new Vector2(42f, 2f);
+            hudHeartRt.sizeDelta = new Vector2(82f, 76f);
+
+            // ---- Row 2: level progress ----
+            Image track = NewMenuImage("HordeProgressBarTrack", top, "Menu_Bar_Track", false);
+            track.type = Image.Type.Sliced;
+            RectTransform tRt = track.rectTransform;
+            tRt.anchorMin = new Vector2(0f, 1f);
+            tRt.anchorMax = new Vector2(1f, 1f);
+            tRt.pivot = new Vector2(0.5f, 0.5f);
+            tRt.anchoredPosition = new Vector2(-40f, -140f);
+            tRt.sizeDelta = new Vector2(-100f, 40f); // leaves room on the right for the boss skull
+
+            RectTransform pfRt = NewShopRect("Fill", tRt);
+            pfRt.anchorMin = Vector2.zero; pfRt.anchorMax = new Vector2(0.05f, 1f);
+            pfRt.offsetMin = Vector2.zero; pfRt.offsetMax = Vector2.zero;
+            Image pf = pfRt.gameObject.AddComponent<Image>();
+            Sprite greenFill = LoadSpriteFromUI(MenuHDPath + "Menu_Bar_Fill");
+            if (greenFill != null) pf.sprite = greenFill;
+            pf.type = Image.Type.Sliced;
+            pf.raycastTarget = false;
+            hudProgressHDFillRt = pfRt;
+
+            // Invisible proxy keeps the existing progress code (fillAmount) working; mirrored into the HD bar each frame
+            RectTransform proxyRt = NewShopRect("BarFill", tRt);
+            hudProgressBarFillRt = proxyRt;
+            hudProgressBarFill = proxyRt.gameObject.AddComponent<Image>();
+            hudProgressBarFill.type = Image.Type.Filled;
+            hudProgressBarFill.fillMethod = Image.FillMethod.Horizontal;
+            hudProgressBarFill.fillAmount = 0f;
+            hudProgressBarFill.color = new Color(1f, 1f, 1f, 0f);
+            hudProgressBarFill.raycastTarget = false;
+            hudProgressBarFill.enabled = false; // data-only: never render (it has no sprite, so any colour change showed a white box)
+            hudProgressBarLabel = CreateText("BarLabel", tRt, "", 16, Color.clear, TextAlignmentOptions.Center, false);
+            hudProgressBarLabel.gameObject.SetActive(false);
+
+            Image flag = NewShopRect("FinishFlagIcon", tRt).gameObject.AddComponent<Image>();
+            Sprite flagSprite = LoadSpriteFromFile("Resources/UI/Ref_CheckeredFlag.png") ?? LoadSpriteFromFile("Textures/tex_flag_finish.png");
+            if (flagSprite != null) flag.sprite = flagSprite;
+            flag.preserveAspect = true;
+            flag.raycastTarget = false;
+            RectTransform fRt = flag.rectTransform;
+            fRt.anchorMin = fRt.anchorMax = new Vector2(1f, 0.5f);
+            fRt.pivot = new Vector2(1f, 0.5f);
+            fRt.anchoredPosition = new Vector2(-12f, 0f);
+            fRt.sizeDelta = new Vector2(38f, 38f);
+
+            // Boss skull at the end of the bar
+            GameObject bossBadgeObj = new GameObject("BossSkullBadge", typeof(RectTransform));
+            bossBadgeObj.transform.SetParent(top, false);
+            hudBossBadgeRect = bossBadgeObj.GetComponent<RectTransform>();
+            hudBossBadgeRect.anchorMin = hudBossBadgeRect.anchorMax = new Vector2(1f, 1f);
+            hudBossBadgeRect.pivot = new Vector2(0.5f, 0.5f);
+            hudBossBadgeRect.anchoredPosition = new Vector2(-46f, -140f);
+            hudBossBadgeRect.sizeDelta = new Vector2(92f, 92f);
+
+            GameObject glowHalo = new GameObject("GlowHalo", typeof(RectTransform));
+            glowHalo.transform.SetParent(bossBadgeObj.transform, false);
+            RectTransform haloRt = glowHalo.GetComponent<RectTransform>();
+            haloRt.anchorMin = haloRt.anchorMax = new Vector2(0.5f, 0.5f);
+            haloRt.sizeDelta = new Vector2(150f, 150f);
+            Image haloImg = glowHalo.AddComponent<Image>();
+            Sprite haloSprite = LoadSpriteFromFile("Resources/UI/Ref_BossSkull_Glow.png");
+            if (haloSprite != null) haloImg.sprite = haloSprite; else haloImg.color = new Color(0.95f, 0.20f, 0.05f, 0.65f);
+            haloImg.raycastTarget = false;
+
+            hudBossBadgeImage = bossBadgeObj.AddComponent<Image>();
+            Sprite bossSprite = LoadSpriteFromFile("Resources/UI/Ref_BossSkull_HD.png") ?? Resources.Load<Sprite>("UI/BossSkull_HD");
+            if (bossSprite != null) hudBossBadgeImage.sprite = bossSprite; else hudBossBadgeImage.color = new Color(0.90f, 0.15f, 0.12f, 1f);
+            hudBossBadgeImage.preserveAspect = true;
+            hudBossBadgeImage.raycastTarget = false;
+            if (Application.isPlaying) StartCoroutine(AnimateBossGlowRoutine(haloRt));
+
+            BuildPauseMenu(canvasRoot);
+        }
+
+        private void BuildPauseMenu(Transform canvasRoot)
+        {
+            Transform old = canvasRoot.Find("PauseMenuPanel");
+            if (old != null) SafeDestroy(old.gameObject);
+
+            pauseMenuPanel = new GameObject("PauseMenuPanel", typeof(RectTransform));
+            pauseMenuPanel.transform.SetParent(canvasRoot, false);
+            RectTransform pr = pauseMenuPanel.GetComponent<RectTransform>();
+            ShopStretch(pr);
+            Image dim = pauseMenuPanel.AddComponent<Image>();
+            dim.color = new Color(0.01f, 0.02f, 0.07f, 0.72f);
+            dim.raycastTarget = true; // blocks taps from reaching the game
+
+            RectTransform safe = NewShopRect("SafeArea", pr);
+            ShopStretch(safe);
+            safe.gameObject.AddComponent<ShopSafeArea>();
+            RectTransform body = NewShopRect("Body", safe);
+            ShopStretch(body, 30f, 30f, 30f, 30f);
+
+            RectTransform root = NewShopRect("Dialog", body);
+            ShopResponsiveFitter fit = root.gameObject.AddComponent<ShopResponsiveFitter>();
+            fit.designSize = new Vector2(820f, 1180f);
+            fit.maxScale = 1.2f;
+            fit.Apply(true);
+            pauseDialogRt = root;
+
+            Image frame = NewShopImage("Frame", root, "Shop_Panel_Frame", false);
+            frame.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(frame.rectTransform, 0f, 60f, 820f, 1120f);
+
+            Image banner = NewMenuImage("Banner", root, "Menu_Banner", false);
+            banner.type = Image.Type.Sliced;
+            ShopPlaceTopLeft(banner.rectTransform, 160f, 0f, 500f, 120f);
+            TextMeshProUGUI title = CreateText("Title", banner.rectTransform, "PAUSED", 62f, Color.white, TextAlignmentOptions.Center, true);
+            title.rectTransform.offsetMin = new Vector2(10f, 8f);
+            title.rectTransform.offsetMax = new Vector2(-10f, -8f);
+            StyleShopTmp(title, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, true);
+
+            pauseLevelText = CreateText("LevelInfo", root, "LEVEL 1", 40f, new Color(1f, 0.92f, 0.38f, 1f), TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(pauseLevelText.rectTransform, 60f, 150f, 700f, 60f);
+            StyleShopTmp(pauseLevelText, new Color(0.30f, 0.12f, 0.0f, 1f), 0.24f, false);
+
+            float y = 240f;
+            CreatePauseButton(root, "Btn_Resume", "Menu_Btn_Green", "RESUME", y, ResumeGame, new Color(0.03f, 0.25f, 0.07f, 1f)); y += 150f;
+            CreatePauseButton(root, "Btn_Restart", "Menu_Btn_Blue", "RESTART", y, PauseRestart, new Color(0.03f, 0.10f, 0.35f, 1f)); y += 150f;
+            CreatePauseButton(root, "Btn_LevelMap", "Menu_Btn_Blue", "LEVEL MAP", y, PauseToLevelMap, new Color(0.03f, 0.10f, 0.35f, 1f)); y += 150f;
+            CreatePauseButton(root, "Btn_Home", "Menu_Btn_Gold", "HOME", y, PauseToHome, new Color(0.40f, 0.18f, 0.02f, 1f)); y += 160f;
+
+            // Music / Sound toggles
+            pauseMusicBtnImg = CreatePauseToggle(root, "Btn_Music", 410f - 150f, y, "MUSIC", () =>
+            {
+                MobControl.Audio.ZombieSoundManager.Instance?.ToggleMusic();
+                RefreshPauseToggles();
+            });
+            pauseSfxBtnImg = CreatePauseToggle(root, "Btn_Sound", 410f + 150f, y, "SOUND", () =>
+            {
+                MobControl.Audio.ZombieSoundManager.Instance?.ToggleSFX();
+                RefreshPauseToggles();
+            });
+            RefreshPauseToggles();
+
+            pauseMenuPanel.SetActive(false);
+        }
+
+        private void CreatePauseButton(RectTransform root, string name, string sprite, string label, float y, System.Action onClick, Color outline)
+        {
+            Image img = NewMenuImage(name, root, sprite, false, true);
+            RectTransform rt = img.rectTransform;
+            ShopPlaceTopLeft(rt, 150f, y, 520f, 130f);
+            Button b = img.gameObject.AddComponent<Button>();
+            b.targetGraphic = img;
+            b.transition = Selectable.Transition.None;
+            b.onClick.AddListener(() => StartCoroutine(ShopPress(rt, onClick)));
+            TextMeshProUGUI t = CreateText("Label", rt, label, 52f, Color.white, TextAlignmentOptions.Center, true);
+            t.rectTransform.offsetMin = new Vector2(12f, 22f);
+            t.rectTransform.offsetMax = new Vector2(-12f, -2f);
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(t, outline, 0.26f, false);
+        }
+
+        private Image CreatePauseToggle(RectTransform root, string name, float cx, float y, string label, System.Action onClick)
+        {
+            Image img = NewMenuImage(name, root, "Menu_Btn_Music_On", true, true);
+            RectTransform rt = img.rectTransform;
+            ShopPlaceTopLeft(rt, cx - 70f, y, 140f, 140f);
+            Button b = img.gameObject.AddComponent<Button>();
+            b.targetGraphic = img;
+            b.transition = Selectable.Transition.None;
+            b.onClick.AddListener(() => StartCoroutine(ShopPress(rt, onClick)));
+            TextMeshProUGUI t = CreateText("Caption", root, label, 30f, Color.white, TextAlignmentOptions.Center, true);
+            ShopPlaceTopLeft(t.rectTransform, cx - 110f, y + 146f, 220f, 44f);
+            StyleShopTmp(t, new Color(0.02f, 0.08f, 0.32f, 1f), 0.24f, false);
+            return img;
+        }
+
+        private void RefreshPauseToggles()
+        {
+            var snd = MobControl.Audio.ZombieSoundManager.Instance;
+            bool music = snd == null || snd.IsMusicEnabled;
+            bool sfx = snd == null || snd.IsSfxEnabled;
+            SetMenuSprite(pauseMusicBtnImg, music ? "Menu_Btn_Music_On" : "Menu_Btn_Music_Off");
+            SetMenuSprite(pauseSfxBtnImg, sfx ? "Menu_Btn_Sound_On" : "Menu_Btn_Sound_Off");
+        }
+
+        public void PauseGame()
+        {
+            if (isGamePaused || currentState != ScreenState.Gameplay || isFinishedHandled) return;
+            if (pauseMenuPanel == null && mainCanvas != null) BuildPauseMenu(mainCanvas.transform);
+            if (pauseMenuPanel == null) return;
+
+            isGamePaused = true;
+            Time.timeScale = 0f;
+            AudioListener.pause = true;
+            if (pauseLevelText != null) pauseLevelText.text = $"LEVEL {activeLevel}";
+            RefreshPauseToggles();
+            pauseMenuPanel.transform.SetAsLastSibling();
+            pauseMenuPanel.SetActive(true);
+            if (pauseDialogRt != null) StartCoroutine(PunchScale(pauseDialogRt, 0.16f, null));
+        }
+
+        public void ResumeGame()
+        {
+            if (!isGamePaused) return;
+            isGamePaused = false;
+            Time.timeScale = 1f;
+            AudioListener.pause = false;
+            if (pauseMenuPanel != null) pauseMenuPanel.SetActive(false);
+        }
+
+        private void ClearPauseState()
+        {
+            isGamePaused = false;
+            Time.timeScale = 1f;
+            AudioListener.pause = false;
+            if (pauseMenuPanel != null) pauseMenuPanel.SetActive(false);
+        }
+
+        private void PauseRestart()
+        {
+            ClearPauseState();
+            OnReplayClicked();
+        }
+
+        private void PauseToLevelMap()
+        {
+            ClearPauseState();
+            OnReturnToMenuClicked(); // reloads the scene and opens the Level Map
+        }
+
+        private void PauseToHome()
+        {
+            ClearPauseState();
+            if (victoryPanel != null) victoryPanel.SetActive(false);
+            if (defeatPanel != null) defeatPanel.SetActive(false);
+            startAtHomeScreen = true;
+            startAtLevelMap = false;
+            startAtLevelSelect = false;
+            autoStartMissionOnLoad = false;
+            ReloadCurrentScene();
+        }
+
+        // Escape / Android back toggles pause during gameplay
+        private void HandlePauseInput()
+        {
+            if (currentState != ScreenState.Gameplay) return;
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P))
+            {
+                if (isGamePaused) ResumeGame(); else PauseGame();
+            }
+        }
+
+        // Auto-pause when the app goes to the background
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && Application.isPlaying) PauseGame();
+        }
+
+        private void UpdateHDHealthHud()
+        {
+            if (playerRunner == null) return;
+            int hp = Mathf.Max(0, playerRunner.Health);
+            int max = Mathf.Max(1, playerRunner.MaxHealth);
+            if (hudHealthText != null) hudHealthText.text = $"HP {hp} / {max}";
+            if (hudProgressHDFillRt != null && hudProgressBarFill != null)
+                hudProgressHDFillRt.anchorMax = new Vector2(Mathf.Max(0.05f, Mathf.Clamp01(hudProgressBarFill.fillAmount)), 1f);
+            if (hudHealthFill != null)
+                hudHealthFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.06f, Mathf.Clamp01((float)hp / max)), 1f);
+            if (hudHeartRt != null && hudLastHealth >= 0 && hp < hudLastHealth)
+                StartCoroutine(PunchScale(hudHeartRt, 0.18f, null)); // heart flinches on damage
+            hudLastHealth = hp;
+        }
+
         private void BuildGameplayHudPanel(Transform canvasRoot)
         {
             gameplayHudPanel = CreateFullPanel("GameplayHud", canvasRoot, Color.clear);
             gameplayHudPanel.GetComponent<Image>().raycastTarget = false;
 
-            // Top Header Bar (Matches user reference screenshot exactly)
-            GameObject headerBar = new GameObject("TopHeaderBar");
-            headerBar.transform.SetParent(gameplayHudPanel.transform, false);
-            RectTransform hbRt = headerBar.AddComponent<RectTransform>();
-            hbRt.anchorMin = new Vector2(0.5f, 1f);
-            hbRt.anchorMax = new Vector2(0.5f, 1f);
-            hbRt.pivot = new Vector2(0.5f, 1f);
-            hbRt.sizeDelta = new Vector2(810f, 90f);
-            hbRt.anchoredPosition = new Vector2(0f, -60f);
-
-            // 1. LEVEL Pill Badge (Deep navy with soft slate blue border, bold white text)
-            GameObject levelPill = new GameObject("LevelPill");
-            levelPill.transform.SetParent(headerBar.transform, false);
-            RectTransform lpRt = levelPill.AddComponent<RectTransform>();
-            lpRt.anchorMin = new Vector2(0f, 0.5f);
-            lpRt.anchorMax = new Vector2(0f, 0.5f);
-            lpRt.pivot = new Vector2(0f, 0.5f);
-            lpRt.sizeDelta = new Vector2(185f, 58f);
-            lpRt.anchoredPosition = new Vector2(0f, 0f);
-
-            Image lpImg = levelPill.AddComponent<Image>();
-            Sprite pillSprite = LoadSpriteFromFile("Resources/UI/Ref_LevelPill_Bg.png");
-            if (pillSprite != null)
-            {
-                lpImg.sprite = pillSprite;
-                lpImg.color = Color.white;
-            }
-            else
-            {
-                lpImg.color = new Color(0.08f, 0.11f, 0.22f, 1f);
-            }
-            lpImg.raycastTarget = true;
-
-            // Clicking the level pill allows returning to the level map
-            Button lpBtn = levelPill.AddComponent<Button>();
-            lpBtn.targetGraphic = lpImg;
-            lpBtn.onClick.AddListener(() =>
-            {
-                ShowZombieSquadLevelMap();
-            });
-
-            hudLevelText = CreateText("LevelText", levelPill.transform, "LEVEL 1", 28, Color.white, TextAlignmentOptions.Center, true);
-            hudLevelText.fontStyle = FontStyles.Bold;
-            hudLevelText.characterSpacing = 3f;
-            hudLevelText.rectTransform.anchoredPosition = Vector2.zero;
-
-            // 2. Central Level Completion Progress Bar Track
-            // Thick black outline with dark navy interior
-            GameObject barTrack = new GameObject("HordeProgressBarTrack");
-            barTrack.transform.SetParent(headerBar.transform, false);
-            RectTransform btRt = barTrack.AddComponent<RectTransform>();
-            btRt.anchorMin = new Vector2(0f, 0.5f);
-            btRt.anchorMax = new Vector2(0f, 0.5f);
-            btRt.pivot = new Vector2(0f, 0.5f);
-            btRt.sizeDelta = new Vector2(560f, 34f);
-            btRt.anchoredPosition = new Vector2(201f, 0f);
-
-            Image btImg = barTrack.AddComponent<Image>();
-            Sprite trackSprite = LoadSpriteFromFile("Resources/UI/Ref_ProgressBar_Track.png");
-            if (trackSprite != null)
-            {
-                btImg.sprite = trackSprite;
-                btImg.color = Color.white;
-            }
-            else
-            {
-                btImg.color = new Color(0.07f, 0.09f, 0.15f, 1f);
-            }
-            btImg.raycastTarget = false;
-
-            // Green Progress Fill (Glossy neon lime gradient fill)
-            GameObject barFill = new GameObject("BarFill");
-            barFill.transform.SetParent(barTrack.transform, false);
-            hudProgressBarFillRt = barFill.AddComponent<RectTransform>();
-            hudProgressBarFillRt.anchorMin = new Vector2(0f, 0f);
-            hudProgressBarFillRt.anchorMax = new Vector2(1f, 1f);
-            hudProgressBarFillRt.offsetMin = new Vector2(3f, 3f);
-            hudProgressBarFillRt.offsetMax = new Vector2(-3f, -3f);
-
-            hudProgressBarFill = barFill.AddComponent<Image>();
-            Sprite fillSprite = LoadSpriteFromFile("Resources/UI/Ref_ProgressBar_Fill.png");
-            if (fillSprite != null)
-            {
-                hudProgressBarFill.sprite = fillSprite;
-                hudProgressBarFill.color = Color.white;
-            }
-            else
-            {
-                hudProgressBarFill.color = new Color(0.18f, 0.92f, 0.35f, 1f);
-            }
-            hudProgressBarFill.type = Image.Type.Filled;
-            hudProgressBarFill.fillMethod = Image.FillMethod.Horizontal;
-            hudProgressBarFill.fillOrigin = 0;
-            hudProgressBarFill.fillAmount = 0f;
-            hudProgressBarFill.raycastTarget = false;
-
-            // Checkered Finish Flag Icon (3x3 grid slanted forward with thick black border)
-            GameObject flagObj = new GameObject("FinishFlagIcon");
-            flagObj.transform.SetParent(barTrack.transform, false);
-            RectTransform flagRt = flagObj.AddComponent<RectTransform>();
-            flagRt.anchorMin = new Vector2(1f, 0.5f);
-            flagRt.anchorMax = new Vector2(1f, 0.5f);
-            flagRt.pivot = new Vector2(1f, 0.5f);
-            flagRt.sizeDelta = new Vector2(46f, 46f);
-            flagRt.anchoredPosition = new Vector2(-30f, 0f);
-            Image flagImg = flagObj.AddComponent<Image>();
-            Sprite flagSprite = LoadSpriteFromFile("Resources/UI/Ref_CheckeredFlag.png") ?? LoadSpriteFromFile("Textures/tex_flag_finish.png");
-            if (flagSprite != null)
-            {
-                flagImg.sprite = flagSprite;
-                flagImg.color = Color.white;
-            }
-            else
-            {
-                flagImg.color = Color.white;
-            }
-            flagImg.raycastTarget = false;
-
-            // Hidden label reference so existing code doesn't NullRef
-            hudProgressBarLabel = CreateText("BarLabel", barTrack.transform, "", 16, Color.clear, TextAlignmentOptions.Center, false);
-            hudProgressBarLabel.gameObject.SetActive(false);
-
-            // 3. Glowing Boss Skull Badge (Fiery red halo bloom + gold ring + 3D devil skull)
-            GameObject bossBadgeObj = new GameObject("BossSkullBadge");
-            bossBadgeObj.transform.SetParent(headerBar.transform, false);
-            hudBossBadgeRect = bossBadgeObj.AddComponent<RectTransform>();
-            hudBossBadgeRect.anchorMin = new Vector2(0f, 0.5f);
-            hudBossBadgeRect.anchorMax = new Vector2(0f, 0.5f);
-            hudBossBadgeRect.pivot = new Vector2(0.5f, 0.5f);
-            hudBossBadgeRect.sizeDelta = new Vector2(88f, 88f);
-            hudBossBadgeRect.anchoredPosition = new Vector2(761f, 0f);
-
-            // Radiant Outer Fiery Bloom Glow Halo
-            GameObject glowHalo = new GameObject("GlowHalo");
-            glowHalo.transform.SetParent(bossBadgeObj.transform, false);
-            RectTransform haloRt = glowHalo.AddComponent<RectTransform>();
-            haloRt.anchorMin = new Vector2(0.5f, 0.5f);
-            haloRt.anchorMax = new Vector2(0.5f, 0.5f);
-            haloRt.pivot = new Vector2(0.5f, 0.5f);
-            haloRt.sizeDelta = new Vector2(144f, 144f);
-            haloRt.anchoredPosition = Vector2.zero;
-            Image haloImg = glowHalo.AddComponent<Image>();
-            Sprite haloSprite = LoadSpriteFromFile("Resources/UI/Ref_BossSkull_Glow.png");
-            if (haloSprite != null)
-            {
-                haloImg.sprite = haloSprite;
-                haloImg.color = Color.white;
-            }
-            else
-            {
-                haloImg.color = new Color(0.95f, 0.20f, 0.05f, 0.65f);
-            }
-            haloImg.raycastTarget = false;
-
-            // 3D Horned Devil Skull circular badge
-            hudBossBadgeImage = bossBadgeObj.AddComponent<Image>();
-            Sprite bossSprite = LoadSpriteFromFile("Resources/UI/Ref_BossSkull_HD.png") ?? Resources.Load<Sprite>("UI/BossSkull_HD");
-            if (bossSprite != null)
-            {
-                hudBossBadgeImage.sprite = bossSprite;
-                hudBossBadgeImage.color = Color.white;
-            }
-            else
-            {
-                hudBossBadgeImage.color = new Color(0.90f, 0.15f, 0.12f, 1f);
-            }
-            hudBossBadgeImage.raycastTarget = false;
-
-            // Start subtle breathing pulse for the boss glow
-            StartCoroutine(AnimateBossGlowRoutine(haloRt));
+            // HD top HUD: pause, level, health, progress, boss
+            BuildHDGameplayExtras(canvasRoot);
 
             // 5. Multiplier Blast Pop-up (Shows "×2" popping for 0.5 sec when container is destroyed)
             multiplierPopObj = new GameObject("MultiplierPopBadge");
@@ -6322,16 +6546,20 @@ namespace MobControl.UI
             hudGunUpgradeBadgeRt.anchorMin = new Vector2(0.5f, 1f);
             hudGunUpgradeBadgeRt.anchorMax = new Vector2(0.5f, 1f);
             hudGunUpgradeBadgeRt.pivot = new Vector2(0.5f, 1f);
-            hudGunUpgradeBadgeRt.sizeDelta = new Vector2(250f, 44f);
-            hudGunUpgradeBadgeRt.anchoredPosition = new Vector2(0f, -160f);
+            hudGunUpgradeBadgeRt.sizeDelta = new Vector2(300f, 62f);
+            hudGunUpgradeBadgeRt.anchoredPosition = new Vector2(0f, -232f); // centred under the progress bar
 
             Image boostBg = boostTimerObj.AddComponent<Image>();
-            boostBg.color = new Color(0.06f, 0.12f, 0.22f, 0.88f); // High-contrast translucent dark navy pill
+            Sprite boostPill = LoadSpriteFromUI(MenuHDPath + "Menu_Hud_Pill");
+            if (boostPill != null) { boostBg.sprite = boostPill; boostBg.type = Image.Type.Sliced; }
+            else boostBg.color = new Color(0.06f, 0.12f, 0.22f, 0.88f);
             boostBg.raycastTarget = false;
 
-            hudGunUpgradeText = CreateText("BoostTimerText", boostTimerObj.transform, "⚡ RAPID FIRE: 15s", 20, new Color(0.12f, 0.95f, 1.0f, 1f), TextAlignmentOptions.Center, true);
-            hudGunUpgradeText.fontStyle = FontStyles.Bold;
-            hudGunUpgradeText.rectTransform.anchoredPosition = Vector2.zero;
+            hudGunUpgradeText = CreateText("BoostTimerText", boostTimerObj.transform, "15s REMAINING", 28, new Color(0.45f, 0.95f, 1.0f, 1f), TextAlignmentOptions.Center, true);
+            hudGunUpgradeText.rectTransform.offsetMin = new Vector2(14f, 4f);
+            hudGunUpgradeText.rectTransform.offsetMax = new Vector2(-14f, -4f);
+            hudGunUpgradeText.textWrappingMode = TextWrappingModes.NoWrap;
+            StyleShopTmp(hudGunUpgradeText, new Color(0.01f, 0.06f, 0.22f, 1f), 0.22f, false);
 
             boostTimerObj.SetActive(false);
             hudGunUpgradeBadgeObj = boostTimerObj;
@@ -6489,6 +6717,30 @@ namespace MobControl.UI
             }
         }
 
+        // ---------------- Level difficulty curve ----------------
+        // Level 1 is slow and relaxed; speed ramps up gradually and only reaches the original full speed at level 8,
+        // so early levels are about learning + buying upgrades, not reflexes.
+        private const float ROAD_SPEED_LEVEL1 = 1.8f;
+        private const float ROAD_SPEED_MAX = 4.2f;
+        private const float ZOMBIE_SPEED_SCALE_LEVEL1 = 0.32f; // was 0.45 — level 1 zombies ~30% slower
+        private const int FULL_SPEED_LEVEL = 8;
+
+        /// <summary>0 at level 1 .. 1 at FULL_SPEED_LEVEL+ (eased so the first few levels stay gentle).</summary>
+        private float LevelDifficulty01
+        {
+            get
+            {
+                float t = Mathf.Clamp01((Mathf.Max(1, activeLevel) - 1) / (float)(FULL_SPEED_LEVEL - 1));
+                return t * t * (3f - 2f * t) * 0.35f + t * 0.65f; // mostly linear, slightly softer at the start
+            }
+        }
+
+        /// <summary>How fast the road (and everything on it) rushes towards the player for the current level.</summary>
+        public float LevelRoadSpeed => Mathf.Lerp(ROAD_SPEED_LEVEL1, ROAD_SPEED_MAX, LevelDifficulty01);
+
+        /// <summary>Multiplier on zombies' own walk speed for the current level (1 = original).</summary>
+        public float LevelZombieSpeedScale => Mathf.Lerp(ZOMBIE_SPEED_SCALE_LEVEL1, 1f, LevelDifficulty01);
+
         public void StartGameplayFromWaiting()
         {
             if (!isWaitingForFirstSwipe) return;
@@ -6521,7 +6773,9 @@ namespace MobControl.UI
             // 2. Start endless road
             if (MobControl.Level.EndlessRoadManager.Instance != null)
             {
+                MobControl.Level.EndlessRoadManager.Instance.SetSpeed(LevelRoadSpeed);
                 MobControl.Level.EndlessRoadManager.Instance.SetRunning(true);
+                Debug.Log($"[ZombieRunnerUIManager] Level {activeLevel} speed: road {LevelRoadSpeed:F2} m/s, zombie walk x{LevelZombieSpeedScale:F2}");
             }
 
             // 3. Start Zombie Spawner
@@ -6606,6 +6860,11 @@ namespace MobControl.UI
                 hudProgressBarFill.fillAmount = Mathf.Clamp01(progress);
                 hudProgressBarFill.color = Color.white; // Preserve glossy texture sprite
             }
+            if (hudProgressHDFillRt != null)
+            {
+                Image hdFill = hudProgressHDFillRt.GetComponent<Image>();
+                if (hdFill != null) hdFill.color = Color.white;
+            }
 
             if (hudProgressBarLabel != null && hudProgressBarLabel.gameObject.activeSelf)
             {
@@ -6649,11 +6908,14 @@ namespace MobControl.UI
         public void OnBossSpawned(MobControl.Crowd.MobUnit bossUnit, int maxHp = 60)
         {
             isBossPhase = true;
+            MobControl.Audio.ZombieSoundManager.Instance?.PlayBossSpawn();
 
             if (hudProgressBarFill != null)
             {
                 hudProgressBarFill.fillAmount = 1.0f;
                 hudProgressBarFill.color = new Color(0.95f, 0.18f, 0.14f, 1f); // Fiery Red
+                Image hdFill = hudProgressHDFillRt != null ? hudProgressHDFillRt.GetComponent<Image>() : null;
+                if (hdFill != null) hdFill.color = new Color(1f, 0.35f, 0.3f, 1f); // tint the visible HD bar for the boss phase
             }
 
             if (hudProgressBarLabel != null)
@@ -6745,8 +7007,8 @@ namespace MobControl.UI
             hudGunUpgradeBadgeRt.anchorMin = new Vector2(0.5f, 1f);
             hudGunUpgradeBadgeRt.anchorMax = new Vector2(0.5f, 1f);
             hudGunUpgradeBadgeRt.pivot = new Vector2(0.5f, 1f);
-            hudGunUpgradeBadgeRt.sizeDelta = new Vector2(190f, 64f);
-            hudGunUpgradeBadgeRt.anchoredPosition = new Vector2(0f, -126f);
+            hudGunUpgradeBadgeRt.sizeDelta = new Vector2(240f, 84f);
+            hudGunUpgradeBadgeRt.anchoredPosition = new Vector2(0f, -250f);
 
             // Featured PowerUp Badge Graphic
             GameObject badgeImgObj = new GameObject("BadgeGraphic");
@@ -6775,8 +7037,8 @@ namespace MobControl.UI
             pillImg.color = new Color(0.12f, 0.04f, 0.22f, 0.90f);
             pillImg.raycastTarget = false;
 
-            hudGunUpgradeText = CreateText("BoostTimerText", pillObj.transform, "15s REMAINING", 14, new Color(1f, 0.95f, 0.35f, 1f), TextAlignmentOptions.Center, true);
-            hudGunUpgradeText.fontStyle = FontStyles.Bold;
+            hudGunUpgradeText = CreateText("BoostTimerText", pillObj.transform, "15s REMAINING", 20, new Color(1f, 0.95f, 0.35f, 1f), TextAlignmentOptions.Center, true);
+            StyleShopTmp(hudGunUpgradeText, new Color(0.2f, 0.05f, 0.3f, 1f), 0.2f, false);
             hudGunUpgradeText.rectTransform.anchorMin = Vector2.zero;
             hudGunUpgradeText.rectTransform.anchorMax = Vector2.one;
             hudGunUpgradeText.rectTransform.offsetMin = Vector2.zero;
@@ -7743,6 +8005,7 @@ namespace MobControl.UI
             currentState = ScreenState.Daily;
             isGameActive = false;
             LockPlayer(true);
+            if (mainCanvas != null) BuildZombieSquadDailyScreenPanel(mainCanvas.transform); // refresh hero + state
             SwitchToPanel(dailyPanel);
             UpdateDailyScreenVisuals();
         }
@@ -8034,11 +8297,7 @@ namespace MobControl.UI
 
             // In stationary defense mode, progress is driven by 30s wave timer & boss power!
             // Update Health Text
-            if (hudHealthText != null)
-            {
-                int hp = Mathf.Max(0, playerRunner.Health);
-                hudHealthText.text = $"HP: {hp} / {playerRunner.MaxHealth}";
-            }
+            UpdateHDHealthHud();
         }
 
         #endregion
@@ -8075,6 +8334,7 @@ namespace MobControl.UI
             isFinishedHandled = true;
             isGameActive = false;
             currentState = ScreenState.Victory;
+            MobControl.Audio.ZombieSoundManager.Instance?.PlayVictory();
 
             Debug.Log($"[ZombieRunnerUIManager] Victory triggered with override: stars={overrideStars}, coins={overrideCoins}");
 
@@ -8088,7 +8348,7 @@ namespace MobControl.UI
             int starsEarned = Mathf.Clamp(overrideStars, 1, 3);
             int coinsEarned = overrideCoins;
 
-            int currentCoins = PlayerPrefs.GetInt(PREF_COINS, 250);
+            int currentCoins = PlayerPrefs.GetInt(PREF_COINS, DEFAULT_COINS);
             currentCoins += coinsEarned;
             PlayerPrefs.SetInt(PREF_COINS, currentCoins);
 
@@ -8126,6 +8386,7 @@ namespace MobControl.UI
             isFinishedHandled = true;
             isGameActive = false;
             currentState = ScreenState.Victory;
+            MobControl.Audio.ZombieSoundManager.Instance?.PlayVictory();
 
             Debug.Log("[ZombieRunnerUIManager] Victory triggered!");
 
@@ -8160,7 +8421,7 @@ namespace MobControl.UI
             Debug.Log($"[ZombieRunnerUIManager] Victory Stats: HP={currentHealth}, Stars={starsEarned}, Coins={coinsEarned}");
 
             // Award coins to player wallet
-            int currentCoins = PlayerPrefs.GetInt(PREF_COINS, 250);
+            int currentCoins = PlayerPrefs.GetInt(PREF_COINS, DEFAULT_COINS);
             currentCoins += coinsEarned;
             PlayerPrefs.SetInt(PREF_COINS, currentCoins);
 
@@ -8324,6 +8585,7 @@ namespace MobControl.UI
             isFinishedHandled = true;
             isGameActive = false;
             currentState = ScreenState.Defeat;
+            MobControl.Audio.ZombieSoundManager.Instance?.PlayDefeat();
 
             Debug.Log($"[ZombieRunnerUIManager] Defeat triggered: title='{title}', subtitle='{subtitle}'");
 
@@ -8428,7 +8690,7 @@ namespace MobControl.UI
 
         private void UpdateCurrencyHud()
         {
-            int coins = PlayerPrefs.GetInt(PREF_COINS, 250);
+            int coins = PlayerPrefs.GetInt(PREF_COINS, DEFAULT_COINS);
             if (coinsText != null)
             {
                 coinsText.text = $"COINS: {coins}   |   GEMS: 15";
@@ -8442,6 +8704,7 @@ namespace MobControl.UI
         {
             PlayerPrefs.DeleteKey(PREF_UNLOCKED_LEVEL);
             PlayerPrefs.DeleteKey(PREF_COINS);
+            PlayerPrefs.DeleteKey(PREF_DIAMONDS);
             for (int i = 1; i <= totalLevels; i++)
             {
                 PlayerPrefs.DeleteKey(PREF_STARS_PREFIX + i);

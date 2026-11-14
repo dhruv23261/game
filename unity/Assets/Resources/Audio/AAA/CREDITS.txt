@@ -1,0 +1,21 @@
+Zombie Squad - AAA sound set
+All source audio is CC0 1.0 (public domain): free for commercial use, no attribution required.
+Credits are listed anyway as a courtesy. Sounds were edited/layered (slicing, pitch, sub-bass layers, EQ, normalisation).
+
+Kenney (kenney.nl) - CC0
+  - Impact Sounds        -> hit_flesh_*, zombie_die_* (thuds), player_hurt_*, explosion_* (wood layer)
+  - Interface Sounds     -> ui_*, gate_powerup, gun_upgrade_equip
+  - Sci-Fi Sounds        -> explosion_* (crunch), boss_impact_*
+  - RPG Audio            -> gun_upgrade_equip (metal latch)
+  - Music Jingles        -> jingle_victory (STEEL02), jingle_defeat (STEEL06), jingle_star (PIZZI16)
+
+OpenGameArt.org - CC0
+  - "Gunshot Sounds" (SKS, CZ, Mosin, shotgun)  https://opengameart.org/content/gunshot-sounds  -> gun_rifle_*, gun_heavy_*
+  - "80 CC0 creature SFX" (rubberduck)          https://opengameart.org/content/80-cc0-creature-sfx  -> zombie_groan_*, zombie_attack_*
+  - "80 CC0 creature SFX #2" (rubberduck)       https://opengameart.org/content/80-cc0-creture-sfx-2 -> zombie_die_*, zombie_groan_*, zombie_attack_*
+  - "80 CC0 RPG SFX" (rubberduck)               https://opengameart.org/content/80-cc0-rpg-sfx       -> coin_*, gem_*
+  - "25 CC0 mud sfx" (rubberduck)               https://opengameart.org/content/25-cc0-mud-sfx       -> hit_flesh_*, zombie_die_* (splat)
+  - "16 Monster Growls" (starninjas)            https://opengameart.org/content/16-monster-growls    -> zombie_groan_07/08
+  - "CC0 Deep Monster Roar"                     https://opengameart.org/content/cc0-deep-monster-roar -> boss_roar
+  - "Fast fight / battle music (looped)"        https://opengameart.org/content/fast-fight-battle-music-looped -> music_combat
+  - "Epic Boss Battle" by Juhani Junkala        https://opengameart.org/content/boss-battle-music  -> music_boss

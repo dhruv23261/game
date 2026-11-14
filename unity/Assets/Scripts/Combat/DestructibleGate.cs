@@ -394,6 +394,7 @@ namespace MobControl.Combat
             ActiveGates.Remove(this);
 
             OnGateBroken?.Invoke();
+            MobControl.Audio.ZombieSoundManager.Instance?.PlayExplosion(transform.position);
 
             // Disable all colliders immediately so it never blocks, hits, or triggers again
             foreach (var col in GetComponentsInChildren<Collider>(true))

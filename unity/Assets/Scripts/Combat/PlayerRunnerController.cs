@@ -149,6 +149,38 @@ namespace MobControl.Combat
         public bool HasPassedGate(int gateInstanceId) => passedGateIds.Contains(gateInstanceId);
         public void MarkGatePassed(int gateInstanceId) => passedGateIds.Add(gateInstanceId);
 
+        // ---------------- Upgrade helpers ----------------
+        // Upgrade levels start at 1 (= not upgraded). Each purchased level adds 1 bonus level.
+        public static int UpgradeBonusLevels(string key)
+        {
+            return Mathf.Max(0, PlayerPrefs.GetInt($"ZombieSquad_Upgrade_{key}", 1) - 1);
+        }
+
+        /// <summary>
+        /// Bullet damage from the SOLDIER DAMAGE upgrade: +15% average damage per purchased level.
+        /// Damage is an int, so the fractional part is rolled per bullet (e.g. 1.3 -> 30% of bullets deal 2).
+        /// </summary>
+        public static int RollBulletDamage()
+        {
+            float dmg = 1f + 0.15f * UpgradeBonusLevels("Damage");
+            int whole = Mathf.FloorToInt(dmg);
+            return whole + (Random.value < dmg - whole ? 1 : 0);
+        }
+
+        /// <summary>Makes the squad exactly main soldier + purchased allies (never more, so restarts can't stack allies).</summary>
+        private void ApplyUpgradedSquad()
+        {
+            squadAllies.RemoveAll(a => a == null);
+            int target = UpgradeBonusLevels("Count");
+            while (squadAllies.Count < target)
+            {
+                int before = squadAllies.Count;
+                SpawnSquadAlly();
+                if (squadAllies.Count == before) break; // spawn failed, avoid infinite loop
+            }
+            UpdateSquadCountBadge();
+        }
+
         public void SpawnSquadAllies(int count = 2)
         {
             for (int i = 0; i < count; i++)
@@ -489,12 +521,8 @@ namespace MobControl.Combat
             ApplyEquippedHeroStats();
             baseFireRateBeforeUpgrade = fireRate;
 
-            // Spawn any upgraded squad allies if unlocked
-            int upgradedAllies = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Count", 0);
-            if (upgradedAllies > 0)
-            {
-                SpawnSquadAllies(upgradedAllies);
-            }
+            // Spawn squad allies bought with the SOLDIER COUNT upgrade (idempotent: safe if ResetForNewRun ran first)
+            ApplyUpgradedSquad();
 
             // Pre-warm the bullet pool immediately so first shots have zero lag
             if (bulletPrefab != null && ObjectPooler.Instance != null)
@@ -570,6 +598,9 @@ namespace MobControl.Combat
                 anim.Update(0f);
             }
 
+            // Every run starts with the main soldier + only the allies the player has bought
+            ApplyUpgradedSquad();
+
             UpdateSquadCountBadge();
             Debug.Log($"[PlayerRunnerController] ResetForNewRun: Position reset to (0, {pos.y}, {startZ}), HP reset to {currentHealth}/{maxHealth}, Squad: {TotalSquadSize}");
         }
@@ -607,12 +638,12 @@ namespace MobControl.Combat
             }
 
             // Apply Squad Upgrades
-            int healthBonus = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Health", 0);
+            int healthBonus = UpgradeBonusLevels("Health") * 2; // +2 HP per purchased level
             maxHealth += healthBonus;
             currentHealth = maxHealth;
             isDead = false;
 
-            float speedBonus = PlayerPrefs.GetInt("ZombieSquad_Upgrade_Speed", 0) * 0.15f;
+            float speedBonus = UpgradeBonusLevels("Speed") * 0.15f;
             forwardSpeed += speedBonus;
 
             // Apply Equipped Weapon Modifiers
@@ -653,16 +684,36 @@ namespace MobControl.Combat
             Debug.Log($"[PlayerRunnerController] Applied stats for {hero} with {weapon}: Speed={forwardSpeed}, FireRate={fireRate}, MaxHP={maxHealth}, Stationary={stationaryMode}");
         }
 
+        private readonly HashSet<Renderer> homeHiddenRenderers = new HashSet<Renderer>();
+        private bool isHiddenForHomeScreen;
+
         private void Update()
         {
             // Completely hide gameplay runner model while on HomeScreen
             if (ZombieRunnerUIManager.Instance != null && ZombieRunnerUIManager.Instance.CurrentState == ZombieRunnerUIManager.ScreenState.HomeScreen)
             {
+                // Remember exactly which renderers we hide so they can be restored when leaving the Home Screen
                 foreach (var r in GetComponentsInChildren<Renderer>(true))
                 {
-                    r.enabled = false;
+                    if (r != null && r.enabled)
+                    {
+                        r.enabled = false;
+                        homeHiddenRenderers.Add(r);
+                    }
                 }
+                isHiddenForHomeScreen = true;
                 return;
+            }
+
+            // Left the Home Screen: bring the player model back (previously it stayed invisible in gameplay)
+            if (isHiddenForHomeScreen)
+            {
+                foreach (var r in homeHiddenRenderers)
+                {
+                    if (r != null) r.enabled = true;
+                }
+                homeHiddenRenderers.Clear();
+                isHiddenForHomeScreen = false;
             }
 
             // Pause movement only when modal menu is open
@@ -1010,6 +1061,7 @@ namespace MobControl.Combat
 
             hasGunUpgrade = true;
             gunUpgradeLevel++;
+            MobControl.Audio.ZombieSoundManager.Instance?.PlayGunUpgrade();
             gunUpgradeTimer = gunUpgradeDuration; // Exactly 15.0s temporary validity
 
             float oldRate = fireRate;
@@ -1232,6 +1284,7 @@ namespace MobControl.Combat
             if (isDead || Time.time < invulnerableUntil) return;
 
             currentHealth -= damage;
+            MobControl.Audio.ZombieSoundManager.Instance?.PlayPlayerHurt();
             Debug.Log($"[PlayerRunner] Player took {damage} damage! HP: {currentHealth}/{maxHealth}");
 
             StartCoroutine(HitFeedbackEffect());

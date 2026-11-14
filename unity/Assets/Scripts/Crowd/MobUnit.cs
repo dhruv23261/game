@@ -135,6 +135,9 @@ namespace MobControl.Crowd
             }
         }
 
+        private static float LevelSpeedScale =>
+            ZombieRunnerUIManager.Instance != null ? ZombieRunnerUIManager.Instance.LevelZombieSpeedScale : 1f;
+
         private void Update()
         {
             if (isDead) return;
@@ -159,18 +162,29 @@ namespace MobControl.Crowd
                     // Face player while biting
                     Vector3 lookDir = targetPlayer.transform.position - transform.position;
                     lookDir.y = 0;
-                    if (lookDir != Vector3.zero)
-                    {
-                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir), Time.deltaTime * 10f);
-                    }
 
-                    // Periodic bite / attack
-                    if (Time.time >= lastAttackTime + attackCooldown)
+                    // Player swiped out of reach -> let go and resume chasing (no more biting from the side)
+                    if (lookDir.magnitude > attackRange + 0.5f)
                     {
-                        lastAttackTime = Time.time;
-                        PerformAttackOnPlayer();
+                        isAttacking = false;
+                        targetPlayer = null;
+                        if (animator != null) animator.SetBool("isAttacking", false);
                     }
-                    return;
+                    else
+                    {
+                        if (lookDir != Vector3.zero)
+                        {
+                            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir), Time.deltaTime * 10f);
+                        }
+
+                        // Periodic bite / attack
+                        if (Time.time >= lastAttackTime + attackCooldown)
+                        {
+                            lastAttackTime = Time.time;
+                            PerformAttackOnPlayer();
+                        }
+                        return;
+                    }
                 }
                 else if (targetEnemy != null)
                 {
@@ -212,6 +226,15 @@ namespace MobControl.Crowd
                     Vector3 playerPos = PlayerRunnerController.Instance.transform.position;
                     float dz = transform.position.z - playerPos.z;
 
+                    // Melee bite range check (flat XZ) applies whether the zombie is ahead, beside or slightly behind
+                    Vector3 flatToPlayer = playerPos - transform.position;
+                    flatToPlayer.y = 0f;
+                    if (flatToPlayer.magnitude <= attackRange)
+                    {
+                        StartAttackingPlayer(PlayerRunnerController.Instance);
+                        return;
+                    }
+
                     // If the zombie has been left behind the player (player ran past), despawn if too far back.
                     // Otherwise, the zombie should turn around and chase the player forward (+Z).
                     if (dz <= 0.0f)
@@ -235,6 +258,7 @@ namespace MobControl.Crowd
                         if (PlayerRunnerController.Instance != null)
                         {
                             chaseSpeed *= PlayerRunnerController.Instance.GlobalZombieSpeedMultiplier;
+                            chaseSpeed *= LevelSpeedScale; // gentler on early levels
                         }
                         if (EndlessRoadManager.Instance != null && EndlessRoadManager.Instance.IsMoving)
                         {
@@ -274,6 +298,7 @@ namespace MobControl.Crowd
                     if (PlayerRunnerController.Instance != null)
                     {
                         currentSpeed *= PlayerRunnerController.Instance.GlobalZombieSpeedMultiplier;
+                        currentSpeed *= LevelSpeedScale; // gentler on early levels
                     }
 
                     // Add road rushing speed so the zombie advances firmly forward on the road surface towards player
@@ -317,7 +342,7 @@ namespace MobControl.Crowd
                 else
                 {
                     // Fallback when player is dead or not yet instantiated: move along -Z
-                    float fallbackSpeed = moveSpeed;
+                    float fallbackSpeed = moveSpeed * LevelSpeedScale;
                     if (EndlessRoadManager.Instance != null && EndlessRoadManager.Instance.IsMoving)
                     {
                         fallbackSpeed += EndlessRoadManager.Instance.RoadSpeed;
@@ -372,6 +397,7 @@ namespace MobControl.Crowd
 
             if (targetPlayer != null && !targetPlayer.IsDead)
             {
+                MobControl.Audio.ZombieSoundManager.Instance?.PlayZombieAttack(transform.position);
                 targetPlayer.TakeDamage(attackDamage);
             }
         }
@@ -528,7 +554,7 @@ namespace MobControl.Crowd
             if (team == MobTeam.Enemy && MobControl.Audio.ZombieSoundManager.Instance != null)
             {
                 bool isBoss = maxHealth >= 30 || gameObject.name.Contains("Boss");
-                MobControl.Audio.ZombieSoundManager.Instance.PlayZombieDie(isBoss);
+                MobControl.Audio.ZombieSoundManager.Instance.PlayZombieDie(isBoss, transform.position);
             }
 
             // Hide floating health bar

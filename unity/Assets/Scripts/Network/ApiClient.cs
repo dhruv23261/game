@@ -21,7 +21,7 @@ namespace MobControl.Network
         public string playerId;
         public int currentLevel = 1;
         public int maxLevelReached = 1;
-        public int coins = 200;
+        public int coins = 100;
         public int gems = 10;
         public PlayerUpgrades upgrades;
     }

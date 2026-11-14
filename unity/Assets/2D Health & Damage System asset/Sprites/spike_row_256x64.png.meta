@@ -1,5 +1,12 @@
 fileFormatVersion: 2
 guid: d6983836ef83f844985fc47c5d3c5945
+AssetOrigin:
+  serializedVersion: 1
+  productId: 337862
+  packageName: 2D Health And Damage Plugin
+  packageVersion: 1.0
+  assetPath: Assets/2D Health & Damage System asset/Sprites/spike_row_256x64.png
+  uploadId: 878258
 TextureImporter:
   internalIDToNameTable:
   - first:
@@ -56,7 +63,9 @@ TextureImporter:
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
+  spriteTessellationMethod: 0
   spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
   textureType: 8
   textureShape: 1
   singleChannelComponent: 0
@@ -100,12 +109,12 @@ TextureImporter:
     buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
-    textureFormat: -1
+    textureFormat: 48
     textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
-    overridden: 0
+    overridden: 1
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
@@ -124,6 +133,19 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
     buildTarget: WindowsStoreApps
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
@@ -180,10 +202,3 @@ TextureImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 337862
-  packageName: 2D Health And Damage Plugin
-  packageVersion: 1.0
-  assetPath: Assets/2D Health & Damage System asset/Sprites/spike_row_256x64.png
-  uploadId: 878258

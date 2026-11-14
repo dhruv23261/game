@@ -117,7 +117,8 @@ namespace MobControl.Combat
 
             // Base bullet damage = 1 so exact bullet counts match design:
             // Green Zombie = 5 bullets, Red Zombie = 8 bullets, Container = 30 bullets, Boss = 60 bullets
-            damage = 1;
+            // + SOLDIER DAMAGE upgrade (rolled per bullet)
+            damage = PlayerRunnerController.RollBulletDamage();
 
             // Standardized reach & speed: guaranteed to reach any visible gate or enemy rapidly
             string weapon = PlayerPrefs.GetString("ZombieSquad_SelectedWeapon", "M41D");
@@ -163,6 +164,7 @@ namespace MobControl.Combat
                 if (enemyMob != null && enemyMob.Team == MobTeam.Enemy && enemyMob.Health > 0)
                 {
                     enemyMob.TakeDamage(damage);
+                    MobControl.Audio.ZombieSoundManager.Instance?.PlayBulletHit(hit.point != Vector3.zero ? hit.point : enemyMob.transform.position);
                     ReturnToPool();
                     return;
                 }

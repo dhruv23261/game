@@ -454,34 +454,6 @@ namespace MobControl.EditorTools
             }
         }
 
-        [MenuItem("Zombie Squad/Home Screen Mode/Toggle Responsive vs Fallback")]
-        public static void ToggleHomeScreenMode()
-        {
-            bool current = ZombieRunnerUIManager.UseModularHomeScreen;
-            ZombieRunnerUIManager.UseModularHomeScreen = !current;
-            var ui = ZombieRunnerUIManager.Instance;
-            if (ui != null) ui.SetHomeScreenModular(!current);
-            Debug.Log($"[Zombie Squad] Home Screen Mode is now: {(!current ? "Responsive Modular UI" : "Classic Fallback Static Image")}");
-        }
-
-        [MenuItem("Zombie Squad/Home Screen Mode/Switch to Responsive Modular UI")]
-        public static void SetHomeScreenResponsive()
-        {
-            ZombieRunnerUIManager.UseModularHomeScreen = true;
-            var ui = ZombieRunnerUIManager.Instance;
-            if (ui != null) ui.SetHomeScreenModular(true);
-            Debug.Log("[Zombie Squad] Home Screen Mode set to: Responsive Modular UI");
-        }
-
-        [MenuItem("Zombie Squad/Home Screen Mode/Switch to Classic Fallback Image")]
-        public static void SetHomeScreenClassicFallback()
-        {
-            ZombieRunnerUIManager.UseModularHomeScreen = false;
-            var ui = ZombieRunnerUIManager.Instance;
-            if (ui != null) ui.SetHomeScreenModular(false);
-            Debug.Log("[Zombie Squad] Home Screen Mode set to: Classic Fallback Static Image");
-        }
-
         [MenuItem("Zombie Squad/Open Level Map Screen")]
         public static void OpenLevelMapScreen()
         {

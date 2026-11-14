@@ -5,13 +5,17 @@ using UnityEngine;
 namespace MobControl.Audio
 {
     /// <summary>
-    /// Professional AAA Audio System for Zombie Squad.
+    /// AAA-style audio system for Zombie Squad.
+    ///
+    /// All sounds live in Resources/Audio/AAA and are CC0 (public domain) — see Resources/Audio/AAA/CREDITS.txt.
+    ///
     /// Features:
-    /// - Intense Cinematic Horror-Action BGM for Menus & Home Screen (gives goosebumps!)
-    /// - Automatic Combat Audio Ducking: Stops BGM in-game so real gunshots & zombie screams dominate
-    /// - Real military gunfire & rifle shots with natural pitch variation
-    /// - Real zombie death screams, shrieks, guttural groans, boss roars & blood splatters
-    /// - Real Kenney CC0 UI clicks, coin chimes & upgrade fanfares
+    /// - Sound banks with several variations per event, picked randomly without immediate repeats
+    /// - Per-event pitch / volume randomisation so rapid fire and hordes never sound robotic
+    /// - Voice limiting per category (e.g. max 4 zombie deaths at once) + a polyphonic voice pool with oldest-voice stealing
+    /// - Stereo panning from world X position (zombies on the left sound left)
+    /// - Layered music: menu theme -> combat loop -> boss battle theme, with smooth crossfades
+    /// - Ducking: music dips under big moments (boss roar, explosions, jingles) and goes muffled (low-pass) when the player is hit
     /// </summary>
     public class ZombieSoundManager : MonoBehaviour
     {
@@ -34,42 +38,68 @@ namespace MobControl.Audio
             }
         }
 
-        [Header("Audio Sources")]
-        private AudioSource bgmSource;
+        private const string AAA = "Audio/AAA/";
+        private const int VOICE_COUNT = 24;
+
+        // ---------------- Sound bank ----------------
+        private class Bank
+        {
+            public AudioClip[] clips;
+            public float volume;
+            public float pitchMin, pitchMax;
+            public float minInterval;   // seconds between triggers of this bank
+            public int maxVoices;       // simultaneous voices of this bank
+            public float lastTime = -99f;
+            public int lastIndex = -1;
+
+            public AudioClip Next()
+            {
+                if (clips == null || clips.Length == 0) return null;
+                if (clips.Length == 1) return clips[0];
+                int i = Random.Range(0, clips.Length);
+                if (i == lastIndex) i = (i + 1 + Random.Range(0, clips.Length - 1)) % clips.Length;
+                lastIndex = i;
+                return clips[i];
+            }
+        }
+
+        private class Voice
+        {
+            public AudioSource src;
+            public Bank bank;
+            public float startTime;
+        }
+
+        private Bank bGunRifle, bGunHeavy, bHitFlesh, bZombieDie, bZombieGroan, bZombieAttack, bPlayerHurt,
+                     bBossRoar, bBossImpact, bExplosion, bGatePowerup, bGunEquip,
+                     bUiClick, bUiBack, bUiError, bUiUpgrade, bCoin, bGem, bVictory, bDefeat, bStar;
+
+        private readonly List<Voice> voices = new List<Voice>();
         private AudioSource uiSource;
-        private List<AudioSource> sfxPool = new List<AudioSource>();
-        private const int SFX_POOL_SIZE = 12; // High polyphony for rapid gunfire & crowd splats
-        private int currentSfxIndex = 0;
 
-        [Header("Guns & Combat")]
-        private AudioClip clipGunfire;
-        private AudioClip clipGunfireHeavy;
+        // ---------------- Music ----------------
+        private AudioSource musicA, musicB;     // crossfade pair
+        private AudioSource activeMusic;
+        private AudioLowPassFilter musicLowPass;
+        private AudioClip clipMenuMusic, clipCombatMusic, clipBossMusic;
+        private float musicTarget = 0f;         // target volume of the active track (before ducking)
+        private float duckAmount = 1f;          // 1 = no duck
+        private float duckRecoverAt = 0f;
+        private float muffleUntil = 0f;
+        private Coroutine crossfadeRoutine;
 
-        [Header("Zombie SFX")]
-        private AudioClip clipDeathScreech;
-        private AudioClip clipDeathGroan;
-        private AudioClip clipBossRoar;
-        private AudioClip clipZombieSplat;
-        private AudioClip clipZombieAttack;
-        private AudioClip clipZombieMoan;
+        private const float MENU_MUSIC_VOL = 0.60f;
+        private const float COMBAT_MUSIC_VOL = 0.30f;  // sits under the gunfire
+        private const float BOSS_MUSIC_VOL = 0.42f;
 
-        [Header("UI & Economy")]
-        private AudioClip clipUiClick;
-        private AudioClip clipUpgrade;
-        private AudioClip clipCoin;
-        private AudioClip clipDiamond;
-        private AudioClip clipGatePass;
-
-        [Header("Soundtrack")]
-        private AudioClip clipBgmHorror;
-
-        [Header("Settings")]
+        // ---------------- Settings / state ----------------
         private bool isMusicEnabled = true;
         private bool isSfxEnabled = true;
-        private float musicVolume = 0.65f;
-        private float sfxVolume = 0.90f;
+        private float sfxVolume = 0.9f;
         private bool isCombatMode = false;
-        private Coroutine bgmFadeRoutine = null;
+        private bool isBossMusic = false;
+        private float lastJingleTime = -99f;
+        private float nextAmbientGroan = 0f;
 
         public bool IsMusicEnabled => isMusicEnabled;
         public bool IsSfxEnabled => isSfxEnabled;
@@ -82,19 +112,14 @@ namespace MobControl.Audio
                 Destroy(gameObject);
                 return;
             }
-
             s_instance = this;
             if (Application.isPlaying) DontDestroyOnLoad(gameObject);
-
             InitializeAudio();
         }
 
         private void Start()
         {
-            if (isMusicEnabled && !isCombatMode)
-            {
-                PlayBGM();
-            }
+            if (isMusicEnabled && !isCombatMode) PlayBGM();
         }
 
         private void InitializeAudio()
@@ -102,134 +127,307 @@ namespace MobControl.Audio
             isMusicEnabled = PlayerPrefs.GetInt("ZombieSquad_Music_Enabled", 1) == 1;
             isSfxEnabled = PlayerPrefs.GetInt("ZombieSquad_SFX_Enabled", 1) == 1;
 
-            // 1. Setup BGM AudioSource
-            bgmSource = gameObject.AddComponent<AudioSource>();
-            bgmSource.loop = true;
-            bgmSource.playOnAwake = false;
-            bgmSource.volume = musicVolume;
-            bgmSource.spatialBlend = 0f;
+            // Music lives on its own child object so the low-pass filter only affects music, not SFX
+            GameObject musicGo = new GameObject("Music");
+            musicGo.transform.SetParent(transform, false);
+            musicA = CreateMusicSource(musicGo);
+            musicB = CreateMusicSource(musicGo);
+            musicLowPass = musicGo.AddComponent<AudioLowPassFilter>();
+            musicLowPass.cutoffFrequency = 22000f;
+            activeMusic = musicA;
 
-            // 2. Setup UI AudioSource
             uiSource = gameObject.AddComponent<AudioSource>();
-            uiSource.loop = false;
             uiSource.playOnAwake = false;
-            uiSource.volume = sfxVolume;
             uiSource.spatialBlend = 0f;
+            uiSource.priority = 32;
 
-            // 3. Setup SFX Polyphonic Pool
-            for (int i = 0; i < SFX_POOL_SIZE; i++)
+            for (int i = 0; i < VOICE_COUNT; i++)
             {
                 AudioSource s = gameObject.AddComponent<AudioSource>();
-                s.loop = false;
                 s.playOnAwake = false;
-                s.volume = sfxVolume;
+                s.loop = false;
                 s.spatialBlend = 0f;
-                sfxPool.Add(s);
+                s.priority = 128;
+                voices.Add(new Voice { src = s });
             }
 
-            // 4. Load High Quality Audio Clips
-            // Gunshots
-            clipGunfire = Resources.Load<AudioClip>("Audio/sfx_gunfire_real") 
-                       ?? Resources.Load<AudioClip>("Audio/sfx_gunfire");
-            clipGunfireHeavy = Resources.Load<AudioClip>("Audio/sfx_gunfire_boost")
-                            ?? Resources.Load<AudioClip>("Audio/sfx_shot_rifle") 
-                            ?? Resources.Load<AudioClip>("Audio/sfx_gunfire_heavy");
+            //                     clips                                         vol   pitch range    interval voices
+            bGunRifle     = MakeBank(Load("gun_rifle_", 5),                        0.55f, 0.95f, 1.06f, 0.060f, 6);
+            bGunHeavy     = MakeBank(Load("gun_heavy_", 3),                        0.62f, 0.96f, 1.05f, 0.050f, 6);
+            bHitFlesh     = MakeBank(Load("hit_flesh_", 4),                        0.42f, 0.90f, 1.12f, 0.045f, 4);
+            bZombieDie    = MakeBank(Load("zombie_die_", 5),                       0.62f, 0.90f, 1.10f, 0.070f, 4);
+            bZombieGroan  = MakeBank(Load("zombie_groan_", 8),                     0.40f, 0.88f, 1.08f, 0.500f, 2);
+            bZombieAttack = MakeBank(Load("zombie_attack_", 3),                    0.55f, 0.92f, 1.08f, 0.250f, 2);
+            bPlayerHurt   = MakeBank(Load("player_hurt_", 3),                      0.80f, 0.95f, 1.05f, 0.120f, 1);
+            bBossRoar     = MakeBank(One("boss_roar"),                             1.00f, 0.97f, 1.00f, 1.000f, 1);
+            bBossImpact   = MakeBank(Load("boss_impact_", 2),                      0.80f, 0.95f, 1.02f, 0.300f, 1);
+            bExplosion    = MakeBank(Load("explosion_", 3),                        0.80f, 0.92f, 1.06f, 0.150f, 2);
+            bGatePowerup  = MakeBank(One("gate_powerup"),                          0.75f, 1.00f, 1.00f, 0.100f, 2);
+            bGunEquip     = MakeBank(One("gun_upgrade_equip"),                     0.80f, 1.00f, 1.00f, 0.200f, 1);
+            bUiClick      = MakeBank(One("ui_click"),                              0.85f, 0.97f, 1.03f, 0.040f, 2);
+            bUiBack       = MakeBank(One("ui_back"),                               0.80f, 0.98f, 1.02f, 0.040f, 1);
+            bUiError      = MakeBank(One("ui_error"),                              0.70f, 1.00f, 1.00f, 0.150f, 1);
+            bUiUpgrade    = MakeBank(One("ui_upgrade"),                            0.85f, 1.00f, 1.00f, 0.100f, 1);
+            bCoin         = MakeBank(Load("coin_", 3),                             0.80f, 0.97f, 1.06f, 0.060f, 3);
+            bGem          = MakeBank(Load("gem_", 2),                              0.80f, 0.97f, 1.05f, 0.060f, 2);
+            bVictory      = MakeBank(One("jingle_victory"),                        0.95f, 1.00f, 1.00f, 1.000f, 1);
+            bDefeat       = MakeBank(One("jingle_defeat"),                         0.95f, 1.00f, 1.00f, 1.000f, 1);
+            bStar         = MakeBank(One("jingle_star"),                           0.80f, 1.00f, 1.00f, 0.080f, 2);
 
-            // Zombie Reactions
-            clipDeathScreech = Resources.Load<AudioClip>("Audio/sfx_zombie_death_screech")
-                            ?? Resources.Load<AudioClip>("Audio/sfx_zombie_die");
-            clipDeathGroan = Resources.Load<AudioClip>("Audio/sfx_zombie_death_groan");
-            clipBossRoar = Resources.Load<AudioClip>("Audio/sfx_zombie_boss_roar");
-            clipZombieSplat = Resources.Load<AudioClip>("Audio/sfx_zombie_splat");
-            clipZombieAttack = Resources.Load<AudioClip>("Audio/sfx_zombie_angry_attack")
-                            ?? Resources.Load<AudioClip>("Audio/sfx_zombie_groan");
-            clipZombieMoan = Resources.Load<AudioClip>("Audio/sfx_zombie_moan");
-
-            // UI & Economy
-            clipUiClick = Resources.Load<AudioClip>("Audio/sfx_ui_click_real")
-                       ?? Resources.Load<AudioClip>("Audio/sfx_ui_click");
-            clipUpgrade = Resources.Load<AudioClip>("Audio/sfx_upgrade");
-            clipCoin = Resources.Load<AudioClip>("Audio/sfx_coin");
-            clipDiamond = Resources.Load<AudioClip>("Audio/sfx_diamond");
-            clipGatePass = Resources.Load<AudioClip>("Audio/sfx_gate_pass");
-
-            // BGM (Royal Battlefield Theme)
-            clipBgmHorror = Resources.Load<AudioClip>("Audio/bgm_royal_battlefield")
-                         ?? Resources.Load<AudioClip>("Audio/bgm_zombie_theme")
+            clipMenuMusic = Resources.Load<AudioClip>("Audio/bgm_royal_battlefield")
                          ?? Resources.Load<AudioClip>("Audio/bgm_runner_action");
+            clipCombatMusic = Resources.Load<AudioClip>(AAA + "music_combat");
+            clipBossMusic = Resources.Load<AudioClip>(AAA + "music_boss");
 
-            Debug.Log($"[ZombieSoundManager] Ready! Real Guns: {(clipGunfire != null)}, Death Screams: {(clipDeathScreech != null)}, Royal BGM: {(clipBgmHorror != null)}");
+            Debug.Log($"[ZombieSoundManager] AAA audio ready. Guns: {bGunRifle.clips.Length}, Zombie deaths: {bZombieDie.clips.Length}, " +
+                      $"Combat music: {clipCombatMusic != null}, Boss music: {clipBossMusic != null}");
         }
 
-        #region BGM Management & Combat Audio Mode
+        private AudioSource CreateMusicSource(GameObject host)
+        {
+            AudioSource s = host.AddComponent<AudioSource>();
+            s.loop = true;
+            s.playOnAwake = false;
+            s.volume = 0f;
+            s.spatialBlend = 0f;
+            s.priority = 0;
+            return s;
+        }
+
+        private static AudioClip[] Load(string prefix, int count)
+        {
+            var list = new List<AudioClip>(count);
+            for (int i = 1; i <= count; i++)
+            {
+                AudioClip c = Resources.Load<AudioClip>($"{AAA}{prefix}{i:00}");
+                if (c != null) list.Add(c);
+            }
+            return list.ToArray();
+        }
+
+        private static AudioClip[] One(string name)
+        {
+            AudioClip c = Resources.Load<AudioClip>(AAA + name);
+            return c != null ? new[] { c } : new AudioClip[0];
+        }
+
+        private static Bank MakeBank(AudioClip[] clips, float vol, float pMin, float pMax, float interval, int maxVoices)
+        {
+            return new Bank { clips = clips, volume = vol, pitchMin = pMin, pitchMax = pMax, minInterval = interval, maxVoices = maxVoices };
+        }
+
+        // ================= Per-frame: music ducking, muffling, ambience =================
+        private void Update()
+        {
+            float now = Time.unscaledTime;
+
+            // Ducking recovers smoothly
+            if (now > duckRecoverAt) duckAmount = Mathf.MoveTowards(duckAmount, 1f, Time.unscaledDeltaTime * 1.5f);
+            if (activeMusic != null && crossfadeRoutine == null)
+                activeMusic.volume = musicTarget * duckAmount;
+
+            // Muffle (player hit) -> low-pass sweep back open
+            if (musicLowPass != null)
+            {
+                float targetCut = now < muffleUntil ? 900f : 22000f;
+                float speed = now < muffleUntil ? 60000f : 25000f;
+                musicLowPass.cutoffFrequency = Mathf.MoveTowards(musicLowPass.cutoffFrequency, targetCut, speed * Time.unscaledDeltaTime);
+            }
+
+            // Ambient horde groans while fighting
+            if (isCombatMode && isSfxEnabled && now >= nextAmbientGroan)
+            {
+                nextAmbientGroan = now + Random.Range(3.5f, 7.0f);
+                if (now > 2f) Play(bZombieGroan, 0.55f, Random.Range(-0.7f, 0.7f));
+            }
+        }
+
+        // ================= Core playback =================
+        private Voice GetVoice(Bank bank)
+        {
+            // Respect per-bank voice limit: steal this bank's oldest voice if it is full
+            int active = 0; Voice oldestOfBank = null;
+            foreach (var v in voices)
+            {
+                if (v.bank == bank && v.src.isPlaying)
+                {
+                    active++;
+                    if (oldestOfBank == null || v.startTime < oldestOfBank.startTime) oldestOfBank = v;
+                }
+            }
+            if (bank != null && active >= bank.maxVoices && oldestOfBank != null) return oldestOfBank;
+
+            Voice oldest = null;
+            foreach (var v in voices)
+            {
+                if (!v.src.isPlaying) return v;
+                if (oldest == null || v.startTime < oldest.startTime) oldest = v;
+            }
+            return oldest;
+        }
+
+        /// <param name="volumeScale">Extra multiplier on top of the bank volume.</param>
+        /// <param name="pan">-1 (left) .. 1 (right).</param>
+        private bool Play(Bank bank, float volumeScale = 1f, float pan = 0f, float pitchShift = 1f)
+        {
+            if (!isSfxEnabled || bank == null) return false;
+            float now = Time.unscaledTime;
+            if (now - bank.lastTime < bank.minInterval) return false;
+            AudioClip clip = bank.Next();
+            if (clip == null) return false;
+            bank.lastTime = now;
+
+            Voice v = GetVoice(bank);
+            if (v == null) return false;
+            v.src.Stop();
+            v.src.clip = clip;
+            v.src.volume = sfxVolume * bank.volume * volumeScale * Random.Range(0.9f, 1.0f);
+            v.src.pitch = Random.Range(bank.pitchMin, bank.pitchMax) * pitchShift;
+            v.src.panStereo = Mathf.Clamp(pan, -1f, 1f);
+            v.src.Play();
+            v.bank = bank;
+            v.startTime = now;
+            return true;
+        }
+
+        private void PlayUI(Bank bank)
+        {
+            if (!isSfxEnabled || bank == null) return;
+            float now = Time.unscaledTime;
+            if (now - bank.lastTime < bank.minInterval) return;
+            AudioClip clip = bank.Next();
+            if (clip == null) return;
+            bank.lastTime = now;
+            uiSource.pitch = Random.Range(bank.pitchMin, bank.pitchMax);
+            uiSource.PlayOneShot(clip, sfxVolume * bank.volume);
+        }
+
+        /// <summary>Stereo pan from a world position relative to the main camera.</summary>
+        private static float PanFor(Vector3 worldPos)
+        {
+            Camera cam = Camera.main;
+            float dx = cam != null ? cam.transform.InverseTransformPoint(worldPos).x : worldPos.x;
+            return Mathf.Clamp(dx / 4.5f, -1f, 1f) * 0.6f; // keep it subtle on phone speakers
+        }
+
+        private void Duck(float amount, float holdSeconds)
+        {
+            duckAmount = Mathf.Min(duckAmount, amount);
+            duckRecoverAt = Mathf.Max(duckRecoverAt, Time.unscaledTime + holdSeconds);
+        }
+
+        /// <summary>Generic one-shot (kept for compatibility).</summary>
+        public void PlayClip(AudioClip clip, float volumeScale = 1.0f, float pitch = 1.0f)
+        {
+            if (!isSfxEnabled || clip == null) return;
+            Voice v = GetVoice(null);
+            if (v == null) return;
+            v.src.Stop();
+            v.src.clip = clip;
+            v.src.volume = sfxVolume * volumeScale;
+            v.src.pitch = pitch;
+            v.src.panStereo = 0f;
+            v.src.Play();
+            v.bank = null;
+            v.startTime = Time.unscaledTime;
+        }
+
+        // ================= Music =================
+        private void SwitchMusic(AudioClip clip, float volume, float fadeSeconds, float delay = 0f)
+        {
+            if (crossfadeRoutine != null) StopCoroutine(crossfadeRoutine);
+            crossfadeRoutine = StartCoroutine(CrossfadeRoutine(clip, volume, fadeSeconds, delay));
+        }
+
+        private IEnumerator CrossfadeRoutine(AudioClip clip, float volume, float fade, float delay)
+        {
+            AudioSource from = activeMusic;
+            bool sameClip = clip != null && from != null && from.clip == clip && from.isPlaying;
+            AudioSource to = sameClip ? from : (from == musicA ? musicB : musicA);
+
+            // Fade out the old track first if we are waiting (e.g. letting a jingle ring out)
+            float fromStart = from != null ? from.volume : 0f;
+            if (delay > 0f && !sameClip && from != null)
+            {
+                float t0 = 0f;
+                while (t0 < Mathf.Min(0.4f, delay)) { t0 += Time.unscaledDeltaTime; from.volume = Mathf.Lerp(fromStart, 0f, t0 / 0.4f); yield return null; }
+                from.Stop();
+                fromStart = 0f;
+                float rest = delay - t0;
+                if (rest > 0f) yield return new WaitForSecondsRealtime(rest);
+            }
+
+            if (clip == null || !isMusicEnabled)
+            {
+                float tt = 0f;
+                while (from != null && tt < fade) { tt += Time.unscaledDeltaTime; from.volume = Mathf.Lerp(fromStart, 0f, tt / fade); yield return null; }
+                if (from != null) from.Stop();
+                musicTarget = 0f;
+                crossfadeRoutine = null;
+                yield break;
+            }
+
+            if (!sameClip)
+            {
+                to.clip = clip;
+                to.volume = 0f;
+                to.Play();
+            }
+
+            float toStart = to.volume;
+            float e = 0f;
+            while (e < fade)
+            {
+                e += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(e / fade);
+                to.volume = Mathf.Lerp(toStart, volume * duckAmount, k);
+                if (!sameClip && from != null) from.volume = Mathf.Lerp(fromStart, 0f, k);
+                yield return null;
+            }
+            if (!sameClip && from != null) { from.Stop(); from.volume = 0f; }
+
+            activeMusic = to;
+            musicTarget = volume;
+            crossfadeRoutine = null;
+        }
+
         public void PlayBGM()
         {
-            if (bgmSource == null || clipBgmHorror == null || !isMusicEnabled || isCombatMode) return;
-
-            if (bgmSource.clip != clipBgmHorror)
-            {
-                bgmSource.clip = clipBgmHorror;
-            }
-
-            if (!bgmSource.isPlaying)
-            {
-                bgmSource.volume = musicVolume;
-                bgmSource.Play();
-            }
+            if (!isMusicEnabled || isCombatMode) return;
+            SwitchMusic(clipMenuMusic, MENU_MUSIC_VOL, 0.8f);
         }
 
         public void StopBGM()
         {
-            if (bgmSource != null) bgmSource.Stop();
+            if (crossfadeRoutine != null) { StopCoroutine(crossfadeRoutine); crossfadeRoutine = null; }
+            if (musicA != null) musicA.Stop();
+            if (musicB != null) musicB.Stop();
+            musicTarget = 0f;
         }
 
         /// <summary>
-        /// When player enters gameplay (Level 1, etc.), mute/stop the music so ONLY real gunfire and zombies echo.
-        /// When player returns to Home Screen / Menus, restore the intense horror soundtrack.
+        /// Gameplay: crossfade to the combat loop (sits low under the gunfire).
+        /// Menus / results: back to the menu theme (after any victory/defeat jingle has rung out).
         /// </summary>
         public void SetGameplayCombatMode(bool inCombat)
         {
+            if (inCombat == isCombatMode && (inCombat || activeMusic == null || activeMusic.isPlaying)) return;
             isCombatMode = inCombat;
+            isBossMusic = false;
+            muffleUntil = 0f;
 
-            if (bgmFadeRoutine != null) StopCoroutine(bgmFadeRoutine);
+            if (!isMusicEnabled) return;
 
             if (inCombat)
             {
-                // In game: Fade out music fast (0.35s) so gunshots & screaming zombies take full focus!
-                bgmFadeRoutine = StartCoroutine(FadeBgmRoutine(0f, 0.35f, true));
+                nextAmbientGroan = Time.unscaledTime + 2.5f;
+                SwitchMusic(clipCombatMusic, COMBAT_MUSIC_VOL, 1.2f);
             }
             else
             {
-                // In menus: Restore the atmospheric horror zombie theme
-                if (isMusicEnabled)
-                {
-                    if (bgmSource != null && !bgmSource.isPlaying)
-                    {
-                        if (clipBgmHorror != null) bgmSource.clip = clipBgmHorror;
-                        bgmSource.Play();
-                    }
-                    bgmFadeRoutine = StartCoroutine(FadeBgmRoutine(musicVolume, 0.5f, false));
-                }
-            }
-        }
-
-        private IEnumerator FadeBgmRoutine(float targetVol, float duration, bool stopOnZero)
-        {
-            if (bgmSource == null) yield break;
-            float startVol = bgmSource.volume;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                bgmSource.volume = Mathf.Lerp(startVol, targetVol, elapsed / duration);
-                yield return null;
-            }
-
-            bgmSource.volume = targetVol;
-            if (stopOnZero && targetVol <= 0.01f)
-            {
-                bgmSource.Stop();
+                float sinceJingle = Time.unscaledTime - lastJingleTime;
+                float delay = sinceJingle < 2.0f ? (2.0f - sinceJingle) : 0f;
+                SwitchMusic(clipMenuMusic, MENU_MUSIC_VOL, 1.0f, delay);
             }
         }
 
@@ -239,14 +437,9 @@ namespace MobControl.Audio
             PlayerPrefs.SetInt("ZombieSquad_Music_Enabled", isMusicEnabled ? 1 : 0);
             PlayerPrefs.Save();
 
-            if (!isMusicEnabled)
-            {
-                StopBGM();
-            }
-            else if (!isCombatMode)
-            {
-                PlayBGM();
-            }
+            if (!isMusicEnabled) StopBGM();
+            else if (isCombatMode) SwitchMusic(isBossMusic ? clipBossMusic : clipCombatMusic, isBossMusic ? BOSS_MUSIC_VOL : COMBAT_MUSIC_VOL, 0.6f);
+            else PlayBGM();
         }
 
         public void ToggleSFX()
@@ -254,133 +447,135 @@ namespace MobControl.Audio
             isSfxEnabled = !isSfxEnabled;
             PlayerPrefs.SetInt("ZombieSquad_SFX_Enabled", isSfxEnabled ? 1 : 0);
             PlayerPrefs.Save();
-        }
-        #endregion
-
-        #region SFX Playback
-        private AudioSource GetAvailableSfxSource()
-        {
-            if (sfxPool == null || sfxPool.Count == 0) return null;
-            AudioSource src = sfxPool[currentSfxIndex];
-            currentSfxIndex = (currentSfxIndex + 1) % sfxPool.Count;
-            return src;
+            if (!isSfxEnabled)
+                foreach (var v in voices) v.src.Stop();
         }
 
-        public void PlayClip(AudioClip clip, float volumeScale = 1.0f, float pitch = 1.0f)
-        {
-            if (!isSfxEnabled || clip == null) return;
+        // ================= Gameplay events =================
 
-            AudioSource src = GetAvailableSfxSource();
-            if (src != null)
-            {
-                src.pitch = pitch;
-                src.PlayOneShot(clip, sfxVolume * volumeScale);
-            }
-        }
-
-        private float lastGunfireTime = -1f;
-
-        /// <summary>
-        /// Kid-friendly cartoon arcade pop blaster sound.
-        /// Playful, bouncy, round, and pleasant for children and casual players.
-        /// </summary>
+        /// <summary>Rifle shot (normal) or heavy boosted shot (gun upgrade active).</summary>
         public void PlayGunfire(bool isHeavy = false)
         {
-            if (!isSfxEnabled) return;
-
-            // Minimum interval between shots to prevent audio mud / clipping when rapid firing
-            float minInterval = isHeavy ? 0.052f : 0.075f;
-            if (Time.unscaledTime - lastGunfireTime < minInterval) return;
-            lastGunfireTime = Time.unscaledTime;
-
-            if (clipGunfire == null) clipGunfire = Resources.Load<AudioClip>("Audio/sfx_gunfire_real") ?? Resources.Load<AudioClip>("Audio/sfx_gunfire");
-            if (clipGunfireHeavy == null) clipGunfireHeavy = Resources.Load<AudioClip>("Audio/sfx_gunfire_boost") ?? Resources.Load<AudioClip>("Audio/sfx_shot_rifle") ?? clipGunfire;
-
-            AudioClip clip = isHeavy ? (clipGunfireHeavy ?? clipGunfire) : clipGunfire;
-            if (clip == null) return;
-
-            float pitch = isHeavy ? Random.Range(1.02f, 1.08f) : Random.Range(0.97f, 1.05f);
-            float vol = isHeavy ? 0.55f : 0.48f;
-            PlayClip(clip, vol, pitch);
+            Play(isHeavy ? bGunHeavy : bGunRifle);
         }
 
-        private float lastZombieDieTime = -1f;
+        /// <summary>Bullet hits a zombie: wet impact.</summary>
+        public void PlayBulletHit(Vector3 worldPos)
+        {
+            Play(bHitFlesh, 1f, PanFor(worldPos));
+        }
 
-        /// <summary>
-        /// Kid-friendly comic defeat pop / bubble poof.
-        /// Screams, shrieks, and groans have been COMPLETELY REMOVED.
-        /// </summary>
         public void PlayZombieDie(bool isBoss = false)
         {
-            if (!isSfxEnabled) return;
-
-            // Rate-limit defeat pop so wiping out 10 zombies at once doesn't blow out audio
-            if (Time.unscaledTime - lastZombieDieTime < 0.055f) return;
-            lastZombieDieTime = Time.unscaledTime;
-
-            if (clipZombieSplat == null)
-            {
-                clipZombieSplat = Resources.Load<AudioClip>("Audio/sfx_zombie_splat") ?? Resources.Load<AudioClip>("Audio/sfx_zombie_die");
-            }
-
-            if (clipZombieSplat != null)
-            {
-                float pitch = isBoss ? Random.Range(0.85f, 0.95f) : Random.Range(0.95f, 1.15f);
-                PlayClip(clipZombieSplat, 0.55f, pitch);
-            }
+            PlayZombieDie(isBoss, Vector3.zero, false);
         }
 
-        /// <summary>
-        /// Aggressive groans and pig-like shrieks are completely disabled for kid-friendly gameplay.
-        /// </summary>
+        public void PlayZombieDie(bool isBoss, Vector3 worldPos, bool hasPosition = true)
+        {
+            float pan = hasPosition ? PanFor(worldPos) : 0f;
+            if (isBoss)
+            {
+                // Boss death: big deep death + impact + explosion, music ducks for the moment
+                bZombieDie.lastTime = -99f;
+                Play(bZombieDie, 1.4f, pan, 0.72f);
+                Play(bBossImpact, 1f);
+                Play(bExplosion, 0.8f, pan);
+                Duck(0.35f, 1.2f);
+                return;
+            }
+            Play(bZombieDie, 1f, pan);
+        }
+
+        /// <summary>Zombie notices / starts attacking the player.</summary>
         public void PlayZombieGroan()
         {
-            // Kept silent as requested (no screaming or pig-like shrieking)
+            Play(bZombieGroan);
         }
 
-        private float lastClickTime = -1f;
-
-        public void PlayUIClick()
+        /// <summary>Zombie bite lands.</summary>
+        public void PlayZombieAttack(Vector3 worldPos)
         {
-            if (!isSfxEnabled) return;
-            if (Time.unscaledTime - lastClickTime < 0.04f) return;
-            lastClickTime = Time.unscaledTime;
+            Play(bZombieAttack, 1f, PanFor(worldPos));
+        }
 
-            if (clipUiClick == null)
+        /// <summary>Player takes damage: punchy hit + music goes muffled for a moment.</summary>
+        public void PlayPlayerHurt()
+        {
+            if (Play(bPlayerHurt))
             {
-                clipUiClick = Resources.Load<AudioClip>("Audio/sfx_ui_click");
-            }
-
-            if (uiSource != null && clipUiClick != null)
-            {
-                uiSource.pitch = Random.Range(0.97f, 1.03f);
-                uiSource.PlayOneShot(clipUiClick, sfxVolume * 1.0f);
-            }
-            else if (clipUiClick != null)
-            {
-                PlayClip(clipUiClick, 1.0f, Random.Range(0.97f, 1.03f));
+                muffleUntil = Time.unscaledTime + 0.35f;
+                Duck(0.6f, 0.3f);
             }
         }
 
-        public void PlayUpgradeSuccess()
+        /// <summary>Boss appears: roar + sub impact, then the boss battle theme kicks in.</summary>
+        public void PlayBossSpawn()
         {
-            PlayClip(clipUpgrade, 1.0f, 1.0f);
+            Play(bBossImpact);
+            Play(bBossRoar);
+            Duck(0.25f, 2.2f);
+            if (isMusicEnabled && clipBossMusic != null && !isBossMusic)
+            {
+                isBossMusic = true;
+                SwitchMusic(clipBossMusic, BOSS_MUSIC_VOL, 1.5f, 0.6f);
+            }
         }
 
-        public void PlayCoinSpend()
+        /// <summary>Destructible gate / barricade broken.</summary>
+        public void PlayExplosion(Vector3 worldPos)
         {
-            PlayClip(clipCoin, 0.95f, Random.Range(0.98f, 1.05f));
+            if (Play(bExplosion, 1f, PanFor(worldPos))) Duck(0.6f, 0.4f);
         }
 
-        public void PlayDiamondSpend()
+        public void PlayGunUpgrade()
         {
-            PlayClip(clipDiamond, 1.0f, Random.Range(0.98f, 1.04f));
+            Play(bGunEquip);
+            Play(bGatePowerup, 0.7f);
         }
 
         public void PlayGatePass()
         {
-            PlayClip(clipGatePass, 1.0f, 1.0f);
+            Play(bGatePowerup);
         }
-        #endregion
+
+        public void PlayVictory()
+        {
+            StopAllGameplayVoices();
+            lastJingleTime = Time.unscaledTime;
+            Duck(0.0f, 1.8f);
+            Play(bVictory);
+        }
+
+        public void PlayDefeat()
+        {
+            StopAllGameplayVoices();
+            lastJingleTime = Time.unscaledTime;
+            Duck(0.0f, 1.8f);
+            Play(bDefeat);
+        }
+
+        /// <summary>Result-screen star pop (call once per star with index 0..2 for rising pitch).</summary>
+        public void PlayStar(int index = 0)
+        {
+            bStar.lastTime = -99f;
+            Play(bStar, 1f, 0f, 1f + 0.12f * Mathf.Clamp(index, 0, 4));
+        }
+
+        private void StopAllGameplayVoices()
+        {
+            foreach (var v in voices)
+            {
+                if (v.bank == bGunRifle || v.bank == bGunHeavy || v.bank == bZombieGroan || v.bank == bHitFlesh)
+                    v.src.Stop();
+            }
+        }
+
+        // ================= UI & economy =================
+        public void PlayUIClick() { PlayUI(bUiClick); }
+        public void PlayUIBack() { PlayUI(bUiBack); }
+        public void PlayUIError() { PlayUI(bUiError); }
+        public void PlayUpgradeSuccess() { PlayUI(bUiUpgrade); Play(bCoin, 0.6f); }
+        public void PlayCoinSpend() { Play(bCoin); }
+        public void PlayDiamondSpend() { Play(bGem); }
     }
 }
