@@ -167,6 +167,8 @@ namespace MobControl.Crowd
 
         public void StartSpawning()
         {
+            // Level 1 = Army Run: no zombies, ArmyRunLevel spawns the Dark Legion instead
+            if (MobControl.Level.ArmyRunLevel.HandlesLevel(currentLevel)) { StopSpawning(); return; }
             if (waveCoroutine != null) StopCoroutine(waveCoroutine);
             isSpawningActive = true;
             waveCoroutine = StartCoroutine(StructuredWaveRoutine());

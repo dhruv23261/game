@@ -5,6 +5,10 @@ TagManager:
   serializedVersion: 3
   tags:
   - Obstacle
+  - Bullet
+  - Enemy
+  - Player
+  - Ally
   layers:
   - Default
   - TransparentFX

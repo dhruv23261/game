@@ -761,7 +761,7 @@ namespace MobControl.Combat
             HandleHorizontalInput();
             ApplyMovement();
 
-            if (autoShoot || Input.GetMouseButton(0) || Input.touchCount > 0)
+            if (!ExternalShootingControl && (autoShoot || Input.GetMouseButton(0) || Input.touchCount > 0))
             {
                 HandleShooting();
             }
@@ -1108,7 +1108,7 @@ namespace MobControl.Combat
             if (ZombieRunnerUIManager.Instance != null)
             {
                 ZombieRunnerUIManager.Instance.HideGunUpgradeTimer();
-                ZombieRunnerUIManager.Instance.ShowMultiplierPop("<color=#FFCC00>⚡ BOOST EXPIRED</color>");
+                ZombieRunnerUIManager.Instance.ShowMultiplierPop("<color=#FFCC00>BOOST EXPIRED</color>");
             }
         }
 
@@ -1651,6 +1651,37 @@ namespace MobControl.Combat
         public void SetControllable(bool state)
         {
             isControllable = state;
+        }
+
+        // ───────── Army Run (Level 1, Top War style) hooks ─────────
+        /// <summary>When true the leader's own bullets are off — ArmyRunLevel fires for the whole army.</summary>
+        public bool ExternalShootingControl { get; set; }
+        private float defaultHorizontalLimit = -1f;
+
+        public void SetHorizontalLimit(float limit)
+        {
+            if (defaultHorizontalLimit < 0f) defaultHorizontalLimit = horizontalLimit;
+            horizontalLimit = Mathf.Max(0.5f, limit);
+            targetX = Mathf.Clamp(targetX, -horizontalLimit, horizontalLimit);
+        }
+
+        public void RestoreHorizontalLimit()
+        {
+            if (defaultHorizontalLimit > 0f) horizontalLimit = defaultHorizontalLimit;
+            targetX = Mathf.Clamp(targetX, -horizontalLimit, horizontalLimit);
+        }
+
+        /// <summary>Removes the cloned PlayerSquadAlly soldiers (the army level draws its own lightweight crowd).</summary>
+        public int ClearSquadAlliesForArmyMode()
+        {
+            int removed = 0;
+            for (int i = squadAllies.Count - 1; i >= 0; i--)
+            {
+                if (squadAllies[i] != null) { Destroy(squadAllies[i].gameObject); removed++; }
+            }
+            squadAllies.Clear();
+            UpdateSquadCountBadge();
+            return removed;
         }
     }
 }

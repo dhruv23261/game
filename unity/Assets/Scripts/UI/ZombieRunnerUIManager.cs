@@ -50,6 +50,7 @@ namespace MobControl.UI
         [SerializeField] private float levelFinishZ = 120.0f; // End of the zombie street
         [SerializeField] private int activeLevel = 1;
         [SerializeField] private int totalLevels = 6;
+        public int ActiveLevel => activeLevel;
 
         [Header("Splash Settings")]
         [SerializeField] private float splashDurationSeconds = 2.8f;
@@ -504,7 +505,10 @@ namespace MobControl.UI
             {
                 HookAllButtonsWithSound(mainCanvas.gameObject);
             }
-            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
+            if (!MobControl.Level.ArmyRunLevel.Enabled)
+            {
+                MobControl.Level.NewRoadBuilder.EnsureNewRoad();
+            }
 
             if (currentState == ScreenState.Gameplay)
             {
@@ -6770,19 +6774,25 @@ namespace MobControl.UI
                 playerRunner.SetControllable(true);
             }
 
-            // 2. Start endless road
-            if (MobControl.Level.EndlessRoadManager.Instance != null)
+            if (!MobControl.Level.ArmyRunLevel.Enabled)
             {
-                MobControl.Level.EndlessRoadManager.Instance.SetSpeed(LevelRoadSpeed);
-                MobControl.Level.EndlessRoadManager.Instance.SetRunning(true);
-                Debug.Log($"[ZombieRunnerUIManager] Level {activeLevel} speed: road {LevelRoadSpeed:F2} m/s, zombie walk x{LevelZombieSpeedScale:F2}");
+                // 2. Start endless road
+                if (MobControl.Level.EndlessRoadManager.Instance != null)
+                {
+                    MobControl.Level.EndlessRoadManager.Instance.SetSpeed(LevelRoadSpeed);
+                    MobControl.Level.EndlessRoadManager.Instance.SetRunning(true);
+                    Debug.Log($"[ZombieRunnerUIManager] Level {activeLevel} speed: road {LevelRoadSpeed:F2} m/s, zombie walk x{LevelZombieSpeedScale:F2}");
+                }
+
+                // 3. Start Zombie Spawner
+                if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
+                {
+                    MobControl.Crowd.ZombieRoadWaveSpawner.Instance.StartSpawning();
+                }
             }
 
-            // 3. Start Zombie Spawner
-            if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
-            {
-                MobControl.Crowd.ZombieRoadWaveSpawner.Instance.StartSpawning();
-            }
+            // 4. Army Run level starts marching
+            MobControl.Level.ArmyRunLevel.OnGameplayStarted(activeLevel);
         }
 
         private IEnumerator FadeOutSwipePromptRoutine()
@@ -8297,19 +8307,22 @@ namespace MobControl.UI
             }
 
             // 1. Ensure Reference Level 1 Road & Environment is built
-            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
-
-            // 2. Setup Camera and Atmosphere for Level Road
-            MobControl.Level.NewRoadBuilder.SetupCameraAndAtmosphere(levelNumber);
-
-            // 3. Configure Level for Endless Road and Enemy Wave Spawners
-            if (MobControl.Level.EndlessRoadManager.Instance != null)
+            if (!MobControl.Level.ArmyRunLevel.Enabled)
             {
-                MobControl.Level.EndlessRoadManager.Instance.CurrentLevel = levelNumber;
-            }
-            if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
-            {
-                MobControl.Crowd.ZombieRoadWaveSpawner.Instance.CurrentLevel = levelNumber;
+                MobControl.Level.NewRoadBuilder.EnsureNewRoad();
+
+                // 2. Setup Camera and Atmosphere for Level Road
+                MobControl.Level.NewRoadBuilder.SetupCameraAndAtmosphere(levelNumber);
+
+                // 3. Configure Level for Endless Road and Enemy Wave Spawners
+                if (MobControl.Level.EndlessRoadManager.Instance != null)
+                {
+                    MobControl.Level.EndlessRoadManager.Instance.CurrentLevel = levelNumber;
+                }
+                if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
+                {
+                    MobControl.Crowd.ZombieRoadWaveSpawner.Instance.CurrentLevel = levelNumber;
+                }
             }
 
             // 4. Update HUD level title
@@ -8358,6 +8371,9 @@ namespace MobControl.UI
 
             // 8. Display soothing "Swipe Left / Right to Start" indicator
             ShowSwipeToStartPrompt();
+
+            // 9. Level 1 = Army Run (Top War style crowd runner); other levels tear it down
+            MobControl.Level.ArmyRunLevel.OnMissionStarted(levelNumber);
 
             Debug.Log($"[ZombieSquad] Level {levelNumber} ready! Waiting for user swipe to start.");
         }
@@ -8408,6 +8424,12 @@ namespace MobControl.UI
                     }
                 }
             }
+        }
+
+        /// <summary>Overrides the line under the victory title (Army Run shows the final army count here).</summary>
+        public void SetVictorySubtitle(string text)
+        {
+            if (victorySubText != null && !string.IsNullOrEmpty(text)) victorySubText.text = text;
         }
 
         public void TriggerVictory(int overrideStars, int overrideCoins)

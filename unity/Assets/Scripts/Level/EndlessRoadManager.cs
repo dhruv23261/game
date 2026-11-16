@@ -371,6 +371,7 @@ namespace MobControl.Level
         /// <summary>Road-mesh holes for the lava pits the next populated segment will contain (must match the Populate* layouts).</summary>
         private List<Rect> GetPitRectsForStep(int step)
         {
+            if (ArmyRunLevel.HandlesLevel(currentLevel)) return new List<Rect>(); // Army Run: clean road, no lava pits
             if (currentLevel == 2) return GetLevel2PitRectsForPattern(GetLevel2PatternId(step));
             // Matches the pattern formula used by PopulateSegmentObstacles for level 1
             int patternId = (step < 10) ? step : (3 + (step % 7));
@@ -962,6 +963,9 @@ namespace MobControl.Level
         private void PopulateSegmentObstacles(RoadSegment seg)
         {
             if (seg == null || seg.obstaclesRoot == null) return;
+
+            // Level 1 is now the Army Run (ArmyRunLevel builds its own gates / barrels / hordes)
+            if (ArmyRunLevel.HandlesLevel(currentLevel)) { totalSegmentsPopulated++; return; }
 
             if (currentLevel == 2)
             {
