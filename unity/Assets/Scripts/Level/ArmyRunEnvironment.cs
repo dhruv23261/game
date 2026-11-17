@@ -28,6 +28,13 @@ namespace MobControl.Level
         public const int SEG_COUNT = 15;
         public const int PYLON_EVERY = 7;
         public static float RoadCenter => 0f;
+        /// <summary>
+        /// true  = Mob Control "Cave Spike Roller" look: one elevated road over a misty snowy pine forest,
+        ///         +1 strip lane on the right (default for Level 1).
+        /// false = the old sea-bridge world.
+        /// </summary>
+        public static bool SnowForest = true;
+        public const float STRIP_LEFT = 2.05f;      // +1 strip lane: x 2.05 … 3.6
 
         // ─── Palette ───
         private static readonly Color C_DECK = new Color(0.78f, 0.79f, 0.82f);
@@ -73,13 +80,14 @@ namespace MobControl.Level
 
         // ═════════════════════════════════════ Lifecycle ══
 
-        public void Build(Transform parent, Camera cam, int level = 1)
+        public void Build(Transform parent, Camera cam)
         {
             root = new GameObject("ArmyRun_Environment").transform;
             root.SetParent(parent, false);
 
             HideOldLevel1Environment();
-            ApplyAtmosphere(cam, level);
+            if (SnowForest) { BuildSnowForest(cam); return; }
+            ApplyAtmosphere(cam);
 
             if (s_segMeshes == null) s_segMeshes = BuildSegmentMeshes();
             if (s_pylonMeshes == null) s_pylonMeshes = BuildPylonMeshes();
@@ -184,48 +192,56 @@ namespace MobControl.Level
             segments.Clear(); segmentPylons.Clear(); layers.Clear(); bobbers.Clear();
         }
 
-        // ═════════════════════════════════════ Old level / atmosphere ══
+        // ═════════════════════════════════════ Snow forest (Mob Control reference) ══
 
-        private void HideOldLevel1Environment()
+        private static Dictionary<Material, Mesh> s_snowSegMeshes;
+        private static readonly List<Dictionary<Material, Mesh>> s_pineTiles = new List<Dictionary<Material, Mesh>>();
+        private static readonly Color C_SNOW_FOG = new Color(0.80f, 0.82f, 0.86f);
+        private const float GROUND_Y = -7f;
+        private const float PINE_TILE = 40f;
+
+        private void BuildSnowForest(Camera cam)
         {
-            var oldRoot = GameObject.Find(NewRoadBuilder.ROOT_NAME);
-            if (oldRoot != null)
+            ApplySnowAtmosphere(cam);
+            if (s_snowSegMeshes == null) s_snowSegMeshes = BuildSnowSegmentMeshes();
+            for (int i = 0; i < SEG_COUNT; i++)
             {
-                // Deactivate the old stylized road root entirely, preserving player runner if nested
-                var runner = oldRoot.GetComponentInChildren<MobControl.Combat.PlayerRunnerController>(true);
-                if (runner != null)
-                {
-                    runner.transform.SetParent(null, true);
-                }
-                oldRoot.SetActive(false);
-                hiddenObjects.Add(oldRoot);
+                var seg = new GameObject("RoadSegment").transform;
+                seg.SetParent(root, false);
+                seg.localPosition = new Vector3(0f, 0f, -2f * SEG_LEN + i * SEG_LEN);
+                AddMeshes(seg, s_snowSegMeshes);
+                var none = new GameObject("NoPylon");
+                none.transform.SetParent(seg, false);
+                segments.Add(seg);
+                segmentPylons.Add(none);
             }
 
-            var road = EndlessRoadManager.Instance ?? Object.FindAnyObjectByType<EndlessRoadManager>();
-            if (road != null && road.gameObject.activeSelf)
-            {
-                road.SetRunning(false);
-                road.gameObject.SetActive(false);
-                hiddenObjects.Add(road.gameObject);
-            }
+            // snowy ground far below the road (plain colour: the fog does the rest)
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            ground.name = "SnowGround";
+            Object.Destroy(ground.GetComponent<Collider>());
+            ground.transform.SetParent(root, false);
+            ground.transform.localPosition = new Vector3(0f, GROUND_Y, 200f);
+            ground.transform.localScale = new Vector3(100f, 1f, 100f);
+            var gr = ground.GetComponent<MeshRenderer>();
+            gr.sharedMaterial = Mat(new Color(0.88f, 0.9f, 0.93f), 0.05f);
+            gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            var spawner = MobControl.Crowd.ZombieRoadWaveSpawner.Instance ?? Object.FindAnyObjectByType<MobControl.Crowd.ZombieRoadWaveSpawner>();
-            if (spawner != null && spawner.gameObject.activeSelf)
+            // pine forest: 8 tiles of 40 m, 1× scroll, recycled to the front
+            if (s_pineTiles.Count == 0)
+                for (int k = 0; k < 3; k++) s_pineTiles.Add(BuildPineTile(k));
+            var L = NewLayer(1f, -2f * PINE_TILE, PINE_TILE * 9f);
+            for (int i = 0; i < 9; i++)
             {
-                spawner.StopSpawning();
-                spawner.gameObject.SetActive(false);
-                hiddenObjects.Add(spawner.gameObject);
-            }
-
-            var creatures = GameObject.Find("Level_Creatures_Root");
-            if (creatures != null && creatures.activeSelf)
-            {
-                creatures.SetActive(false);
-                hiddenObjects.Add(creatures);
+                var tile = new GameObject("PineTile").transform;
+                tile.SetParent(root, false);
+                tile.localPosition = new Vector3(0f, GROUND_Y, -PINE_TILE + i * PINE_TILE);
+                AddMeshes(tile, s_pineTiles[i % s_pineTiles.Count]);
+                L.items.Add(tile);
             }
         }
 
-        private void ApplyAtmosphere(Camera cam, int level = 1)
+        private void ApplySnowAtmosphere(Camera cam)
         {
             prevFog = RenderSettings.fog; prevFogColor = RenderSettings.fogColor;
             prevFogStart = RenderSettings.fogStartDistance; prevFogEnd = RenderSettings.fogEndDistance;
@@ -239,53 +255,195 @@ namespace MobControl.Level
 
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-
-            if (level == 2)
+            RenderSettings.fogColor = C_SNOW_FOG;
+            RenderSettings.fogStartDistance = 24f;       // thick mist: the far end of the swarm fades out
+            RenderSettings.fogEndDistance = 105f;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.86f, 0.89f, 0.95f);
+            RenderSettings.ambientEquatorColor = new Color(0.72f, 0.75f, 0.80f);
+            RenderSettings.ambientGroundColor = new Color(0.50f, 0.53f, 0.58f);
+            QualitySettings.shadowDistance = 40f;
+            if (sun != null)
             {
-                // Cave / Twilight winter theme from reference video
-                RenderSettings.fogColor = new Color(0.68f, 0.72f, 0.80f);
-                RenderSettings.fogStartDistance = 60f;
-                RenderSettings.fogEndDistance = 260f;
-                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-                RenderSettings.ambientSkyColor = new Color(0.60f, 0.65f, 0.78f);
-                RenderSettings.ambientEquatorColor = new Color(0.48f, 0.52f, 0.62f);
-                RenderSettings.ambientGroundColor = new Color(0.25f, 0.28f, 0.35f);
-                QualitySettings.shadowDistance = 50f;
-                if (sun != null)
+                sun.transform.rotation = Quaternion.Euler(58f, -25f, 0f);
+                sun.color = new Color(1f, 0.97f, 0.93f);
+                sun.intensity = 1.05f;
+            }
+            if (cam != null)
+            {
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = C_SNOW_FOG;
+                cam.farClipPlane = Mathf.Max(cam.farClipPlane, 300f);
+            }
+        }
+
+        /// <summary>
+        /// One 20 m piece of the elevated road: light concrete deck, dark low side walls, the +1 strip lane
+        /// (x 2.05 … 3.6, bluish steel with a curb) and a tall dark pier wall down into the mist.
+        /// </summary>
+        private static Dictionary<Material, Mesh> BuildSnowSegmentMeshes()
+        {
+            Material deck = Mat(new Color(0.80f, 0.81f, 0.84f), 0.1f), seam = Mat(new Color(0.72f, 0.73f, 0.77f), 0.1f);
+            Material wall = Mat(new Color(0.32f, 0.34f, 0.39f), 0.2f), wallTop = Mat(new Color(0.55f, 0.57f, 0.62f), 0.3f);
+            Material pier = Mat(new Color(0.40f, 0.42f, 0.47f), 0.05f);
+            Material strip = Mat(new Color(0.58f, 0.62f, 0.70f), 0.35f), curb = Mat(new Color(0.30f, 0.33f, 0.40f), 0.3f);
+
+            var temp = new GameObject("SnowSegTemp").transform;
+            float len = SEG_LEN, mid = len * 0.5f;
+            float W = ROAD_RIGHT - ROAD_LEFT;
+            Part(temp, PrimitiveType.Cube, new Vector3((ROAD_LEFT + STRIP_LEFT) * 0.5f, -0.25f, mid), new Vector3(STRIP_LEFT - ROAD_LEFT, 0.5f, len), deck);
+            Part(temp, PrimitiveType.Cube, new Vector3((STRIP_LEFT + ROAD_RIGHT) * 0.5f, -0.22f, mid), new Vector3(ROAD_RIGHT - STRIP_LEFT, 0.5f, len), strip);
+            Part(temp, PrimitiveType.Cube, new Vector3(STRIP_LEFT, 0.06f, mid), new Vector3(0.12f, 0.14f, len), curb);
+            for (float z = 0f; z < len; z += 4f)
+                Part(temp, PrimitiveType.Cube, new Vector3((ROAD_LEFT + STRIP_LEFT) * 0.5f, 0.004f, z), new Vector3(STRIP_LEFT - ROAD_LEFT - 0.3f, 0.01f, 0.05f), seam);
+            foreach (float sx in new[] { ROAD_LEFT - 0.15f, ROAD_RIGHT + 0.15f })
+            {
+                Part(temp, PrimitiveType.Cube, new Vector3(sx, 0.2f, mid), new Vector3(0.3f, 0.9f, len), wall);
+                Part(temp, PrimitiveType.Cube, new Vector3(sx, 0.66f, mid), new Vector3(0.34f, 0.04f, len), wallTop);
+            }
+            Part(temp, PrimitiveType.Cube, new Vector3(0f, (GROUND_Y - 0.5f) * 0.5f, mid), new Vector3(W + 0.4f, -GROUND_Y - 0.5f, len), pier);
+            return Combine(temp);
+        }
+
+        /// <summary>40 m of forest on both sides: ~70 snowy pines (stacked cones + white tips) in 2 meshes.</summary>
+        private static Dictionary<Material, Mesh> BuildPineTile(int seed)
+        {
+            var state = Random.state;
+            Random.InitState(9173 + seed * 31);
+            // CC0 snowy pine (Quaternius, baked) when available: ~36 per tile, random size / turn, merged
+            var pine = ArmyRunBakedModels.Load("SnowPine");
+            if (pine != null && pine.materials.Length == 1)
+            {
+                var t0 = new GameObject("PineTemp").transform;
+                Mesh pm = pine.frames[0][0];
+                for (int i = 0; i < 36; i++)
                 {
-                    sun.transform.rotation = Quaternion.Euler(46f, -38f, 0f);
-                    sun.color = new Color(1.0f, 0.88f, 0.78f);
-                    sun.intensity = 1.15f;
+                    float side = i % 2 == 0 ? -1f : 1f;
+                    float x = side * Random.Range(5.0f, 42f);
+                    float z = Random.Range(0f, PINE_TILE);
+                    float h = Random.Range(7f, 12.5f) * (Mathf.Abs(x) < 9f ? 0.85f : 1f);
+                    var part = MeshPart(t0, pm, new Vector3(x, 0f, z), Vector3.one * h, pine.materials[0]);
+                    part.transform.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
                 }
-                if (cam != null)
+                Random.state = state;
+                return Combine(t0);
+            }
+            Material leaf = Mat(new Color(0.22f, 0.31f, 0.33f), 0.05f), leaf2 = Mat(new Color(0.28f, 0.38f, 0.40f), 0.05f);
+            Material snow = Mat(new Color(0.93f, 0.95f, 0.98f), 0.1f), trunk = Mat(new Color(0.30f, 0.24f, 0.20f), 0.05f);
+            Mesh cone = ConeMesh(7);
+            var temp = new GameObject("PineTemp").transform;
+            for (int i = 0; i < 70; i++)
+            {
+                float side = i % 2 == 0 ? -1f : 1f;
+                float x = side * Random.Range(5.2f, 42f);
+                float z = Random.Range(0f, PINE_TILE);
+                float h = Random.Range(6.5f, 11.5f);
+                float r = h * Random.Range(0.2f, 0.26f);
+                Part(temp, PrimitiveType.Cylinder, new Vector3(x, h * 0.1f, z), new Vector3(r * 0.25f, h * 0.1f, r * 0.25f), trunk);
+                Material lm = Random.value < 0.5f ? leaf : leaf2;
+                for (int k = 0; k < 3; k++)
                 {
-                    cam.clearFlags = CameraClearFlags.SolidColor;
-                    cam.backgroundColor = new Color(0.68f, 0.72f, 0.80f);
-                    cam.farClipPlane = Mathf.Max(cam.farClipPlane, 600f);
+                    float y0 = h * (0.15f + k * 0.24f);
+                    float lr = r * (1f - k * 0.26f);
+                    MeshPart(temp, cone, new Vector3(x, y0, z), new Vector3(lr * 2f, h * 0.42f, lr * 2f), lm);
+                    MeshPart(temp, cone, new Vector3(x, y0 + h * 0.3f, z), new Vector3(lr * 0.9f, h * 0.13f, lr * 0.9f), snow);
                 }
             }
-            else
+            Random.state = state;
+            return Combine(temp);
+        }
+
+        private static GameObject MeshPart(Transform parent, Mesh mesh, Vector3 pos, Vector3 scale, Material mat)
+        {
+            var go = new GameObject("MeshPart");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = pos;
+            go.transform.localScale = scale;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            return go;
+        }
+
+        /// <summary>Unit cone (base radius 0.5 at y=0, apex at y=1), flat-shaded.</summary>
+        private static Mesh ConeMesh(int sides)
+        {
+            var v = new List<Vector3>(); var tri = new List<int>();
+            for (int i = 0; i < sides; i++)
             {
-                RenderSettings.fogColor = C_FOG;
-                RenderSettings.fogStartDistance = 90f;
-                RenderSettings.fogEndDistance = 320f;
-                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-                RenderSettings.ambientSkyColor = new Color(0.72f, 0.82f, 0.98f);
-                RenderSettings.ambientEquatorColor = new Color(0.62f, 0.68f, 0.76f);
-                RenderSettings.ambientGroundColor = new Color(0.34f, 0.40f, 0.48f);
-                QualitySettings.shadowDistance = 45f;
-                if (sun != null)
+                float a0 = i * Mathf.PI * 2f / sides, a1 = (i + 1) * Mathf.PI * 2f / sides;
+                Vector3 p0 = new Vector3(Mathf.Cos(a0) * 0.5f, 0f, Mathf.Sin(a0) * 0.5f);
+                Vector3 p1 = new Vector3(Mathf.Cos(a1) * 0.5f, 0f, Mathf.Sin(a1) * 0.5f);
+                int b = v.Count;
+                v.Add(p0); v.Add(Vector3.up); v.Add(p1);
+                tri.Add(b); tri.Add(b + 1); tri.Add(b + 2);
+                b = v.Count;
+                v.Add(p0); v.Add(p1); v.Add(Vector3.zero);
+                tri.Add(b); tri.Add(b + 1); tri.Add(b + 2);
+            }
+            var m = new Mesh { name = "PineCone" };
+            m.SetVertices(v); m.SetTriangles(tri, 0);
+            m.RecalculateNormals(); m.RecalculateBounds();
+            return m;
+        }
+
+        // ═════════════════════════════════════ Old level / atmosphere ══
+
+        private void HideOldLevel1Environment()
+        {
+            var oldRoot = GameObject.Find(NewRoadBuilder.ROOT_NAME);
+            if (oldRoot != null)
+            {
+                foreach (Transform child in oldRoot.transform)
                 {
-                    sun.transform.rotation = Quaternion.Euler(52f, -32f, 0f);
-                    sun.color = new Color(1f, 0.95f, 0.86f);
-                    sun.intensity = 1.25f;
+                    if (!child.gameObject.activeSelf) continue;
+                    if (child.GetComponentInChildren<MobControl.Combat.PlayerRunnerController>(true) != null) continue;
+                    if (child.GetComponentInChildren<MobControl.Crowd.ZombieRoadWaveSpawner>(true) != null) continue;
+                    if (child.GetComponentInChildren<Camera>(true) != null || child.GetComponentInChildren<Light>(true) != null) continue;
+                    child.gameObject.SetActive(false);
+                    hiddenObjects.Add(child.gameObject);
                 }
-                if (cam != null)
-                {
-                    cam.clearFlags = CameraClearFlags.SolidColor;
-                    cam.backgroundColor = C_SKY_HORIZON;
-                    cam.farClipPlane = Mathf.Max(cam.farClipPlane, 600f);
-                }
+            }
+            var road = EndlessRoadManager.Instance;
+            if (road != null && road.gameObject.activeSelf && road.GetComponentInChildren<MobControl.Combat.PlayerRunnerController>(true) == null)
+            {
+                road.gameObject.SetActive(false);
+                hiddenObjects.Add(road.gameObject);
+            }
+        }
+
+        private void ApplyAtmosphere(Camera cam)
+        {
+            prevFog = RenderSettings.fog; prevFogColor = RenderSettings.fogColor;
+            prevFogStart = RenderSettings.fogStartDistance; prevFogEnd = RenderSettings.fogEndDistance;
+            prevAmbMode = RenderSettings.ambientMode; prevAmbSky = RenderSettings.ambientSkyColor;
+            prevAmbEq = RenderSettings.ambientEquatorColor; prevAmbGround = RenderSettings.ambientGroundColor;
+            prevShadowDist = QualitySettings.shadowDistance;
+            if (cam != null) { prevBg = cam.backgroundColor; prevClear = cam.clearFlags; }
+            sun = FindSun();
+            if (sun != null) { prevSunColor = sun.color; prevSunIntensity = sun.intensity; prevSunRot = sun.transform.rotation; }
+            saved = true;
+
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = C_FOG;
+            RenderSettings.fogStartDistance = 90f;
+            RenderSettings.fogEndDistance = 320f;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.72f, 0.82f, 0.98f);
+            RenderSettings.ambientEquatorColor = new Color(0.62f, 0.68f, 0.76f);
+            RenderSettings.ambientGroundColor = new Color(0.34f, 0.40f, 0.48f);
+            QualitySettings.shadowDistance = 45f;
+            if (sun != null)
+            {
+                sun.transform.rotation = Quaternion.Euler(52f, -32f, 0f);
+                sun.color = new Color(1f, 0.95f, 0.86f);
+                sun.intensity = 1.25f;
+            }
+            if (cam != null)
+            {
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = C_SKY_HORIZON;
+                cam.farClipPlane = Mathf.Max(cam.farClipPlane, 600f);
             }
         }
 

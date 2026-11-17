@@ -29,14 +29,30 @@ namespace MobControl.Level
                     p.x = g.baseX + Mathf.Sin(t * g.moveSpeed) * g.moveAmp;
                     g.tr.localPosition = p;
                 }
+                if (g.plaque)                                  // only ~40 signs are ever switched on
+                {
+                    float dzp = g.tr.position.z - lp.z;
+                    bool show = dzp < PLAQUE_VIEW_AHEAD && dzp > -8f;
+                    if (g.tr.gameObject.activeSelf != show) g.tr.gameObject.SetActive(show);
+                }
                 if (g.used) continue;
                 Vector3 gp = g.tr.position;
                 if (gp.z > lp.z + 0.2f) continue;
 
                 g.used = true;
-                if (g.plaque)                                  // "+1 strip" plaque
+                if (g.plaque)                                  // strip sign: the army's edge touching it counts
                 {
-                    if (Mathf.Abs(lp.x - gp.x) <= g.halfWidth) CollectPlaque(g, gp);
+                    if (Mathf.Abs(lp.x - gp.x) <= g.halfWidth + CrowdRadius * 0.6f) { CollectPlaque(g, gp); if (g.op == '+') missedPlus = 0; }
+                    else if (g.op == '+')
+                    {
+                        plaqueCombo = 0;                       // skipped a plus sign: combo broken
+                        if (++missedPlus >= 8 && Time.time > nextStripHint)   // drifting away from the strip: nudge
+                        {
+                            nextStripHint = Time.time + 9f;
+                            missedPlus = 0;
+                            SpawnFloatText(new Vector3(Mathf.Min(lp.x + 1.6f, 2.2f), 2.4f, lp.z + 2.5f), "GRAB THE +1s  >>", new Color(0.55f, 0.85f, 1f), 7f);
+                        }
+                    }
                     continue;
                 }
                 if (g.pair != null) g.pair.used = true;
@@ -60,7 +76,10 @@ namespace MobControl.Level
             }
         }
 
-        /// <summary>Spiked rollers sweep left↔right. When one crosses the army line, the overlapped share of soldiers dies.</summary>
+        /// <summary>
+        /// Spiked rollers hold ONE half of the road (left or right) and slide/spin inside it — the other half is
+        /// always safe. When one crosses the army line, the overlapped share loses up to 25 %.
+        /// </summary>
         private void UpdateRollers(float dt)
         {
             Vector3 lp = LeaderPos;
@@ -70,11 +89,17 @@ namespace MobControl.Level
                 var r = rollers[i];
                 if (r.tr == null) continue;
                 Vector3 p = r.tr.localPosition;
-                float range = ArmyRunEnvironment.ROAD_RIGHT - 0.5f - r.halfLen;
-                float x = Mathf.Sin(Time.time * r.speed / range + r.phase) * range;
+                float x = r.center + Mathf.Sin(Time.time * r.speed + r.phase) * r.amp;
                 p.x = x;
                 r.tr.localPosition = p;
                 if (r.log != null) r.log.Rotate(Vector3.up, 600f * dt, Space.Self);   // menacing spin
+                float rdz = r.tr.position.z - lp.z;
+                if (!r.warned && rdz < 24f)                    // heads-up as it comes into view
+                {
+                    r.warned = true;
+                    SpawnFloatText(r.tr.position + Vector3.up * 2.2f, "DANGER!", new Color(1f, 0.3f, 0.2f), 9f);
+                }
+                if (rdz < 45f && rdz > -6f) SwarmCrush(x - r.halfLen, x + r.halfLen, r.tr.position.z, 0.75f);   // flattens the swarm (on screen only)
 
                 if (r.resolved) continue;
                 float wz = r.tr.position.z;
@@ -82,7 +107,7 @@ namespace MobControl.Level
                 r.resolved = true;
                 float overlap = Mathf.Max(0f, Mathf.Min(x + r.halfLen, lp.x + R) - Mathf.Max(x - r.halfLen, lp.x - R));
                 if (overlap <= 0f) { SpawnFloatText(new Vector3(lp.x, 2.5f, lp.z + 1f), "DODGED!", new Color(1f, 0.95f, 0.4f)); continue; }
-                int kills = Mathf.Max(1, Mathf.CeilToInt(soldierCount * 0.45f * Mathf.Clamp01(overlap / (2f * R))));
+                int kills = Mathf.Max(1, Mathf.CeilToInt(soldierCount * 0.25f * Mathf.Clamp01(overlap / (2f * R))));
                 fx?.Chunks(new Vector3(x, 0.8f, lp.z), new Color(0.5f, 0.35f, 0.2f), 10, 5f);
                 SpawnFloatText(new Vector3(x, 2.6f, lp.z + 1f), $"-{Mathf.Min(kills, soldierCount)}", new Color(1f, 0.3f, 0.3f));
                 Shake(0.1f);
@@ -121,8 +146,7 @@ namespace MobControl.Level
                         t.alive = false;
                         fx?.Chunks(tp + Vector3.up * 0.8f, t.kind == Kind.Ice ? new Color(0.6f, 0.9f, 1f) : new Color(0.55f, 0.35f, 0.18f), 12, 5f);
                         if (t.unlocksGate != null && t.unlocksGate.panel != null) t.unlocksGate.panel.gameObject.SetActive(true);
-                        Destroy(t.tr.gameObject);
-                        t.tr = null;
+                        DestroyTargetObject(t);
                     }
                     Shake(0.12f);
                     ChangeSoldiers(soldierCount - cost, tp);
@@ -140,16 +164,43 @@ namespace MobControl.Level
         private const float LEVEL_FIRE_MULT = 1.12f;
 
         /// <summary>+N plaque: soldiers join at once, panel pops, every 15 plaques the weapon levels up.</summary>
+        private int plaqueCombo, missedPlus;
+        private float nextStripHint;
+        private const int COMBO_STEP = 20;
+
         private void CollectPlaque(Gate g, Vector3 gp)
         {
-            if (g.panel != null) g.panel.gameObject.SetActive(false);
+            if (g.panel != null) (g.panel.transform.parent != null ? g.panel.transform.parent : g.panel.transform).gameObject.SetActive(false);
             if (g.label != null) g.label.gameObject.SetActive(false);
-            fx?.Sparkle(gp + Vector3.up * 0.8f, g.color, 5, 0.4f);
-            SpawnFloatText(gp + Vector3.up * 1.6f, "+" + g.value, g.color, 9f);
+
+            if (g.op == '-')                               // red trap sign
+            {
+                plaqueCombo = 0;
+                fx?.Chunks(gp + Vector3.up * 0.7f, new Color(1f, 0.25f, 0.2f), 8, 3.5f);
+                fx?.BulletHit(gp + Vector3.up * 0.7f, new Color(1f, 0.3f, 0.2f));
+                SpawnFloatText(gp + new Vector3(-0.8f, 1.3f, 0f), "-" + g.value, new Color(1f, 0.28f, 0.22f), g.value >= 10 ? 8f : 7f);
+                Shake(0.12f);
+                ChangeSoldiers(soldierCount - g.value, gp);
+                return;
+            }
+
+            fx?.Sparkle(gp + Vector3.up * 0.8f, g.color, 6, 0.5f);
+            fx?.Chunks(gp + Vector3.up * 0.6f, g.color, 4, 2.5f);
+            SpawnFloatText(gp + new Vector3(-0.7f, 1.2f, 0f), "+" + g.value, new Color(1f, 0.9f, 0.25f), g.value >= 10 ? 7f : 6f);
             Snd?.PlayCoinSpend();
             ChangeSoldiers(soldierCount + g.value, gp);
 
             plaquesCollected++;
+            plaqueCombo++;
+            if (plaqueCombo % COMBO_STEP == 0)               // PERFECT streak: bonus soldiers + gold burst
+            {
+                int bonus = plaqueCombo / 4;
+                Vector3 lp0 = LeaderPos;
+                fx?.Sparkle(lp0 + Vector3.up * 1.2f, new Color(1f, 0.85f, 0.3f), 24, CrowdRadius);
+                SpawnFloatText(lp0 + new Vector3(0f, 2.8f, 1.2f), $"PERFECT x{plaqueCombo}  +{bonus}", new Color(1f, 0.85f, 0.25f), 8f);
+                Snd?.PlayUpgradeSuccess();
+                ChangeSoldiers(soldierCount + bonus, lp0);
+            }
             if (plaquesCollected % PLAQUES_PER_LEVEL == 0 && weaponLevel < 10)
             {
                 weaponLevel++;
@@ -157,7 +208,7 @@ namespace MobControl.Level
                 Vector3 lp = LeaderPos;
                 fx?.Shockwave(lp, 6f, new Color(1f, 0.85f, 0.3f, 1f));
                 fx?.Sparkle(lp + Vector3.up, new Color(1f, 0.85f, 0.3f), 30, CrowdRadius);
-                SpawnFloatText(lp + Vector3.up * 2.8f, "LV +1", new Color(1f, 0.88f, 0.3f), 16f);
+                SpawnFloatText(lp + new Vector3(1.4f, 2.2f, 0.6f), $"WEAPON LV {weaponLevel}", new Color(1f, 0.88f, 0.3f), 7f);
                 Snd?.PlayGunUpgrade();
             }
         }

@@ -18,125 +18,65 @@ namespace MobControl.Level
         private const float PAIR_X = 1.7f, PAIR_HALF = 1.6f;
         private const float TRIPLE_X = 2.3f, TRIPLE_HALF = 1.1f;
 
+        // Swarm lane (main road minus the +1 strip on the right) and the strip itself
+        private const float SWARM_L = -3.2f, SWARM_R = 1.75f;
+        private const float STRIP_X = 2.85f;
+        private const float PLAQUE_SPACING = 1.15f;    // signs almost touch: one continuous column, like the reference
+        private const float PLAQUE_VIEW_AHEAD = 44f;   // signs exist on screen only from 8 m behind to 44 m ahead
+
+        /// <summary>
+        /// LEVEL 1 — "CAVE SPIKE ROLLER" (Mob Control reference video).
+        /// A +1 strip runs down the right edge the whole way; the main lane is a solid red carpet of mobs.
+        /// Hug the strip to grow, shoot the carpet to push forward, free the giant, survive the rollers,
+        /// kill the yellow Brute, then the Master Tyrant.
+        /// </summary>
         private void BuildTrack()
         {
             stages.Clear();
-            float L = -PAIR_X, R = PAIR_X;
-            const float PLAQUE_R = 2.75f, PLAQUE_L = -2.75f;
+            const float SP = PLAQUE_SPACING;
 
-            if (currentLevel == 2)
-            {
-                BuildLevel2Track();
-                return;
-            }
+            // ALLY: offered twice — a 60 s helper in stage 1 and a champion right before the Master Tyrant.
+            // +1 STRIP PROGRESSION (the whole level is one continuous strip down the right edge, with red minus runs):
+            //   stage 1  +1 (blue, teaches the strip)      stage 2  +2
+            //   stage 3  +3 → orange +10 into the Brute     stage 4  +5 → orange +20 → +99 jackpot before the Master
+            // Leaving the strip to dodge a roller costs you growth: that is the decision the level asks for.
 
-            // ───────────── STAGE 1 · BOOT CAMP — collect +1s on the right, shoot the red river on the left ─────────────
-            AddStage(0f, "BOOT CAMP", "Grab the +1s — shoot the red river!");
-            AddPlaqueStrip(14f, 62f, PLAQUE_R, 1);
-            AddStream(26f, 70f, -3.0f, -0.4f, 0.45f, 1f, 0f);
-            AddContainer(40f, -1.6f, 5, 2.4f, ContainerColor.Red);
-            AddGatePair(76f, '+', 10, 'x', 2);
-            AddHorde(88f, 0f, 10, 2f, 0);
+            // ───────────── STAGE 1 · THE HORDE — grab +1s, mow the red carpet, free the giant ─────────────
+            AddStage(0f, "THE HORDE", "Hug the +1 strip on the right!");
+            AddPlaqueStrip(5f, 128f, STRIP_X, 1, SP, 3, 24f);
+            AddSwarmRamp(34f, 60f, SWARM_L, SWARM_R, 0.6f, 1.3f);       // thin front: learn to shoot while growing
+            AddAllyCage(66f, -3.3f, 40, 60f);                            // ally #1: helps for 60 s
+            AddSwarm(60f, 74f, -1.0f, SWARM_R, 1.3f);
+            AddSwarmRamp(74f, 128f, SWARM_L, SWARM_R, 1.3f, 2.1f);
 
-            // ───────────── STAGE 2 · RESCUE — free the giant ally ─────────────
-            AddStage(98f, "RESCUE", "Shoot the cage — free the giant!");
-            AddAllyCage(118f, -1.9f, 30);
-            AddStream(104f, 168f, -3.0f, -0.3f, 0.6f, 2f, 0.05f);
-            AddPlaqueStrip(104f, 162f, PLAQUE_R, 1);
-            AddGunner(150f, 0.4f, 12);
-            AddGateTriple(176f, 'x', 3, '+', 20, '-', 10);
+            // ───────────── STAGE 2 · SPIKE ROLLER — rollers flatten the swarm (and you) ─────────────
+            AddStage(130f, "SPIKE ROLLER", "Let the roller crush them — dodge it!");
+            AddPlaqueStrip(131f, 210f, STRIP_X, 2, SP, 6, 20f);
+            AddRoller(142f, -1, 1.6f, 0f);                               // left half: free dodge
+            AddSwarmRamp(148f, 210f, SWARM_L, SWARM_R, 2.2f, 3.0f, 0.03f);
+            AddRoller(180f, 1, 2.0f, 1.2f);                              // right half: leave the strip or pay
 
-            // ───────────── STAGE 3 · SPIKE ROLLER — plaques switch sides, rollers sweep ─────────────
-            AddStage(186f, "SPIKE ROLLER", "Dodge the roller!");
-            AddRoller(198f, 1.6f, 3.0f, 0f);
-            AddPlaqueStrip(206f, 252f, PLAQUE_L, 2);
-            AddStream(206f, 256f, 0.4f, 3.0f, 0.6f, 2f, 0.08f);
-            AddExplosive(228f, 1.6f, 6);
-            AddExplosive(244f, 2.4f, 6);
-            AddRoller(260f, 1.8f, 4.0f, 1.2f);
-            Gate g3 = AddGate(278f, L, 'x', 3, PAIR_HALF);
-            Gate g25 = AddGate(278f, R, '+', 25, PAIR_HALF);
-            g3.pair = g25; g25.pair = g3;
-            AddContainer(273f, L, 60, PAIR_HALF * 2f, ContainerColor.Blue, g3);
+            // ───────────── STAGE 3 · THE BRUTE — giant yellow brute inside the swarm ─────────────
+            AddStage(214f, "THE BRUTE", "Melt the Brute — dodge his slam!");
+            AddPlaqueStrip(215f, 270f, STRIP_X, 3, SP, 10, 18f);
+            AddPlaqueStrip(271f, 300f, STRIP_X, 10, SP, 25, 14f);
+            AddSwarmRamp(224f, 300f, SWARM_L, SWARM_R, 2.6f, 3.4f, 0.05f);
+            AddBrute(262f, BRUTE_HP);
 
-            // ───────────── STAGE 4 · THE BRUTE — mini-boss ─────────────
-            AddStage(288f, "THE BRUTE", "Dodge his ground slam!");
-            AddHorde(300f, 0f, 10, 3f, 2);
-            AddBrute(312f, BRUTE_HP);
-            AddPlaqueStrip(325f, 362f, PLAQUE_R, 5);
-            AddBarrel(345f, -1.7f, 60, Reward.FireRate, 0);
-            AddCage(356f, -1.4f, 60, 15);
-            AddGatePair(372f, 'x', 2, '+', 40);
+            // ───────────── STAGE 4 · FINAL PUSH — orange strip against the thickest swarm ─────────────
+            AddStage(304f, "FINAL PUSH", "Orange +20s! Break the last wall!");
+            AddPlaqueStrip(305f, 360f, STRIP_X, 5, SP, 15, 16f);
+            AddPlaqueStrip(361f, 397f, STRIP_X, 20, SP, 50, 14f);
+            AddPlaqueStrip(398f, 404f, STRIP_X, 99, SP);                    // jackpot: no traps
+            AddSwarmRamp(312f, 392f, SWARM_L, SWARM_R, 3.0f, 3.8f, 0.08f);
+            AddRoller(334f, -1, 2.2f, 0.4f);
+            AddRoller(374f, 1, 2.6f, 2.0f);
+            AddAllyCage(400f, -3.3f, 60);                                // ally #2: your champion for the boss fight
+            AddSwarm(392f, 410f, -1.0f, SWARM_R, 3.0f, 0.05f);
 
-            // ───────────── STAGE 5 · LEGION RIVER — full-width flood, +10 plaques for the brave ─────────────
-            AddStage(382f, "LEGION RIVER", "Hold the line!");
-            AddStream(392f, 452f, -3.0f, 3.0f, 1.0f, 3f, 0.12f);
-            AddPlaqueStrip(394f, 446f, PLAQUE_R, 10);
-            AddGunner(430f, -2.2f, 16);
-            AddGunner(436f, 0.2f, 16);
-            AddGateTriple(464f, 'x', 2, '+', 60, '-', 40);
-
-            // ───────────── STAGE 6 · MASTER TYRANT — ArmyRunLevel.Boss.cs ─────────────
+            // ───────────── STAGE 5 · MASTER TYRANT — ArmyRunLevel.Boss.cs ─────────────
             levelLength = MASTER_TRIGGER_Z;
             AddStage(MASTER_TRIGGER_Z, "MASTER TYRANT", "Destroy the Master!");
-        }
-
-        private void BuildLevel2Track()
-        {
-            stages.Clear();
-            float L = -PAIR_X, R = PAIR_X;
-            const float PLAQUE_R = 2.75f, PLAQUE_L = -2.75f;
-
-            // ───────────── STAGE 1 · CAVE MULTIPLIER RAMP (Inspired by Reference Video) ─────────────
-            AddStage(0f, "MULTIPLIER RAMP", "Fire right to multiply — blast the red flood!");
-            AddPlaqueStrip(12f, 64f, PLAQUE_R, 2);
-            AddStream(22f, 72f, -3.0f, -0.3f, 0.5f, 1.2f, 0f);
-            AddExplosive(38f, 0f, 6);
-            AddContainer(44f, -1.6f, 8, 2.4f, ContainerColor.Red);
-            AddGatePair(74f, 'x', 3, '+', 25);
-            AddHorde(86f, 0f, 12, 2.5f, 2);
-
-            // ───────────── STAGE 2 · CHAMPION RESCUE — free the giant ally ─────────────
-            AddStage(96f, "CHAMPION RESCUE", "Shoot the HELP cage to unleash the Giant Champion!");
-            AddAllyCage(114f, -1.9f, 25);
-            AddStream(102f, 168f, -3.0f, -0.3f, 0.65f, 2.2f, 0.06f);
-            AddPlaqueStrip(102f, 160f, PLAQUE_R, 2);
-            AddGunner(148f, 0.4f, 16);
-            AddGateTriple(174f, 'x', 4, '+', 35, '-', 20);
-
-            // ───────────── STAGE 3 · CAVE SPIKE ROLLERS — brutal sweeping hazard ─────────────
-            AddStage(184f, "CAVE SPIKE ROLLERS", "Dodge the brutal sweeping rollers!");
-            AddRoller(196f, 1.8f, 3.8f, 0f);
-            AddPlaqueStrip(204f, 250f, PLAQUE_L, 5);
-            AddStream(204f, 254f, 0.4f, 3.0f, 0.65f, 2.2f, 0.08f);
-            AddExplosive(224f, 1.6f, 8);
-            AddExplosive(242f, -1.6f, 8);
-            AddRoller(258f, 2.0f, 4.6f, 1.4f);
-            Gate g4 = AddGate(276f, L, 'x', 4, PAIR_HALF);
-            Gate g40 = AddGate(276f, R, '+', 40, PAIR_HALF);
-            g4.pair = g40; g40.pair = g4;
-            AddContainer(271f, L, 80, PAIR_HALF * 2f, ContainerColor.Blue, g4);
-
-            // ───────────── STAGE 4 · THE CAVE BRUTE — 1000 HP mini-boss showdown ─────────────
-            AddStage(286f, "THE CAVE BRUTE", "Unleash your Giant Champion against the Brute!");
-            AddHorde(298f, 0f, 14, 3f, 3);
-            AddBrute(310f, 1000f);
-            AddPlaqueStrip(324f, 362f, PLAQUE_R, 10);
-            AddBarrel(344f, -1.5f, 80, Reward.FireRate, 0);
-            AddCage(355f, -1.4f, 70, 20);
-            AddGatePair(370f, 'x', 3, '+', 50);
-
-            // ───────────── STAGE 5 · THE RED HORDE & +99 GATES ─────────────
-            AddStage(380f, "THE RED HORDE", "Hold back the swarm with +99 Multipliers!");
-            AddStream(390f, 450f, -3.2f, 3.2f, 1.2f, 3.6f, 0.15f);
-            AddPlaqueStrip(392f, 444f, PLAQUE_R, 20);
-            AddGunner(428f, -2.2f, 20);
-            AddGunner(434f, 0.2f, 20);
-            AddGateTriple(462f, 'x', 4, '+', 99, '-', 50);
-
-            // ───────────── STAGE 6 · SKELETON TYRANT — Final Boss Battle ─────────────
-            levelLength = MASTER_TRIGGER_Z;
-            AddStage(MASTER_TRIGGER_Z, "SKELETON TYRANT", "Obliterate the Colossal Overlord!");
         }
 
         private void AddStage(float z, string title, string hint) => stages.Add(new Stage { z = z, title = title, hint = hint });
@@ -159,26 +99,56 @@ namespace MobControl.Level
         /// "+1 strip": a column of small blue (+1/+2) or orange (+5/+10) plaques along one edge, every 2.4 m.
         /// Each plaque the commander steers through adds its value. Every 15 collected = weapon LV +1.
         /// </summary>
-        private void AddPlaqueStrip(float z0, float z1, float x, int value)
+        /// <summary>
+        /// A stretch of the +1 strip: a sign every 'spacing' metres. If minusValue > 0, every 'minusEvery' metres a run
+        /// of 3 RED minus signs replaces the plus signs (never in the first 12 m of a stretch) — steer off the strip to
+        /// dodge them and you skip a few plus signs: a real choice instead of free growth.
+        /// </summary>
+        private void AddPlaqueStrip(float z0, float z1, float x, int value, float spacing = 2.4f, int minusValue = 0, float minusEvery = 20f)
         {
-            bool orange = value >= 5;
-            Material panel = orange ? FlatMat(new Color(1f, 0.6f, 0.12f, 0.9f)) : FlatMat(new Color(0.22f, 0.58f, 1f, 0.92f));
-            Material edge = orange ? FlatMat(new Color(1f, 0.85f, 0.4f)) : FlatMat(new Color(0.75f, 0.9f, 1f));
-            for (float z = z0; z <= z1; z += 2.4f)
+            int period = Mathf.Max(6, Mathf.RoundToInt(minusEvery / spacing));
+            const int RUN = 3;
+            int i = 0;
+            for (float z = z0; z <= z1 + 0.01f; z += spacing, i++)
             {
-                var go = NewOnTrack($"Plaque+{value}", x, z);
-                CreateBox(go.transform, "Post", new Vector3(0f, 0.25f, 0.05f), new Vector3(0.12f, 0.5f, 0.12f), s_band);
-                var p = CreateBox(go.transform, "Panel", new Vector3(0f, 0.75f, 0f), new Vector3(1.3f, 0.62f, 0.06f), panel);
-                CreateBox(go.transform, "Edge", new Vector3(0f, 1.07f, -0.01f), new Vector3(1.34f, 0.06f, 0.07f), edge);
-                CreateBox(go.transform, "EdgeB", new Vector3(0f, 0.43f, -0.01f), new Vector3(1.34f, 0.06f, 0.07f), edge);
-                var label = CreateLabel(go.transform, "+" + value, new Vector3(0f, 0.78f, -0.08f), 7f, Color.white,
-                    orange ? new Color(0.5f, 0.2f, 0f) : new Color(0.02f, 0.15f, 0.45f));
-                gates.Add(new Gate
-                {
-                    tr = go.transform, halfWidth = 0.75f, op = '+', value = value, panel = p.GetComponent<Renderer>(), label = label,
-                    baseX = x, plaque = true, color = orange ? new Color(1f, 0.7f, 0.25f) : new Color(0.45f, 0.8f, 1f)
-                });
+                bool minus = minusValue > 0 && z - z0 > 12f && (i % period) >= period - RUN;
+                AddSign(z, x, minus ? '-' : '+', minus ? minusValue : value);
             }
+        }
+
+        /// <summary>One strip sign: blue (+ under 10) / orange (+10 and up) / red (minus). Text printed on the sign.</summary>
+        private void AddSign(float z, float x, char op, int value)
+        {
+            bool minus = op == '-';
+            bool orange = !minus && value >= 10;
+            // unlit + saturated so the bright snow light can't wash them out
+            Material panel = FlatMat(minus ? new Color(0.92f, 0.12f, 0.1f) : orange ? new Color(1f, 0.55f, 0.06f) : new Color(0.13f, 0.43f, 0.96f));
+            Material rim = FlatMat(minus ? new Color(1f, 0.82f, 0.78f) : orange ? new Color(1f, 0.93f, 0.6f) : new Color(0.92f, 0.97f, 1f));
+            Material post = ArmyRunEnvironment.LitMat("SignPost", new Color(0.3f, 0.33f, 0.4f), 0.5f);
+            Color outline = minus ? new Color(0.4f, 0f, 0f) : orange ? new Color(0.55f, 0.22f, 0f) : new Color(0.02f, 0.16f, 0.48f);
+            string txt = (minus ? "-" : "+") + value;
+            float fontSize = value >= 10 ? 5.2f : 6.2f;
+
+            var go = NewOnTrack($"Plaque{txt}", x, z);
+            CreateBox(go.transform, "Post", new Vector3(0f, 0.2f, 0.2f), new Vector3(0.9f, 0.4f, 0.08f), post);
+            // the sign leans back 50° so it faces the high camera — a big readable rectangle, not a sliver
+            var sign = NewChild(go.transform, "Sign");
+            sign.localPosition = new Vector3(0f, 0.55f, 0f);
+            sign.localRotation = Quaternion.Euler(50f, 0f, 0f);
+            CreateBox(sign, "Rim", new Vector3(0f, 0f, 0.02f), new Vector3(1.32f, 0.92f, 0.05f), rim);
+            var p = CreateBox(sign, "Panel", new Vector3(0f, 0f, -0.01f), new Vector3(1.18f, 0.78f, 0.05f), panel);
+            if (minus)   // skull-ish warning stripes so red reads as danger at a glance
+                for (int k = 0; k < 2; k++)
+                    CreateBox(sign, "Stripe", new Vector3(0f, k == 0 ? 0.31f : -0.31f, -0.04f), new Vector3(1.18f, 0.07f, 0.02f), s_band);
+            var label = CreateLabel(sign, txt, new Vector3(0f, 0.03f, -0.06f), fontSize, Color.white, outline);
+            label.transform.localRotation = Quaternion.identity;        // flat on the sign, facing the camera with it
+            if (z > PLAQUE_VIEW_AHEAD) go.SetActive(false);              // UpdateGates switches it on as it comes into view
+            gates.Add(new Gate
+            {
+                tr = go.transform, halfWidth = 0.75f, op = op, value = value, panel = p.GetComponent<Renderer>(), label = label,
+                baseX = x, plaque = true,
+                color = minus ? new Color(1f, 0.3f, 0.25f) : orange ? new Color(1f, 0.75f, 0.25f) : new Color(0.45f, 0.8f, 1f)
+            });
         }
 
         /// <summary>
@@ -205,32 +175,48 @@ namespace MobControl.Level
         /// Rescue cage: a GIANT copy of your soldier shouts "HELP!". Shoot the cage open (HP) →
         /// the giant joins and fights in front of your army (see ArmyRunLevel.Ally.cs).
         /// </summary>
-        private void AddAllyCage(float z, float x, int hp)
+        private void AddAllyCage(float z, float x, int hp, float allyLife = -1f)
         {
             var go = NewOnTrack("AllyCage", x, z);
+            // concrete alcove sticking out of the left side of the road (stays after the cage breaks)
+            Material concrete = ArmyRunEnvironment.LitMat("Alcove", new Color(0.62f, 0.64f, 0.68f), 0.15f);
+            Material concreteDark = ArmyRunEnvironment.LitMat("AlcoveDark", new Color(0.45f, 0.47f, 0.52f), 0.1f);
+            CreateBox(go.transform, "AlcoveFloor", new Vector3(-0.9f, -0.05f, 0f), new Vector3(3.8f, 0.1f, 3.4f), concrete);
+            CreateBox(go.transform, "AlcoveBase", new Vector3(-0.9f, -3.2f, 0f), new Vector3(3.6f, 6.2f, 3.2f), concreteDark);
+            CreateBox(go.transform, "AlcoveBack", new Vector3(-0.9f, 1.2f, 1.6f), new Vector3(3.8f, 2.6f, 0.25f), concrete);
+            CreateBox(go.transform, "AlcoveSide", new Vector3(-2.75f, 1.2f, 0f), new Vector3(0.25f, 2.6f, 3.4f), concrete);
+
             var vis = NewChild(go.transform, "Visual");
-            CreateBox(vis, "Floor", new Vector3(0f, 0.1f, 0f), new Vector3(2.6f, 0.2f, 2.2f), s_steel);
-            CreateBox(vis, "Roof", new Vector3(0f, 3.35f, 0f), new Vector3(2.7f, 0.16f, 2.3f), s_steel);
             Material bars = ArmyRunEnvironment.LitMat("CageBars", new Color(1f, 0.78f, 0.15f), 0.6f);
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 7; i++)   // yellow fence facing the camera
             {
-                float bx = -1.2f + i * 0.4f;
-                CreatePrimitive(PrimitiveType.Cylinder, vis, "Bar", new Vector3(bx, 1.7f, -1.05f), new Vector3(0.09f, 1.6f, 0.09f), bars);
-                CreatePrimitive(PrimitiveType.Cylinder, vis, "Bar", new Vector3(bx, 1.7f, 1.05f), new Vector3(0.09f, 1.6f, 0.09f), bars);
+                float bx = -1.9f + i * 0.5f;
+                CreatePrimitive(PrimitiveType.Cylinder, vis, "Bar", new Vector3(bx, 0.7f, -1.45f), new Vector3(0.11f, 0.7f, 0.11f), bars);
             }
-            CreateBox(vis, "Rail", new Vector3(0f, 2.6f, -1.05f), new Vector3(2.6f, 0.1f, 0.1f), bars);
-            var giant = Instantiate(unitTemplate, vis);
-            giant.transform.localPosition = new Vector3(0f, 0.2f, 0.1f);
-            giant.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            giant.transform.localScale = Vector3.one * UNIT_SCALE * ALLY_SCALE;
+            for (int i = 0; i < 6; i++)   // and toward the road
+                CreatePrimitive(PrimitiveType.Cylinder, vis, "Bar", new Vector3(1.0f, 0.7f, -1.3f + i * 0.5f), new Vector3(0.11f, 0.7f, 0.11f), bars);
+            CreateBox(vis, "Rail", new Vector3(-0.45f, 1.42f, -1.45f), new Vector3(3.1f, 0.14f, 0.14f), bars);
+            CreateBox(vis, "RailSide", new Vector3(1.0f, 1.42f, 0f), new Vector3(0.14f, 0.14f, 2.8f), bars);
+
+            bool gen = allyGenTemplate != null;
+            var giant = Instantiate(gen ? allyGenTemplate : unitTemplate, vis);
+            giant.transform.localPosition = new Vector3(-0.5f, 0f, 0.2f);
+            giant.transform.localRotation = Quaternion.Euler(0f, 160f, 0f);
+            giant.transform.localScale = Vector3.one * (gen ? 1f : UNIT_SCALE * ALLY_SCALE);
             giant.SetActive(true);
+            var giantRig = giant.GetComponent<ArmyRigBase>();
+            if (giantRig != null) giantRig.helpPose = true;                 // waving HELP! behind the fence
+            if (!gen) TintMaterials(giant, new Color(0.45f, 0.7f, 1f));   // blue giant like the reference
             ArmyRunFX.AddBlobShadow(go.transform, 3.2f);
-            var help = CreateLabel(go.transform, "HELP!", new Vector3(0.6f, 4.3f, 0f), 14f, new Color(1f, 0.88f, 0.2f), new Color(0.35f, 0.15f, 0f));
-            var label = CreateLabel(go.transform, hp.ToString(), new Vector3(0f, 3.75f, -0.6f), 10f, Color.white, new Color(0.05f, 0.2f, 0.45f));
+            var help = CreateLabel(go.transform, "HELP!", new Vector3(0.9f, 4.4f, 0f), 15f, new Color(1f, 0.88f, 0.2f), new Color(0.35f, 0.15f, 0f));
+            var label = CreateLabel(go.transform, hp.ToString(), new Vector3(-0.4f, 3.6f, -0.8f), 10f, Color.white, new Color(0.05f, 0.2f, 0.45f));
+            var barRends = new System.Collections.Generic.List<Renderer>();
+            foreach (var r in vis.GetComponentsInChildren<MeshRenderer>(true))
+                if (!r.transform.IsChildOf(giant.transform)) barRends.Add(r);
             var t = new Target
             {
                 kind = Kind.Cage, tr = go.transform, visual = vis, halfWidth = 1.3f, depth = 1.1f, hp = hp, maxHp = hp, label = label,
-                freesGiant = true, helpLabel = help, rends = vis.GetComponentsInChildren<MeshRenderer>(true), coins = 10
+                freesGiant = true, helpLabel = help, rends = barRends.ToArray(), coins = 10, allyLife = allyLife
             };
             targets.Add(t);
         }
@@ -439,31 +425,39 @@ namespace MobControl.Level
         // ═════════════════════════════════════ Hazards ══
 
         /// <summary>Spiked roller sweeping left↔right across the bridge (can't be shot — dodge it).</summary>
-        private void AddRoller(float z, float halfLen, float speed, float phase)
+        /// <summary>
+        /// Spiked roller on ONE half of the road: side -1 = left half, +1 = right half (over the +1 strip, so it
+        /// forces a choice). It slides ±0.35 m and spins inside its half; can't be shot — move to the other half.
+        /// </summary>
+        private void AddRoller(float z, int side, float speed, float phase)
         {
+            const float halfLen = 1.45f;
+            float center = side * 1.95f;
             var go = NewOnTrack("SpikedRoller", 0f, z);
-            // warning stripes on the road
-            for (int i = 0; i < 10; i++)
-                CreateBox(go.transform, "Warn", new Vector3(-4.3f + i * 0.96f, 0.015f, 0f), new Vector3(0.5f, 0.02f, 0.5f), i % 2 == 0 ? s_hazard : s_band);
+            // warning stripes + a red danger glow only on the roller's half
+            Material glow = FlatMat(new Color(1f, 0.15f, 0.1f, 0.28f));
+            CreateBox(go.transform, "DangerZone", new Vector3(center, 0.012f, 0f), new Vector3(3.5f, 0.01f, 2.6f), glow);
+            for (int i = 0; i < 5; i++)
+                CreateBox(go.transform, "Warn", new Vector3(center - 1.6f + i * 0.8f, 0.02f, -1.6f), new Vector3(0.42f, 0.02f, 0.42f), i % 2 == 0 ? s_hazard : s_band);
             var arm = NewChild(go.transform, "Arm");
-            arm.localPosition = new Vector3(0f, 0f, 0f);
+            arm.localPosition = new Vector3(center, 0f, 0f);
             var log = NewChild(arm, "Log");
             log.localPosition = new Vector3(0f, 0.7f, 0f);
             log.localRotation = Quaternion.Euler(0f, 0f, 90f);      // cylinder axis → world X
             CreatePrimitive(PrimitiveType.Cylinder, log, "Core", Vector3.zero, new Vector3(1.0f, halfLen, 1.0f), s_log);
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 7; i++)
                 for (int k = 0; k < 6; k++)
                 {
-                    float y = -halfLen + 0.25f + i * (halfLen * 2f - 0.5f) / 8f;
+                    float y = -halfLen + 0.25f + i * (halfLen * 2f - 0.5f) / 6f;
                     var spike = CreateBox(log, "Spike", Quaternion.Euler(0f, k * 60f + i * 20f, 0f) * new Vector3(0f, 0f, 0.55f) + Vector3.up * y,
                         new Vector3(0.12f, 0.12f, 0.45f), s_spike);
                     spike.transform.localRotation = Quaternion.Euler(0f, k * 60f + i * 20f, 0f);
                 }
             CreatePrimitive(PrimitiveType.Cylinder, log, "CapA", new Vector3(0f, halfLen, 0f), new Vector3(1.15f, 0.06f, 1.15f), s_hazard);
             CreatePrimitive(PrimitiveType.Cylinder, log, "CapB", new Vector3(0f, -halfLen, 0f), new Vector3(1.15f, 0.06f, 1.15f), s_hazard);
-            ArmyRunEnvironment.CombineChildren(log);   // 60 spikes → a couple of draw calls, still spins
+            ArmyRunEnvironment.CombineChildren(log);
             ArmyRunFX.AddBlobShadow(arm, halfLen * 2f);
-            rollers.Add(new Roller { tr = arm, log = log, halfLen = halfLen, speed = speed, phase = phase });
+            rollers.Add(new Roller { tr = arm, log = log, halfLen = halfLen, speed = speed, phase = phase, center = center, amp = 0.35f });
         }
 
         // ═════════════════════════════════════ Scenery army (enemy bridge) ══

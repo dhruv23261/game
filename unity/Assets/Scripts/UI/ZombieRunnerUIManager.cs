@@ -50,7 +50,6 @@ namespace MobControl.UI
         [SerializeField] private float levelFinishZ = 120.0f; // End of the zombie street
         [SerializeField] private int activeLevel = 1;
         [SerializeField] private int totalLevels = 6;
-        public int ActiveLevel => activeLevel;
 
         [Header("Splash Settings")]
         [SerializeField] private float splashDurationSeconds = 2.8f;
@@ -505,10 +504,7 @@ namespace MobControl.UI
             {
                 HookAllButtonsWithSound(mainCanvas.gameObject);
             }
-            if (!MobControl.Level.ArmyRunLevel.Enabled)
-            {
-                MobControl.Level.NewRoadBuilder.EnsureNewRoad();
-            }
+            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
 
             if (currentState == ScreenState.Gameplay)
             {
@@ -6774,21 +6770,18 @@ namespace MobControl.UI
                 playerRunner.SetControllable(true);
             }
 
-            if (!MobControl.Level.ArmyRunLevel.Enabled)
+            // 2. Start endless road
+            if (MobControl.Level.EndlessRoadManager.Instance != null)
             {
-                // 2. Start endless road
-                if (MobControl.Level.EndlessRoadManager.Instance != null)
-                {
-                    MobControl.Level.EndlessRoadManager.Instance.SetSpeed(LevelRoadSpeed);
-                    MobControl.Level.EndlessRoadManager.Instance.SetRunning(true);
-                    Debug.Log($"[ZombieRunnerUIManager] Level {activeLevel} speed: road {LevelRoadSpeed:F2} m/s, zombie walk x{LevelZombieSpeedScale:F2}");
-                }
+                MobControl.Level.EndlessRoadManager.Instance.SetSpeed(LevelRoadSpeed);
+                MobControl.Level.EndlessRoadManager.Instance.SetRunning(true);
+                Debug.Log($"[ZombieRunnerUIManager] Level {activeLevel} speed: road {LevelRoadSpeed:F2} m/s, zombie walk x{LevelZombieSpeedScale:F2}");
+            }
 
-                // 3. Start Zombie Spawner
-                if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
-                {
-                    MobControl.Crowd.ZombieRoadWaveSpawner.Instance.StartSpawning();
-                }
+            // 3. Start Zombie Spawner
+            if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
+            {
+                MobControl.Crowd.ZombieRoadWaveSpawner.Instance.StartSpawning();
             }
 
             // 4. Army Run level starts marching
@@ -8307,22 +8300,19 @@ namespace MobControl.UI
             }
 
             // 1. Ensure Reference Level 1 Road & Environment is built
-            if (!MobControl.Level.ArmyRunLevel.Enabled)
+            MobControl.Level.NewRoadBuilder.EnsureNewRoad();
+
+            // 2. Setup Camera and Atmosphere for Level Road
+            MobControl.Level.NewRoadBuilder.SetupCameraAndAtmosphere(levelNumber);
+
+            // 3. Configure Level for Endless Road and Enemy Wave Spawners
+            if (MobControl.Level.EndlessRoadManager.Instance != null)
             {
-                MobControl.Level.NewRoadBuilder.EnsureNewRoad();
-
-                // 2. Setup Camera and Atmosphere for Level Road
-                MobControl.Level.NewRoadBuilder.SetupCameraAndAtmosphere(levelNumber);
-
-                // 3. Configure Level for Endless Road and Enemy Wave Spawners
-                if (MobControl.Level.EndlessRoadManager.Instance != null)
-                {
-                    MobControl.Level.EndlessRoadManager.Instance.CurrentLevel = levelNumber;
-                }
-                if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
-                {
-                    MobControl.Crowd.ZombieRoadWaveSpawner.Instance.CurrentLevel = levelNumber;
-                }
+                MobControl.Level.EndlessRoadManager.Instance.CurrentLevel = levelNumber;
+            }
+            if (MobControl.Crowd.ZombieRoadWaveSpawner.Instance != null)
+            {
+                MobControl.Crowd.ZombieRoadWaveSpawner.Instance.CurrentLevel = levelNumber;
             }
 
             // 4. Update HUD level title

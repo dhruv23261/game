@@ -10,12 +10,14 @@ namespace MobControl.Level
     ///  • Shoot the cage to 0 HP → he breaks out ("ALLY JOINED!") and walks 3 m in front of your army.
     ///  • Any red soldier that reaches him is punched dead (Fist Fight clip); each one costs him 1 HP (heavy: 2).
     ///  • During boss fights he walks up to the boss and punches it: 30 damage every 0.25 s.
-    ///  • 40 HP. At 0 he plays the Death clip, "ALLY DOWN", and sinks away.
+    ///  • 60 HP. At 0 he plays the Death clip, "ALLY DOWN", and sinks away.
+    ///  • Level 1 offers him twice: the first cage gives him for 60 s (countdown on his label, then "ALLY LEFT"),
+    ///    the second cage right before the Master Tyrant gives him for the whole boss fight.
     /// </summary>
     public partial class ArmyRunLevel
     {
         private const float ALLY_SCALE = 2.2f;
-        private const float ALLY_HP = 40f;
+        private const float ALLY_HP = 60f;
         private const float ALLY_BOSS_HIT = 30f;
         private const float ALLY_REACH = 1.5f;
 
@@ -26,24 +28,31 @@ namespace MobControl.Level
             public float hp;
             public TextMeshPro label;
             public float hitTimer, punchAnimTimer, deadT = -1f;
+            public ArmyRigBase rig;
+            public int shownHp = -1, shownSec = -1;
+            public float life = -1f;              // seconds left (-1 = stays until he falls)
+            public bool leaving;
         }
         private Ally ally;
 
-        private void SpawnAlly(Vector3 at)
+        private void SpawnAlly(Vector3 at, float life = -1f)
         {
-            var go = Instantiate(unitTemplate);
+            if (ally != null && ally.tr != null) { Destroy(ally.tr.gameObject); if (ally.label != null) Destroy(ally.label.gameObject); ally = null; }
+            bool gen = allyGenTemplate != null;
+            var go = Instantiate(gen ? allyGenTemplate : unitTemplate);
             go.name = "GiantAlly";
             go.transform.SetParent(root, false);
             go.transform.position = new Vector3(at.x, 0f, at.z);
             go.transform.rotation = Quaternion.identity;
-            go.transform.localScale = Vector3.one * UNIT_SCALE * ALLY_SCALE;
+            go.transform.localScale = Vector3.one * (gen ? 1f : UNIT_SCALE * ALLY_SCALE);
             go.SetActive(true);
-            ally = new Ally { tr = go.transform, anim = go.GetComponentInChildren<Animator>(), hp = ALLY_HP };
+            ally = new Ally { tr = go.transform, anim = gen ? null : go.GetComponentInChildren<Animator>(), hp = ALLY_HP, rig = go.GetComponent<ArmyRigBase>(), life = life };
+            if (ally.rig != null) { ally.rig.helpPose = false; ally.rig.forceWalk = true; }   // marches with the army
             if (hasArmyAnim && ally.anim != null) { ally.anim.Rebind(); ally.anim.SetBool(P_MOVING, true); }
-            ally.label = CreateLabel(root, $"ALLY {Mathf.CeilToInt(ally.hp)}", Vector3.zero, 9f, new Color(0.6f, 0.9f, 1f), new Color(0.02f, 0.15f, 0.45f));
+            ally.label = CreateLabel(root, $"ALLY {Mathf.CeilToInt(ally.hp)}", Vector3.zero, 5f, new Color(0.6f, 0.9f, 1f), new Color(0.02f, 0.15f, 0.45f));
             fx?.Shockwave(at, 6f, new Color(0.5f, 0.85f, 1f, 1f));
             fx?.Sparkle(at + Vector3.up * 2f, new Color(0.5f, 0.85f, 1f), 30, 1.5f);
-            SpawnFloatText(at + Vector3.up * 4.5f, "ALLY JOINED!", new Color(0.5f, 0.9f, 1f), 15f);
+            SpawnFloatText(at + Vector3.up * 4.5f, "ALLY JOINED!", new Color(0.5f, 0.9f, 1f), 10f);
             Snd?.PlayUpgradeSuccess();
             Shake(0.15f);
         }
@@ -65,6 +74,23 @@ namespace MobControl.Level
                     ally = null;
                 }
                 return;
+            }
+
+            // timed ally: counts down, then leaps away in a flash (the label shows the seconds left)
+            if (ally.life >= 0f)
+            {
+                ally.life -= dt;
+                if (ally.life <= 0f)
+                {
+                    Vector3 ap = ally.tr.position;
+                    fx?.Shockwave(ap, 6f, new Color(0.5f, 0.85f, 1f, 1f));
+                    fx?.Sparkle(ap + Vector3.up * 2f, new Color(0.6f, 0.9f, 1f), 30, 1.5f);
+                    SpawnFloatText(ap + Vector3.up * 4f, "ALLY LEFT", new Color(0.6f, 0.85f, 1f), 9f);
+                    Destroy(ally.tr.gameObject);
+                    if (ally.label != null) Destroy(ally.label.gameObject);
+                    ally = null;
+                    return;
+                }
             }
 
             Vector3 lp = LeaderPos;
@@ -118,7 +144,13 @@ namespace MobControl.Level
             if (ally == null) return;
             if (ally.label != null)
             {
-                ally.label.text = $"ALLY {Mathf.Max(0, Mathf.CeilToInt(ally.hp))}";
+                int shown = Mathf.Max(0, Mathf.CeilToInt(ally.hp));
+                int sec = ally.life >= 0f ? Mathf.CeilToInt(ally.life) : -1;
+                if (shown != ally.shownHp || sec != ally.shownSec)                // rebuild the text only when it changes
+                {
+                    ally.shownHp = shown; ally.shownSec = sec;
+                    ally.label.text = sec >= 0 ? $"ALLY {shown}  <color=#FFE066>{sec}s</color>" : "ALLY " + shown;
+                }
                 ally.label.transform.position = p + Vector3.up * (soldierHeight * ALLY_SCALE + 0.9f);
                 if (cam != null) ally.label.transform.rotation = cam.transform.rotation;
             }
@@ -127,16 +159,19 @@ namespace MobControl.Level
             {
                 ally.deadT = 0f;
                 if (hasArmyAnim && ally.anim != null) ally.anim.SetTrigger(P_DIE);
-                SpawnFloatText(p + Vector3.up * 4f, "ALLY DOWN", new Color(0.6f, 0.8f, 1f), 13f);
+                ally.rig?.Die();
+                SpawnFloatText(p + Vector3.up * 4f, "ALLY DOWN", new Color(0.6f, 0.8f, 1f), 9f);
                 if (ally.label != null) ally.label.gameObject.SetActive(false);
             }
         }
 
         private void PunchAnim()
         {
-            if (ally == null || !hasArmyAnim || ally.anim == null) return;
+            if (ally == null) return;
             if (Time.time < ally.punchAnimTimer) return;
-            ally.punchAnimTimer = Time.time + 0.35f;
+            ally.punchAnimTimer = Time.time + 0.3f;
+            if (ally.rig != null) { ally.rig.Punch(); return; }
+            if (!hasArmyAnim || ally.anim == null) return;
             ally.anim.SetTrigger(P_ATTACK);
         }
 

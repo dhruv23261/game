@@ -22,12 +22,12 @@ namespace MobControl.Level
     /// </summary>
     public partial class ArmyRunLevel
     {
-        private const float BRUTE_HP = 900f;
-        private const float BRUTE_HEIGHT_X = 2.0f;
-        private const float MASTER_HP = 12000f;
+        private const float BRUTE_HP = 1000f;   // the reference brute's "1000"
+        private const float BRUTE_HEIGHT_X = 2.5f;   // the reference brute towers over the swarm
+        private const float MASTER_HP = 16000f;
         private const float MASTER_HEIGHT_X = 4.0f;
-        private const float MASTER_TRIGGER_Z = 478f;   // metres run before the Master drops in
-        private const float BIG_ARENA_Z = 18f;
+        private const float MASTER_TRIGGER_Z = 420f;   // metres run before the Master drops in
+        private const float BIG_ARENA_Z = 14f;         // road stops when the Brute is just past bullet reach
 
         private class Big
         {
@@ -45,6 +45,9 @@ namespace MobControl.Level
             public Transform bar, barFill;          // overhead HP bar
             public TextMeshPro barText;
             public float barY;
+            public ArmyRigBase rig;                // hand-built characters: walk / punch / slam animation
+            public float flashCooldown;             // under constant fire: a short flash a few times a second, never a white-out
+            public int tintState;                   // 0 none · 1 flash · 2 rage (renderers touched only when it changes)
         }
 
         private readonly List<Big> bigs = new List<Big>();
@@ -59,17 +62,20 @@ namespace MobControl.Level
         private void AddBrute(float z, float hp)
         {
             var go = NewOnTrack("Boss_Brute", 0f, z);
-            var body = Instantiate(enemyTemplate, go.transform);
+            bool gen = bruteGenTemplate != null;
+            var body = Instantiate(gen ? bruteGenTemplate : enemyTemplate, go.transform);
             body.name = "Visual";
             body.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            body.transform.localScale = Vector3.one * ((enemyIsGenerated ? 1f : UNIT_SCALE) * BRUTE_HEIGHT_X);
+            body.transform.localScale = Vector3.one * (gen ? 1f : (enemyIsGenerated ? 1f : UNIT_SCALE) * BRUTE_HEIGHT_X);
             body.SetActive(true);
+            if (!gen) TintMaterials(body, new Color(1f, 0.82f, 0.18f));   // Mob Control yellow brute
             foreach (var a in body.GetComponentsInChildren<Animator>(true)) a.speed = 0.8f;
             ArmyRunFX.AddBlobShadow(go.transform, 2.4f);
-            var t = new Target { kind = Kind.Brute, tr = go.transform, visual = body.transform, halfWidth = 1.0f, depth = 0.8f, hp = hp, maxHp = hp, baseScale = body.transform.localScale, spawned = true };
+            var t = new Target { kind = Kind.Brute, tr = go.transform, visual = body.transform, halfWidth = 1.25f, depth = 0.8f, hp = hp, maxHp = hp, baseScale = body.transform.localScale, spawned = true };
             targets.Add(t);
             bigs.Add(new Big
             {
+                rig = body.GetComponentInChildren<ArmyRigBase>(),
                 t = t, name = "THE BRUTE", walkSpeed = 1.6f, slamInterval = 3.2f, slamTimer = 2f, slamRadius = 2.6f, slamFrac = 0.22f,
                 stompKills = 2, rends = body.GetComponentsInChildren<Renderer>(true), landed = true
             });
@@ -85,7 +91,7 @@ namespace MobControl.Level
 
             var go = new GameObject("Boss_MasterTyrant");
             go.transform.SetParent(root, false);
-            go.transform.position = new Vector3(0f, 26f, LeaderPos.z + 22f);
+            go.transform.position = new Vector3(0f, 26f, LeaderPos.z + 12f);   // lands inside bullet reach
             var body = Instantiate(bossTemplate, go.transform);
             body.name = "Visual";
             body.transform.localPosition = Vector3.zero;
@@ -94,25 +100,45 @@ namespace MobControl.Level
             foreach (var a in body.GetComponentsInChildren<Animator>(true)) a.speed = 0.7f;
             ArmyRunFX.AddBlobShadow(go.transform, 4.2f);
 
-            float bHp = currentLevel == 2 ? 14000f : MASTER_HP;
-            string bName = currentLevel == 2 ? "SKELETON OVERLORD" : "MASTER TYRANT";
-
             var t = new Target
             {
                 kind = Kind.Boss, tr = go.transform, visual = body.transform, halfWidth = 1.7f, depth = 1.1f,
-                hp = bHp, maxHp = bHp, baseScale = body.transform.localScale, spawned = true
+                hp = MASTER_HP, maxHp = MASTER_HP, baseScale = body.transform.localScale, spawned = true
             };
             targets.Add(t);
             master = new Big
             {
-                t = t, isMaster = true, name = bName, walkSpeed = 1.2f, slamInterval = 3.4f, slamTimer = 2.5f,
+                rig = body.GetComponentInChildren<ArmyRigBase>(),
+                t = t, isMaster = true, name = "MASTER TYRANT", walkSpeed = 1.2f, slamInterval = 3.4f, slamTimer = 2.5f,
                 slamRadius = 3.3f, slamFrac = 0.30f, stompKills = 4, rends = body.GetComponentsInChildren<Renderer>(true), engaged = true
             };
             bigs.Add(master);
+            ScaleBossHp(t, MASTER_HP, 18f);
             AttachBigBar(master, soldierHeight * MASTER_HEIGHT_X + 0.9f, 3.4f);
 
             ZombieRunnerUIManagerSafe()?.TriggerBossAlert();
-            ShowBanner("FINAL STAGE", bName, "Dodge the red circles!");
+            ShowBanner("FINAL STAGE", "MASTER TYRANT", "Dodge the red circles!");
+        }
+
+        /// <summary>
+        /// Boss HP fits the army you bring: at least its base HP, or enough to survive 'seconds' of your full
+        /// fire (rounded to 50) — so the HP number always counts down for a real fight, like the reference.
+        /// </summary>
+        private void ScaleBossHp(Target t, float baseHp, float seconds)
+        {
+            float dps = soldierCount * UNIT_FIRE_RATE * fireMultiplier;
+            float hp = Mathf.Max(baseHp, Mathf.Ceil(dps * seconds / 50f) * 50f);
+            t.hp = t.maxHp = hp;
+        }
+
+        /// <summary>Recolours a fallback model (instanced materials, so the shared ones stay untouched).</summary>
+        private static void TintMaterials(GameObject go, Color c)
+        {
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r is ParticleSystemRenderer || r.gameObject.name == "BlobShadow") continue;
+                foreach (var m in r.materials) if (m != null && m.HasProperty("_Color")) m.color = c;
+            }
         }
 
         private static MobControl.UI.ZombieRunnerUIManager ZombieRunnerUIManagerSafe() => MobControl.UI.ZombieRunnerUIManager.Instance;
@@ -149,6 +175,8 @@ namespace MobControl.Level
                     if (tr.position.z - lp.z > BIG_ARENA_Z) continue;
                     b.engaged = true;
                     arenaActive = true;
+                    ScaleBossHp(b.t, BRUTE_HP, 7f);
+                    if (b.barText != null) b.barText.text = Mathf.CeilToInt(b.t.hp).ToString();
                     if (EndlessRoadManager.Instance != null) EndlessRoadManager.Instance.SetRunning(false);
                     Snd?.PlayBossSpawn();
                     Shake(0.2f);
@@ -171,6 +199,7 @@ namespace MobControl.Level
                     {
                         b.stompTimer = 1f;
                         b.t.punch = 1f;
+                        b.rig?.Punch();
                         fx?.Dust(new Vector3(pos.x, 0f, pos.z - 1f), 0.8f);
                         Snd?.PlayZombieAttack(pos);
                         Shake(0.12f);
@@ -219,6 +248,7 @@ namespace MobControl.Level
                 b.warn = w;
                 b.warnFill = fill.transform;
                 b.t.punch = 1f;
+                b.rig?.Slam(b.warnDur);                 // arms rise during the telegraph, smash when it lands
                 Snd?.PlayZombieAttack(b.t.tr.position);
                 return;
             }
@@ -255,19 +285,18 @@ namespace MobControl.Level
         {
             if (b.rends == null) return;
             if (mpb == null) mpb = new MaterialPropertyBlock();
-            Color? tint = null;
-            if (b.flashT > 0f) { b.flashT -= dt; tint = new Color(2.2f, 2.2f, 2.2f, 1f); }
-            else if (b.rage) { float p = 0.5f + 0.5f * Mathf.Sin(Time.time * 8f); tint = new Color(1.4f + p * 0.6f, 0.45f, 0.4f, 1f); }
+            if (b.flashCooldown > 0f) b.flashCooldown -= dt;
+            Color tint = Color.white;
+            int state = 0;
+            if (b.flashT > 0f) { b.flashT -= dt; tint = new Color(1.45f, 1.45f, 1.45f, 1f); state = 1; }   // brighter own colour
+            else if (b.rage) { float p = 0.5f + 0.5f * Mathf.Sin(Time.time * 8f); tint = new Color(1.2f + p * 0.4f, 0.55f, 0.5f, 1f); state = 2; }
+            if (state == 0 && b.tintState == 0) return;          // nothing to change this frame
+            b.tintState = state;
 
             foreach (var r in b.rends)
             {
                 if (r == null || r.name == "BlobShadow") continue;
-                if (tint.HasValue)
-                {
-                    r.GetPropertyBlock(mpb);
-                    mpb.SetColor("_Color", tint.Value);
-                    r.SetPropertyBlock(mpb);
-                }
+                if (state != 0) TintRenderer(r, tint, mpb);
                 else r.SetPropertyBlock(null);
             }
         }
@@ -284,7 +313,7 @@ namespace MobControl.Level
         {
             var b = FindBig(t);
             if (b == null) return;
-            b.flashT = 0.06f;
+            if (b.flashCooldown <= 0f) { b.flashT = 0.05f; b.flashCooldown = 0.22f; }
             UpdateBossBar(Mathf.Max(0f, t.hp), t.maxHp);
             if (!b.isMaster || t.hp <= 0f) return;
 
@@ -313,19 +342,14 @@ namespace MobControl.Level
         }
 
         /// <summary>Red soldiers pour out from behind the boss and charge.</summary>
+        /// <summary>Reinforcements: a fresh block of the red swarm (count × 10 mobs) pours out behind the boss.</summary>
         private void Summon(Vector3 bossPos, int count, float hp)
         {
-            for (int i = 0; i < count; i++)
-            {
-                Vector3 world = bossPos + new Vector3(Random.Range(-3.8f, 3.8f), 0f, Random.Range(1.5f, 5f));
-                world.x = Mathf.Clamp(world.x, -ZONE_HALF_WIDTH, ZONE_HALF_WIDTH);
-                targets.Add(new Target
-                {
-                    kind = Kind.Enemy, halfWidth = 0.32f, hp = hp, maxHp = hp,
-                    spawnLocal = trackRoot.InverseTransformPoint(new Vector3(world.x, 0f, world.z))
-                });
-                if (i % 3 == 0) fx?.Dust(world, 0.5f);
-            }
+            float lz = bossPos.z - trackRoot.position.z;
+            float depth = count * 10f / ((SWARM_R - SWARM_L) * 2.5f);
+            AddSwarm(lz + 1.5f, lz + 1.5f + depth, SWARM_L, SWARM_R, 2.5f, hp >= 4f ? 0.06f : 0f);
+            for (int i = 0; i < 6; i++)
+                fx?.Dust(new Vector3(Random.Range(SWARM_L, SWARM_R), 0f, bossPos.z + Random.Range(2f, 2f + depth)), 0.7f);
         }
 
         private void OnBigKilled(Target t)

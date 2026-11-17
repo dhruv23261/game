@@ -80,15 +80,8 @@ namespace ThomasDev.HealthDamageSystem
 
         private bool PassesTagFilter(GameObject obj)
         {
-            if (string.IsNullOrEmpty(targetTag) || obj == null) return true;
-            try
-            {
-                return obj.CompareTag(targetTag);
-            }
-            catch
-            {
-                return obj.tag == targetTag;
-            }
+            if (string.IsNullOrEmpty(targetTag)) return true;
+            return obj.CompareTag(targetTag);
         }
 
         private bool IsSelfIgnored(GameObject other)

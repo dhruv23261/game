@@ -77,57 +77,54 @@ namespace MobControl.Level
 
             if (!active)
             {
-                if (!MobControl.Level.ArmyRunLevel.Enabled)
+                // Restore gameplay elements
+                var players = FindObjectsByType<PlayerRunnerController>(FindObjectsInactive.Include);
+                foreach (var p in players)
                 {
-                    // Restore gameplay elements
-                    var players = FindObjectsByType<PlayerRunnerController>(FindObjectsInactive.Include);
-                    foreach (var p in players)
+                    if (p == null) continue;
+                    p.gameObject.SetActive(true);
+                    p.enabled = true;
+                    foreach (var r in p.GetComponentsInChildren<Renderer>(true))
                     {
-                        if (p == null) continue;
-                        p.gameObject.SetActive(true);
-                        p.enabled = true;
-                        foreach (var r in p.GetComponentsInChildren<Renderer>(true))
+                        r.enabled = true;
+                    }
+                }
+
+                var roads = FindObjectsByType<EndlessRoadManager>(FindObjectsInactive.Include);
+                foreach (var r in roads)
+                {
+                    if (r != null) r.gameObject.SetActive(true);
+                }
+
+                var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+                foreach (var go in roots)
+                {
+                    if (go == null || go.name.Contains(ROOT_NAME)) continue;
+
+                    if (go.name.Contains("Player_Hero") || go.name.Contains("Level1_StylizedRoad_Root"))
+                    {
+                        go.SetActive(true);
+                        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
                         {
                             r.enabled = true;
                         }
                     }
+                }
 
-                    var roads = FindObjectsByType<EndlessRoadManager>(FindObjectsInactive.Include);
-                    foreach (var r in roads)
+                var pooler = ObjectPooler.Instance;
+                if (pooler != null)
+                {
+                    pooler.transform.position = Vector3.zero;
+                    foreach (var r in pooler.GetComponentsInChildren<Renderer>(true))
                     {
-                        if (r != null) r.gameObject.SetActive(true);
-                    }
-
-                    var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-                    foreach (var go in roots)
-                    {
-                        if (go == null || go.name.Contains(ROOT_NAME)) continue;
-
-                        if (go.name.Contains("Player_Hero") || go.name.Contains("Level1_StylizedRoad_Root"))
-                        {
-                            go.SetActive(true);
-                            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
-                            {
-                                r.enabled = true;
-                            }
-                        }
-                    }
-
-                    var pooler = ObjectPooler.Instance;
-                    if (pooler != null)
-                    {
-                        pooler.transform.position = Vector3.zero;
-                        foreach (var r in pooler.GetComponentsInChildren<Renderer>(true))
-                        {
-                            r.enabled = true;
-                        }
+                        r.enabled = true;
                     }
                 }
             }
 
             if (mainCamera == null) mainCamera = Camera.main;
 
-            if (mainCamera != null && !MobControl.Level.ArmyRunLevel.Enabled)
+            if (mainCamera != null)
             {
                 SmoothCameraFollow follow = mainCamera.GetComponent<SmoothCameraFollow>();
                 if (follow != null)

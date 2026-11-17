@@ -33,7 +33,7 @@ namespace MobControl.Level
 
         private readonly Stack<TextMeshPro> floatPool = new Stack<TextMeshPro>();
 
-        private void SpawnFloatText(Vector3 pos, string text, Color color, float size = 14f)
+        private void SpawnFloatText(Vector3 pos, string text, Color color, float size = 8f)
         {
             TextMeshPro tmp;
             if (floatPool.Count > 0)
@@ -71,7 +71,12 @@ namespace MobControl.Level
 
         private static void EnsureMaterials()
         {
-            if (s_font == null) s_font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Fredoka-Bold SDF");
+            if (s_font == null)
+            {
+                s_font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Fredoka-Bold SDF");
+                // dynamic atlas: create every glyph we print up front, so no label ever samples a missing glyph
+                if (s_font != null) s_font.TryAddCharacters("0123456789+-x×!?/.:, ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+            }
             if (s_wood != null) return;
             s_wood = ArmyRunEnvironment.LitMat("Wood", new Color(0.64f, 0.40f, 0.18f), 0.15f);
             s_band = ArmyRunEnvironment.LitMat("Band", new Color(0.22f, 0.22f, 0.26f), 0.6f);
@@ -171,9 +176,47 @@ namespace MobControl.Level
             tmp.textWrappingMode = TextWrappingModes.NoWrap;
             tmp.rectTransform.sizeDelta = new Vector2(12f, 3f);
             tmp.color = color;
-            tmp.outlineWidth = 0.28f;
-            tmp.outlineColor = outline;
+            Material m = LabelMaterial(outline);
+            if (m != null) tmp.fontSharedMaterial = m;               // shared: hundreds of labels, one material each colour
+            else { tmp.outlineWidth = 0.28f; tmp.outlineColor = outline; }
             return tmp;
+        }
+
+        private static readonly Dictionary<int, Material> s_labelMats = new Dictionary<int, Material>();
+        private static Texture s_labelAtlas;
+
+        /// <summary>The dynamic atlas can be rebuilt/resized: point every shared label material at the live one.</summary>
+        private static void SyncLabelAtlas()
+        {
+            if (s_font == null) return;
+            Texture atlas = s_font.atlasTexture;
+            if (atlas == s_labelAtlas) return;
+            s_labelAtlas = atlas;
+            foreach (var m in s_labelMats.Values) if (m != null) m.SetTexture(ShaderUtilities.ID_MainTex, atlas);
+        }
+
+        /// <summary>Bold SDF text with a thick outline and a soft drop shadow (Mob Control sign style).</summary>
+        private static Material LabelMaterial(Color outline)
+        {
+            if (s_font == null || s_font.material == null) return null;
+            int key = ((int)(outline.r * 255) << 16) ^ ((int)(outline.g * 255) << 8) ^ (int)(outline.b * 255);
+            if (s_labelMats.TryGetValue(key, out var cached) && cached != null) return cached;
+            var m = new Material(s_font.material) { name = "Label_" + key };
+            m.SetTexture(ShaderUtilities.ID_MainTex, s_font.atlasTexture);
+            m.EnableKeyword(ShaderUtilities.Keyword_Outline);
+            m.SetFloat(ShaderUtilities.ID_FaceDilate, 0.12f);
+            m.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.26f);
+            m.SetColor(ShaderUtilities.ID_OutlineColor, outline);
+            if (m.HasProperty(ShaderUtilities.ID_UnderlayColor))
+            {
+                m.EnableKeyword(ShaderUtilities.Keyword_Underlay);
+                m.SetColor(ShaderUtilities.ID_UnderlayColor, new Color(0f, 0f, 0f, 0.45f));
+                m.SetFloat(ShaderUtilities.ID_UnderlayOffsetX, 0.35f);
+                m.SetFloat(ShaderUtilities.ID_UnderlayOffsetY, -0.45f);
+                m.SetFloat(ShaderUtilities.ID_UnderlaySoftness, 0.3f);
+            }
+            s_labelMats[key] = m;
+            return m;
         }
     }
 }

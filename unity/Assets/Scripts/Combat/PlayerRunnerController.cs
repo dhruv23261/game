@@ -1108,7 +1108,7 @@ namespace MobControl.Combat
             if (ZombieRunnerUIManager.Instance != null)
             {
                 ZombieRunnerUIManager.Instance.HideGunUpgradeTimer();
-                ZombieRunnerUIManager.Instance.ShowMultiplierPop("<color=#FFCC00>BOOST EXPIRED</color>");
+                ZombieRunnerUIManager.Instance.ShowMultiplierPop("<color=#FFCC00>⚡ BOOST EXPIRED</color>");
             }
         }
 

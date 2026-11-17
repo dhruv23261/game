@@ -243,6 +243,12 @@ namespace MobControl.Level
             {
                 rend.enabled = true;
                 rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                rend.receiveShadows = false;
+            }
+            foreach (var smr in tmpl.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                smr.quality = SkinQuality.Bone2;             // 2 bones per vertex: much cheaper skinning for a crowd
+                smr.updateWhenOffscreen = false;
             }
         }
 
@@ -336,7 +342,7 @@ namespace MobControl.Level
         /// <summary>Fallen soldiers lie on the road (scrolling away with it), sink after 0.9 s and puff out.</summary>
         private void UpdateFallen(float dt)
         {
-            float scroll = (running && !finished && !arenaActive && EndlessRoadManager.Instance != null) ? EndlessRoadManager.Instance.CurrentRoadSpeed * dt : 0f;
+            float scroll = (running && !finished && !arenaActive) ? scrollSpeedNow * dt : 0f;
             for (int i = fallen.Count - 1; i >= 0; i--)
             {
                 var f = fallen[i];
@@ -359,8 +365,8 @@ namespace MobControl.Level
         private void UpdateCamera(float dt)
         {
             if (camFollow == null) return;
-            camX = Mathf.Lerp(camX, LeaderPos.x * 0.6f, 1f - Mathf.Exp(-3f * dt));
-            camFollow.SetCameraParameters(new Vector3(camX, CAM_HEIGHT, -CAM_BACK), new Vector3(CAM_PITCH, 0f, 0f));
+            camX = Mathf.Lerp(camX, CAM_CENTER_X + LeaderPos.x * CAM_FOLLOW_X, 1f - Mathf.Exp(-3f * dt));
+            camFollow.SetCameraParameters(new Vector3(camX, CAM_HEIGHT, LeaderPos.z - CAM_BACK), new Vector3(CAM_PITCH, 0f, 0f));
         }
     }
 }

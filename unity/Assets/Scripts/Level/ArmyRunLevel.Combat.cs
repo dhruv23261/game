@@ -34,7 +34,7 @@ namespace MobControl.Level
                     origin = runner != null ? runner.GetMuzzlePosition() : LeaderPos + Vector3.up;
                 else
                     origin = units[pick].tr.position + new Vector3(0.12f, soldierHeight * 0.55f, 0.45f);
-                FireBullet(origin, damagePerVisual * PlayerRunnerController.RollBulletDamage());
+                FireBullet(origin, damagePerVisual * PlayerRunnerController.RollBulletDamage(), SwarmAimVx(origin));
                 if (guard <= 2) fx?.MuzzleFlash(origin);
             }
 
@@ -46,14 +46,37 @@ namespace MobControl.Level
             }
         }
 
-        private void FireBullet(Vector3 origin, float damage)
+        /// <summary>
+        /// Bullets bend into the swarm lane (Mob Control streams angle into the horde even when you hug the
+        /// +1 strip). 60 % keep their own column, 40 % spread across the swarm's width.
+        /// </summary>
+        private float SwarmAimVx(Vector3 origin)
+        {
+            // auto-target: most bullets go to one of the nearest mobs in reach, so whatever is closest dies first
+            // (stragglers on the far side no longer hold the road back)
+            if (aimCount > 0 && Random.value < 0.75f)
+            {
+                Vector2 tgt = aimTargets[Random.Range(0, Mathf.Min(aimCount, 6))];
+                float dz = Mathf.Max(2f, tgt.y - origin.z);
+                return Mathf.Clamp((tgt.x + Random.Range(-0.15f, 0.15f) - origin.x) * BULLET_SPEED / dz, -30f, 30f);
+            }
+            if (!swarmAimValid || swarmFront > BULLET_RANGE) return 0f;
+            float lo = swarmAimMin + 0.2f, hi = Mathf.Max(lo, swarmAimMax - 0.2f);
+            float want = Random.value < 0.6f ? Mathf.Clamp(origin.x, lo, hi) : Random.Range(lo, hi);
+            float dist = Mathf.Max(5f, swarmFront + 1.5f);
+            return Mathf.Clamp((want - origin.x) * BULLET_SPEED / dist, -14f, 14f);
+        }
+
+        private void FireBullet(Vector3 origin, float damage, float vx = 0f)
         {
             Transform t = bulletPool.Count > 0 ? bulletPool.Pop() : MakeTracer(s_tracer, new Vector3(0.13f, 0.13f, 1.4f));
             t.SetParent(root, true);
             t.gameObject.SetActive(true);
             t.position = origin;
             t.rotation = Quaternion.identity;
-            bullets.Add(new Bullet { tr = t, damage = damage, startZ = origin.z });
+            t.localScale = new Vector3(0.13f, 0.13f, 1.4f);
+            if (vx != 0f) t.rotation = Quaternion.LookRotation(new Vector3(vx, 0f, BULLET_SPEED));
+            bullets.Add(new Bullet { tr = t, damage = damage, startZ = origin.z, vx = vx });
         }
 
         private Transform MakeTracer(Material m, Vector3 scale)
@@ -69,7 +92,10 @@ namespace MobControl.Level
             return go.transform;
         }
 
-        /// <summary>Bullets fly straight +Z and hit the nearest live target whose |x − bulletX| &lt; halfWidth.</summary>
+        /// <summary>
+        /// Bullets fly +Z (bent slightly by vx). Swarm mobs in front are hit first and the bullet PIERCES them
+        /// while it still carries damage; what is left goes into the nearest prop / boss in its line.
+        /// </summary>
         private void UpdateBullets(float dt)
         {
             float step = BULLET_SPEED * dt;
@@ -92,6 +118,14 @@ namespace MobControl.Level
                     if (tp.z < hitZ) { hitZ = tp.z; hit = tg; }
                 }
 
+                float swarmLimit = hit != null ? hitZ - hit.depth : z1;
+                if (SwarmBulletHits(ref b.damage, p.x, z0, swarmLimit, p.y))
+                {
+                    ReleaseBullet(b.tr);
+                    bullets.RemoveAt(i);
+                    continue;
+                }
+
                 if (hit != null)
                 {
                     Vector3 hp = new Vector3(p.x, p.y, hitZ - hit.depth * 0.6f);
@@ -104,8 +138,13 @@ namespace MobControl.Level
                 }
 
                 p.z = z1;
+                p.x += b.vx * dt;
                 b.tr.position = p;
-                if (p.z - b.startZ > BULLET_RANGE) { ReleaseBullet(b.tr); bullets.RemoveAt(i); }
+                bullets[i] = b;                                   // damage may have been spent on mobs
+                float ahead = p.z - LeaderPos.z;
+                if (ahead > BULLET_RANGE - 1.5f)                       // tracer shrinks away instead of popping out
+                    b.tr.localScale = new Vector3(0.13f, 0.13f, 1.4f) * Mathf.Clamp01((BULLET_RANGE - ahead) / 1.5f);
+                if (ahead > BULLET_RANGE || Mathf.Abs(p.x) > 6f) { ReleaseBullet(b.tr); bullets.RemoveAt(i); }
             }
         }
 
@@ -175,12 +214,12 @@ namespace MobControl.Level
                     break;
 
                 case Kind.Cage:
-                    if (t.freesGiant) { SpawnAlly(pos); if (t.helpLabel != null) t.helpLabel.gameObject.SetActive(false); }
+                    if (t.freesGiant) { SpawnAlly(pos, t.allyLife); if (t.helpLabel != null) t.helpLabel.gameObject.SetActive(false); }
                     fx?.Chunks(pos + Vector3.up * 1f, new Color(0.55f, 0.58f, 0.62f), 12, 5f);
                     fx?.Sparkle(pos + Vector3.up, new Color(0.5f, 0.85f, 1f), 20, 1f);
                     Snd?.PlayExplosion(pos);
                     if (!crashed) GiveReward(t, pos);
-                    Destroy(t.tr.gameObject);
+                    DestroyTargetObject(t);
                     break;
 
                 case Kind.Explosive:
@@ -206,6 +245,22 @@ namespace MobControl.Level
                     OnBigKilled(t);
                     break;
             }
+        }
+
+        /// <summary>The HELP! cage keeps its concrete alcove: only the bars and labels go.</summary>
+        private void DestroyTargetObject(Target t)
+        {
+            if (t.tr == null) return;
+            if (t.freesGiant && t.visual != null)
+            {
+                Destroy(t.visual.gameObject);
+                if (t.label != null) t.label.gameObject.SetActive(false);
+                if (t.helpLabel != null) t.helpLabel.gameObject.SetActive(false);
+                t.tr = null;
+                return;
+            }
+            Destroy(t.tr.gameObject);
+            t.tr = null;
         }
 
         private void GiveReward(Target t, Vector3 pos)
@@ -284,7 +339,7 @@ namespace MobControl.Level
         {
             if (t.rends == null) return;
             t.flashT = 0.07f;
-            SetTint(t.rends, new Color(2.2f, 2.2f, 2.2f, 1f));
+            SetTint(t.rends, new Color(1.7f, 1.7f, 1.7f, 1f));
         }
 
         /// <summary>
@@ -307,16 +362,24 @@ namespace MobControl.Level
             t.punch = 1.6f;
         }
 
+        /// <summary>
+        /// Tints by MULTIPLYING each renderer's own colour. (Writing c straight into _Color replaced the colour:
+        /// untextured characters — the yellow Brute, the blue Giant — turned white when hit.)
+        /// </summary>
         private void SetTint(Renderer[] rends, Color c)
         {
             if (tintBlock == null) tintBlock = new MaterialPropertyBlock();
-            foreach (var r in rends)
-            {
-                if (r == null || r.gameObject.name == "BlobShadow" || r is ParticleSystemRenderer) continue;
-                r.GetPropertyBlock(tintBlock);
-                tintBlock.SetColor(ID_COLOR, c);
-                r.SetPropertyBlock(tintBlock);
-            }
+            foreach (var r in rends) TintRenderer(r, c, tintBlock);
+        }
+
+        private static void TintRenderer(Renderer r, Color mul, MaterialPropertyBlock block)
+        {
+            if (r == null || r.gameObject.name == "BlobShadow" || r is ParticleSystemRenderer) return;
+            Material m = r.sharedMaterial;
+            Color baseC = m != null && m.HasProperty(ID_COLOR) ? m.color : Color.white;
+            r.GetPropertyBlock(block);
+            block.SetColor(ID_COLOR, new Color(baseC.r * mul.r, baseC.g * mul.g, baseC.b * mul.b, baseC.a));
+            r.SetPropertyBlock(block);
         }
 
         private static void ClearTint(Renderer[] rends)

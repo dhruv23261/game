@@ -29,32 +29,37 @@ namespace MobControl.Level
         // ─────────────────────────────────────────── Switch ──
         public static bool Enabled = true;
         public static ArmyRunLevel Instance { get; private set; }
-        public static bool HandlesLevel(int level) => Enabled;
-
-        private int currentLevel = 1;
-        public int CurrentLevel => currentLevel;
+        public static bool HandlesLevel(int level) => Enabled && level == 1;
 
         // ─────────────────────────────────────────── Tuning ──
         // Speed
-        private const float RUN_SPEED = 7f;                // bridge scroll speed (m/s)
+        private const float RUN_SPEED = 5f;                // road scroll speed (m/s) — reference pace, plaques readable
         // Road (main bridge is x -3.6 … +3.6)
         private const float LEADER_X_LIMIT = 3.0f;         // commander steering limit (road is ±3.6)
+        private const float START_X = 2.1f;                // the squad starts beside the +1 strip
         private const float ZONE_HALF_WIDTH = 3.2f;        // soldiers stay inside this
         // Camera (Mob Control framing: close, steep ~47°, army in the lower third, road fills the screen)
-        private const float CAM_HEIGHT = 12.5f;
-        private const float CAM_BACK = 9.0f;
-        private const float CAM_PITCH = 47f;
-        private const float CAM_FOV = 50f;
+        // Mob Control "Cave Spike Roller" framing (portrait): camera high behind the squad looking 48° down.
+        // The squad sits in the bottom quarter, the road runs up the middle and fades into mist ~35 m ahead,
+        // the road + strip fill ~75 % of the screen width at the squad.
+        private const float CAM_HEIGHT = 16f;
+        private const float CAM_BACK = 7.8f;               // metres behind the commander
+        private const float CAM_PITCH = 48f;
+        private const float CAM_FOV = 55f;
+        private const float CAM_CENTER_X = 0.35f;          // road (-3.6…3.6) + strip a little right of centre
+        private const float CAM_FOLLOW_X = 0.15f;          // barely follows sideways (reference camera is fixed)
         // Characters
         private const float UNIT_SCALE = 0.9f;
-        private const float UNIT_SPACING = 0.46f;
-        private const int MAX_VISIBLE_UNITS = 55;
+        private const float UNIT_SPACING = 0.38f;          // compact squad like the reference
+        private const int MAX_VISIBLE_UNITS = 36;          // drawn soldiers (each is a skinned + animated mesh); the number shows the real count
         // Army fire
-        private const float UNIT_FIRE_RATE = 1.8f;         // shots / soldier / s
+        private const float UNIT_FIRE_RATE = 2.2f;         // shots / soldier / s
         private const float FIRE_UP_MULT = 1.35f;
-        private const float MAX_VISUAL_BULLETS = 60f;    // thick yellow bullet stream
+        private const float MAX_VISUAL_BULLETS = 90f;    // thick yellow bullet stream
         private const float BULLET_SPEED = 46f;
-        private const float BULLET_RANGE = 38f;
+        // Bullets stop 12.5 m ahead of the commander = 2/3 of the screen height (≈4" on a 6" phone).
+        // The top third is the horde's: you see it coming before you can shoot it.
+        private const float BULLET_RANGE = 12.5f;
         // Enemies
         private const float ENEMY_CHARGE_SPEED = 2.4f;
         private const float ENEMY_ACTIVATE_Z = 48f;
@@ -88,6 +93,7 @@ namespace MobControl.Level
             public int contactKills = 1;
             public float speedMul = 1f;       // stream enemies walk slower
             public bool freesGiant;           // rescue cage
+            public float allyLife = -1f;      // seconds the freed giant stays (-1 = until he falls)
             public TextMeshPro helpLabel;
             // gunners
             public float fireTimer;
@@ -123,10 +129,10 @@ namespace MobControl.Level
             public bool plaque;               // small "+1" plaque from a strip (no partner, quiet feedback)
         }
 
-        private class Roller { public Transform tr, log; public float halfLen, speed, phase; public bool resolved; }
+        private class Roller { public Transform tr, log; public float halfLen, speed, phase, center, amp; public bool resolved, warned; }
         private class Unit { public Transform tr; public Animator anim; public float pop; }
         private class Fallen { public Transform tr; public float t; }
-        private struct Bullet { public Transform tr; public float damage; public float startZ; }
+        private struct Bullet { public Transform tr; public float damage; public float startZ; public float vx; }
         private class EnemyShot { public Transform tr; public Vector3 from; public Transform aim; public Vector3 aimPos; public float t, dur; }
         private class Dying { public Transform tr; public Vector3 vel, spin; public float t; }
         private class FloatText { public TextMeshPro tmp; public float life; }
@@ -137,6 +143,7 @@ namespace MobControl.Level
         private ArmyRunEnvironment env;
         private ArmyRunFX fx;
         private GameObject unitTemplate, enemyTemplate, bossTemplate;
+        private GameObject bruteGenTemplate, allyGenTemplate;   // Meshy BruteYellow / AllyGiant (null until generated)
         private float soldierHeight = 1.3f;
         private bool enemyIsGenerated;
 
@@ -163,6 +170,7 @@ namespace MobControl.Level
         private int soldierCount = 1;
         private float fireMultiplier = 1f;
         private float travelled, levelLength = 545f;
+        private float scrollSpeedNow;
         private int coinsEarned;
         private Vector3 clashPos;            // where the army is fighting hand-to-hand right now
         private float clashTimer, attackAnimTimer;
@@ -191,25 +199,12 @@ namespace MobControl.Level
                 RestorePlayerDefaults();
                 return;
             }
-            Ensure().SetupLevel(level);
+            Ensure().SetupLevel();
         }
 
         public static void OnGameplayStarted(int level)
         {
-            if (HandlesLevel(level) && Instance != null)
-            {
-                Instance.currentLevel = level;
-                Instance.BeginRun();
-            }
-        }
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void AutoInitArmyRun()
-        {
-            if (Enabled)
-            {
-                Ensure();
-            }
+            if (HandlesLevel(level) && Instance != null) Instance.BeginRun();
         }
 
         private static ArmyRunLevel Ensure()
@@ -224,19 +219,6 @@ namespace MobControl.Level
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
-        }
-
-        private void Start()
-        {
-            if (Enabled && !setupDone)
-            {
-                int lvl = 1;
-                if (ZombieRunnerUIManager.Instance != null && ZombieRunnerUIManager.Instance.ActiveLevel > 0)
-                {
-                    lvl = ZombieRunnerUIManager.Instance.ActiveLevel;
-                }
-                SetupLevel(lvl);
-            }
         }
 
         private static void RestorePlayerDefaults()
@@ -256,34 +238,12 @@ namespace MobControl.Level
 
         // ═══════════════════════════════════════════ Setup ══
 
-        [ContextMenu("Preview Level 2 Track in Scene")]
-        public void PreviewLevel2InScene()
+        private void SetupLevel()
         {
-            SetupLevel(2);
-        }
-
-        [ContextMenu("Preview Level 1 Track in Scene")]
-        public void PreviewLevel1InScene()
-        {
-            SetupLevel(1);
-        }
-
-        public void SetupLevel(int level = 1)
-        {
-            currentLevel = level;
             Teardown();
+            PurgeStaleRoots();
             runner = PlayerRunnerController.Instance ?? FindAnyObjectByType<PlayerRunnerController>();
-            if (runner == null)
-            {
-                GameObject playerRoot = new GameObject("Player_Hero");
-                playerRoot.transform.position = new Vector3(0f, 0f, -4f);
-                runner = playerRoot.AddComponent<PlayerRunnerController>();
-            }
             cam = Camera.main;
-            if (cam == null)
-            {
-                cam = FindAnyObjectByType<Camera>();
-            }
             EnsureMaterials();
 
             root = new GameObject("ArmyRun_Root").transform;
@@ -295,7 +255,7 @@ namespace MobControl.Level
             poolRoot.gameObject.SetActive(false);
 
             env = new ArmyRunEnvironment();
-            env.Build(root, cam, level);
+            env.Build(root, cam);
             fx = new ArmyRunFX();
             fx.Build(root);
 
@@ -308,6 +268,7 @@ namespace MobControl.Level
                 runner.ExternalShootingControl = true;
                 runner.SetHorizontalLimit(LEADER_X_LIMIT);
                 if (runner.transform.Find("BlobShadow") == null) ArmyRunFX.AddBlobShadow(runner.transform, 1.1f);
+                SetPlayerBarsHidden(true);
             }
 
             if (cam != null)
@@ -317,24 +278,28 @@ namespace MobControl.Level
                 if (!cameraOverridden) prevFov = cam.fieldOfView;
                 if (follow != null)
                 {
-                    follow.SetCameraParameters(new Vector3(ArmyRunEnvironment.RoadCenter, CAM_HEIGHT, -CAM_BACK), new Vector3(CAM_PITCH, 0f, 0f));
+                    follow.SetCameraParameters(new Vector3(CAM_CENTER_X, CAM_HEIGHT, LeaderPos.z - CAM_BACK), new Vector3(CAM_PITCH, 0f, 0f));
                     cameraOverridden = true;
                 }
                 cam.fieldOfView = CAM_FOV;
             }
 
+            ResetSwarm();
             BuildTrack();
             BuildUI();
             HideZombieHealthPill();
-            countLabel = CreateLabel(root, soldierCount.ToString(), LeaderPos + Vector3.up * 3f, 12f, Color.white, new Color(0.03f, 0.2f, 0.6f));
+            countLabel = CreateLabel(root, soldierCount.ToString(), LeaderPos + Vector3.up * 3f, 9f, Color.white, new Color(0.03f, 0.2f, 0.6f));
             SyncVisibleUnits(Vector3.zero, true);
 
             fireMultiplier = 1f;
             travelled = 0f;
             coinsEarned = 0;
             plaquesCollected = 0;
+            plaqueCombo = 0;
+            missedPlus = 0;
+            nextStripHint = 0f;
             weaponLevel = 1;
-            camX = 0f;
+            camX = CAM_CENTER_X;
             clashTimer = 0f;
             running = finished = arenaActive = false;
             finishTimer = -1f;
@@ -362,9 +327,21 @@ namespace MobControl.Level
                 if (enemyTemplate == null) { enemyTemplate = BuildPlayerCloneTemplate(true); ApplyArmyAnimator(enemyTemplate); }
                 ArmyRunFX.AddBlobShadow(enemyTemplate.transform, enemyIsGenerated ? 0.95f : 1.0f);
             }
+            // Big characters: Meshy model if generated, otherwise our hand-built Mob Control style characters
+            // Big characters: Meshy model if generated → free CC0 Quaternius model (baked) → hand-built fallback
+            if (bruteGenTemplate == null)
+                bruteGenTemplate = ArmyRunModels.TryBuildGeneratedTemplate(ArmyRunModels.BRUTE_NAME, soldierHeight * BRUTE_HEIGHT_X, transform)
+                                   ?? ArmyRunBakedModels.BuildCharacterTemplate("Orc", soldierHeight * BRUTE_HEIGHT_X, transform, new Color(1.3f, 1.3f, 1.25f))
+                                   ?? ArmyRunCharacters.BuildTemplate(ArmyRunCharacters.Style.Brute, soldierHeight * BRUTE_HEIGHT_X, transform);
+            if (allyGenTemplate == null)
+                allyGenTemplate = ArmyRunModels.TryBuildGeneratedTemplate(ArmyRunModels.ALLY_NAME, soldierHeight * ALLY_SCALE, transform)
+                                  ?? ArmyRunBakedModels.BuildCharacterTemplate("BlueDemon", soldierHeight * ALLY_SCALE, transform, new Color(1.45f, 1.45f, 1.45f))
+                                  ?? ArmyRunCharacters.BuildTemplate(ArmyRunCharacters.Style.Giant, soldierHeight * ALLY_SCALE, transform);
             if (bossTemplate == null)
             {
-                bossTemplate = ArmyRunModels.TryBuildGeneratedTemplate(ArmyRunModels.BOSS_NAME, soldierHeight * MASTER_HEIGHT_X, transform);
+                bossTemplate = ArmyRunModels.TryBuildGeneratedTemplate(ArmyRunModels.BOSS_NAME, soldierHeight * MASTER_HEIGHT_X, transform)
+                               ?? ArmyRunBakedModels.BuildCharacterTemplate("Orc", soldierHeight * MASTER_HEIGHT_X, transform, new Color(1.6f, 0.55f, 0.45f))   // red Orc warlord
+                               ?? ArmyRunCharacters.BuildTemplate(ArmyRunCharacters.Style.Tyrant, soldierHeight * MASTER_HEIGHT_X, transform);
                 if (bossTemplate == null)
                 {
                     bossTemplate = new GameObject("BossFallback_Template");
@@ -378,10 +355,40 @@ namespace MobControl.Level
             }
         }
 
+        /// <summary>
+        /// An old "preview in scene" tool saved a whole Level 1 (sea bridge, ships, its own UI) into q.unity under
+        /// the director. Anything named ArmyRun_Root that is not ours is stale: remove it so only the live level shows.
+        /// </summary>
+        private void PurgeStaleRoots()
+        {
+            foreach (var t in FindObjectsByType<Transform>(FindObjectsInactive.Include))
+                if (t != null && t != root && t.name == "ArmyRun_Root") Destroy(t.gameObject);
+        }
+
+        private readonly List<GameObject> hiddenPlayerBars = new List<GameObject>();
+
+        /// <summary>The commander's zombie-mode HP bar (the red line beside the squad) means nothing here.</summary>
+        private void SetPlayerBarsHidden(bool hide)
+        {
+            if (hide)
+            {
+                if (runner == null) return;
+                foreach (var hb in runner.GetComponentsInChildren<ThomasDev.HealthSystem.HealthBarUI>(true))
+                    if (hb.gameObject.activeSelf) { hb.gameObject.SetActive(false); hiddenPlayerBars.Add(hb.gameObject); }
+            }
+            else
+            {
+                foreach (var go in hiddenPlayerBars) if (go != null) go.SetActive(true);
+                hiddenPlayerBars.Clear();
+            }
+        }
+
         private void BeginRun()
         {
             if (!setupDone) SetupLevel();
             running = true;
+            if (runner != null) runner.TargetX = START_X;   // glide onto the +1 strip: the first plaques teach the strip
+            ResetEditorCapture();
             SetArmyMoving(true);
             if (EndlessRoadManager.Instance != null)
             {
@@ -398,18 +405,16 @@ namespace MobControl.Level
             if (fx != null) { fx.Dispose(); fx = null; }
             targets.Clear(); gates.Clear(); rollers.Clear(); units.Clear(); bullets.Clear(); enemyShots.Clear();
             dying.Clear(); floatTexts.Clear(); parade.Clear(); bigs.Clear(); hordes.Clear(); fallen.Clear();
+            ResetSwarm();
             bulletPool.Clear(); shotPool.Clear(); unitPool.Clear(); enemyPool.Clear(); floatPool.Clear();
             countLabel = null;
             master = null;
             ally = null;
-            if (root != null)
-            {
-                if (Application.isPlaying) Destroy(root.gameObject);
-                else DestroyImmediate(root.gameObject);
-            }
+            if (root != null) Destroy(root.gameObject);
             root = trackRoot = poolRoot = null;
             ResetUI();
             RestoreZombieHealthPill();
+            SetPlayerBarsHidden(false);
         }
 
         // ═══════════════════════════════════════════ FRAME LOOP ══
@@ -420,8 +425,16 @@ namespace MobControl.Level
             if (!setupDone || root == null) return;
 
             var ui = ZombieRunnerUIManager.Instance;
-            if (!root.gameObject.activeSelf) root.gameObject.SetActive(true);
-
+            bool inLevel = ui == null ||
+                           ui.CurrentState == ZombieRunnerUIManager.ScreenState.Gameplay ||
+                           ui.CurrentState == ZombieRunnerUIManager.ScreenState.Victory ||
+                           ui.CurrentState == ZombieRunnerUIManager.ScreenState.Defeat;
+            if (root.gameObject.activeSelf != inLevel) root.gameObject.SetActive(inLevel);
+            if (!inLevel)
+            {
+                if (deathBig != null) { Time.timeScale = 1f; deathBig = null; }   // left mid-finale: never stay in slow motion
+                return;
+            }
             if (runner == null) runner = PlayerRunnerController.Instance;
             if (cam == null) cam = Camera.main;
 
@@ -432,7 +445,8 @@ namespace MobControl.Level
             {
                 if (!arenaActive)
                 {
-                    float speed = EndlessRoadManager.Instance != null ? EndlessRoadManager.Instance.CurrentRoadSpeed : RUN_SPEED;
+                    float speed = RUN_SPEED * swarmSpeedFactor;   // push only as fast as you kill                 // push only as fast as you kill
+                    scrollSpeedNow = speed;
                     float dz = speed * dt;
                     trackRoot.position += Vector3.back * dz;
                     env?.Scroll(dz);
@@ -440,7 +454,10 @@ namespace MobControl.Level
                     if (ui != null) ui.UpdateWaveProgress(Mathf.Clamp01(travelled / levelLength));
                 }
 
+                else scrollSpeedNow = 0f;
+
                 UpdateStages();
+                UpdateSwarm(dt);
                 UpdateShooting(dt);
                 UpdateBullets(dt);
                 UpdateAlly(dt);
@@ -474,14 +491,17 @@ namespace MobControl.Level
                     if (finishTimer <= 0f) DeclareVictory();
                 }
             }
+            DrawSwarm();
+            EditorCaptureTick();
         }
 
         private void LateUpdate()
         {
             if (!setupDone || cam == null || root == null || !root.gameObject.activeInHierarchy) return;
+            SyncLabelAtlas();
             Quaternion face = cam.transform.rotation;
             for (int i = 0; i < targets.Count; i++) if (targets[i].label != null) targets[i].label.transform.rotation = face;
-            for (int i = 0; i < gates.Count; i++) if (gates[i].label != null) gates[i].label.transform.rotation = face;
+            for (int i = 0; i < gates.Count; i++) if (gates[i].label != null && !gates[i].plaque) gates[i].label.transform.rotation = face;   // plaque text is printed on its sign
             for (int i = 0; i < floatTexts.Count; i++) if (floatTexts[i].tmp != null) floatTexts[i].tmp.transform.rotation = face;
             for (int i = 0; i < hordes.Count; i++) if (hordes[i].label != null) hordes[i].label.transform.rotation = face;
             UpdateBigBars(face);

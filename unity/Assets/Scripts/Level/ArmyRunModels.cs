@@ -25,6 +25,9 @@ namespace MobControl.Level
         public const string RES_FOLDER = "ArmyRun/";
         public const string ENEMY_NAME = "EnemySoldier";
         public const string BOSS_NAME = "BossTyrant";
+        public const string BRUTE_NAME = "BruteYellow";   // Mob Control yellow brute (Meshy, optional)
+        public const string ALLY_NAME = "AllyGiant";      // blue giant in the HELP! cage (Meshy, optional)
+        public const string MOB_NAME = "MobRed";          // red swarm blob, static, GPU-instanced (Meshy, optional)
         /// <summary>If a generated model walks backwards, change this to 180.</summary>
         public const float GENERATED_MODEL_YAW = 0f;
 
